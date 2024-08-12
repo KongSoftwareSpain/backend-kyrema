@@ -5,6 +5,9 @@
     "keywords": ["laravel", "framework"],
     "license": "MIT",
     "require": {
+        "doctrine/dbal": "^3.0",
+        "ext-pdo_sqlsrv": "*",
+        "ext-sqlsrv": "*",
         "php": "^8.2",
         "barryvdh/laravel-dompdf": "^2.2",
         "laravel/framework": "^11.9",
