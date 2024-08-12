@@ -5,9 +5,6 @@
     "keywords": ["laravel", "framework"],
     "license": "MIT",
     "require": {
-        "doctrine/dbal": "^3.0",
-        "ext-pdo_sqlsrv": "*",
-        "ext-sqlsrv": "*",
         "php": "^8.2",
         "barryvdh/laravel-dompdf": "^2.2",
         "laravel/framework": "^11.9",
@@ -15,7 +12,10 @@
         "laravel/tinker": "^2.9",
         "mpdf/mpdf": "^8.2",
         "phpoffice/phpspreadsheet": "^2.1",
-        "tymon/jwt-auth": "^2.1"
+        "tymon/jwt-auth": "^2.1",
+        "doctrine/dbal": "^3.0",
+        "ext-pdo_sqlsrv": "5.10.1",
+        "ext-sqlsrv": "5.10.1"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
@@ -23,7 +23,10 @@
         "laravel/sail": "^1.26",
         "mockery/mockery": "^1.6",
         "nunomaduro/collision": "^8.0",
-        "phpunit/phpunit": "^11.0.1"
+        "phpunit/phpunit": "^11.0.1",
+        "doctrine/dbal": "^3.0",
+        "ext-pdo_sqlsrv": "5.10.1",
+        "ext-sqlsrv": "5.10.1"
     },
     "autoload": {
         "psr-4": {
