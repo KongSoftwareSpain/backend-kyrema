@@ -63,4 +63,4 @@ jobs:
           app-name: 'canama-backend'
           slot-name: 'Production'
           package: .
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_1F318B56640949C1804C000E9212B161 }}
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_3EA96C47235C47B6A72C8517FF69BE00 }}
