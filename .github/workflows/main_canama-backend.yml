@@ -30,6 +30,9 @@ jobs:
       - name: Cache views
         run: php artisan view:cache
 
+      - name: Remove any existing zip files
+        run: rm -f php-app.zip
+
       - name: Zip artifact for deployment
         run: zip -r php-app.zip ./*
 
