@@ -5,6 +5,7 @@
 /public/storage
 /storage/*.key
 /vendor
+/storage/app/public/temp
 .env
 .phpactor.json
 .phpunit.result.cache
