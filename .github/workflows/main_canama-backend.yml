@@ -21,26 +21,17 @@ jobs:
       - name: Install Composer dependencies
         run: composer install --optimize-autoloader --no-dev
 
-      - name: Cache configuration
-        run: php artisan config:cache
-
-      - name: Cache routes
-        run: php artisan route:cache
-
-      - name: Cache views
-        run: php artisan view:cache
-
       - name: Remove any existing zip files
         run: rm -f php-app.zip
 
       - name: Zip artifact for deployment
-        run: zip -r php-app.zip ./*
+        run: zip -r release.zip ./*
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: php-app
-          path: php-app.zip
+          path: release.zip
 
   deploy:
     runs-on: ubuntu-latest
@@ -55,16 +46,15 @@ jobs:
         with:
           name: php-app
 
+      - name: Unzip artifact for deployment
+        run: unzip release.zip
+
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v3
         id: deploy-to-webapp
         with:
           app-name: 'canama-backend'
           slot-name: 'Production'
-<<<<<<< HEAD
           package: .
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE }}
-=======
-          package: 'php-app.zip'
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_3EA96C47235C47B6A72C8517FF69BE00 }}
->>>>>>> 860fef596cb98ea7d50a9945e1fef8bc083254b4
+
