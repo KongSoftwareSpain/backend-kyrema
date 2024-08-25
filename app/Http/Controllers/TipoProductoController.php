@@ -93,9 +93,9 @@ class TipoProductoController extends Controller
          DB::table('tarifas_producto')->where('tipo_producto_id', $productId)->delete();
  
          // Drop the table if it exists
-         if ($letrasIdentificacion && Schema::hasTable($letrasIdentificacion)) {
-             Schema::dropIfExists($letrasIdentificacion);
-         }
+        //  if ($letrasIdentificacion && Schema::hasTable($letrasIdentificacion)) {
+        //      Schema::dropIfExists($letrasIdentificacion);
+        //  }
  
          // Delete from campos
          DB::table('campos')->where('tipo_producto_id', $productId)->delete();

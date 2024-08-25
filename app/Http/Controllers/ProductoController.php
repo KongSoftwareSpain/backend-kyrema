@@ -40,6 +40,7 @@ class ProductoController extends Controller
             $table->unsignedBigInteger('sociedad_id')->nullable();
             $table->unsignedBigInteger('tipo_de_pago_id')->nullable();
             $table->unsignedBigInteger('comercial_id')->nullable();
+            $table->string('plantilla_path')->nullable();
             
 
             //Booleano de si está anulado o no
@@ -178,7 +179,11 @@ class ProductoController extends Controller
             'nuevoProducto' => 'required|array',
         ]);
 
+        // Cojo los datos del nuevo producto
         $datos = $request->input('nuevoProducto');
+
+        //Añadir a los datos la plantilla_path que tenga el seguro en ese momento:
+        $datos['plantilla_path'] = $tipoProducto->plantilla_path;
 
         // Formatear los campos datetime al formato deseado
         foreach ($camposRelacionados as $campo) {
@@ -220,15 +225,14 @@ class ProductoController extends Controller
     public function editarProducto($letrasIdentificacion, Request $request){
         // Convertir letras de identificación a nombre de tabla
         $nombreTabla = strtolower($letrasIdentificacion);
-    
-        // Validar los datos recibidos
-        $request->validate([
-            'id' => 'required|integer',
-            'producto' => 'required|array',
-        ]);
         
+        // Coger el resto de datos de la request excepto el id:
         $datos = $request->input('productoEditado');
+
         $id = $datos['id'];
+
+        // Quitar el id de los datos:
+        unset($datos['id']);
 
         $datos['updated_at'] = Carbon::now()->format('Y-m-d\TH:i:s');
         
@@ -237,7 +241,8 @@ class ProductoController extends Controller
             ->where('id', $id)
             ->update($datos);
         
-        return response()->json(['message' => 'Producto actualizado con éxito'], 200);
+        return response()->json(['message' => 'Producto actualizado con éxito',
+        'id' => $id], 200);
     }
 
     public function eliminarProducto($letrasIdentificacion, Request $request){

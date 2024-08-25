@@ -16,7 +16,6 @@ use App\Http\Controllers\TarifaProductoController;
 use App\Http\Controllers\TarifaAnexoController;
 use App\Http\Controllers\EscaladoAnexoController;
 use App\Http\Controllers\NavegacionController;
-use App\Http\Controllers\CPFamiliaController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ProductoController;
 use App\Http\Controllers\ExportController;
@@ -91,7 +90,16 @@ Route::post('/anexos/{id_producto}', [AnexosController::class, 'conectarAnexosCo
 
 //Tipo anexo:
 Route::delete('/anexos/{id}', [AnexosController::class, 'destroy']);
+
+// Crear tipo anexo:
 Route::post('/anexos', [AnexosController::class, 'createTipoAnexo']);
+// Subir plantilla:
+Route::post('subir-plantilla-anexo/{letrasIdentificacion}', [AnexosController::class, 'subirPlantillaAnexo']);
+
+// Descargar plantilla anexo:
+Route::get('/descargar-plantilla-anexo/{tipoAnexoId}', [ExportController::class, 'exportAnexoExcelToPdf']);
+
+
 Route::get('/anexos/tipo-producto/{id_tipo_producto}', [AnexosController::class, 'getTipoAnexosPorTipoProducto']);
 
 Route::apiResource('tipos-anexo', TipoAnexoController::class);
@@ -121,4 +129,3 @@ Route::apiResource('escalado-anexos', EscaladoAnexoController::class);
 
 Route::get('/nav/{id_sociedad}', [NavController::class, 'getNavegacion']);
 
-Route::apiResource('cp-familia', CPFamiliaController::class);

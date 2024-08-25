@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
 use App\Models\TiposAnexos;
 use App\Models\TipoProductoSociedad;
@@ -38,8 +39,7 @@ class AnexosController extends Controller
                 // Construir los datos a insertar/actualizar, agregando siempre el id_producto y las marcas de tiempo
                 $data = [
                     'producto_id' => $id_producto,
-                    'created_at' => now(),
-                    'updated_at' => now(),
+                    'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
                 ];
 
                 // Agregar los campos dinámicos del formato
@@ -52,6 +52,8 @@ class AnexosController extends Controller
                     DB::table($letrasIdentificacion)->where('id', $anexoId)->update($data);
                 } else {
                     // Si no tiene ID, se crea un nuevo registro
+                    // Se añade el dato de created_at a data:
+                    $data['created_at'] = Carbon::now()->format('Y-m-d\TH:i:s');
                     DB::table($letrasIdentificacion)->insert($data);
                 }
             } else {
@@ -86,6 +88,7 @@ class AnexosController extends Controller
 
             // Agregar campos adicionales
             $table->unsignedBigInteger('producto_id')->nullable();
+            $table->string('plantilla_path')->nullable();
 
             foreach ($campos as $campo) {
                 $nombreCampo = strtolower(str_replace(' ', '_', $campo['nombre']));
@@ -112,8 +115,8 @@ class AnexosController extends Controller
             'nombre' => $nombre,
             'letras_identificacion' => $letrasIdentificacion,
             'id_tipo_producto' => $tipoProductoAsociado,
-            'created_at' => now(),
-            'updated_at' => now(),
+            'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
+            'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
         ]);
 
         // Insertar información de los campos en la tabla 'campos_anexos'
@@ -127,14 +130,15 @@ class AnexosController extends Controller
                 'fila' => $campo['fila'] ?? null,
                 'tipo_dato' => $campo['tipoDato'],
                 'obligatorio' => $campo['obligatorio'] ?? false,
-                'created_at' => now(),
-                'updated_at' => now(),
+                'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
+                'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
             ]);
         }
 
         return response()->json([
             'message' => 'Anexo creado con éxito',
-            'id' => $tipoAnexoId
+            'id' => $tipoAnexoId,
+            'letras_identificacion' => $letrasIdentificacion,
         ], 200);
     }
 
@@ -182,7 +186,8 @@ class AnexosController extends Controller
     public function getAnexosPorSociedad($id_sociedad){
         //Cogemos todos los tipos_productos asociados a esta sociedad:
         $tiposProductoSociedad = TipoProductoSociedad::where('id_sociedad', $id_sociedad)->get();
-        $tiposProductoSociedadIds = $tiposProductoSociedad->pluck('id');
+
+        $tiposProductoSociedadIds = $tiposProductoSociedad->pluck('id_tipo_producto');
 
         //Cogemos todos los tipos_anexo asociados a estos tipos_productos:
         $tiposAnexo = TiposAnexos::whereIn('id_tipo_producto', $tiposProductoSociedadIds)->get();
@@ -205,6 +210,7 @@ class AnexosController extends Controller
     {
         
         $tipoAnexo = TiposAnexos::findOrFail($id);
+        $plantillaPath = $tipoAnexo->plantilla_path;
 
         // Borrar la tabla asociada al tipo de anexo
         $letrasIdentificacion = $tipoAnexo->letras_identificacion;
@@ -220,6 +226,39 @@ class AnexosController extends Controller
         //Eliminar las tarifas asociadas al tipo de anexo
         DB::table('tarifas_anexos')->where('id_tipo_anexo', $id)->delete();
 
+        // Eliminar la plantilla si existe
+        if ($plantillaPath && Storage::disk('public')->exists($plantillaPath)) {
+            Storage::disk('public')->delete($plantillaPath);
+        }
+
         return response()->json(null, 204);
+    }
+
+    public function subirPlantillaAnexo($letrasIdentificacion, Request $request){
+
+        if ($request->hasFile('plantilla')) {
+
+            $archivoPlantilla = $request->file('plantilla');
+            $nombreArchivo = $archivoPlantilla->getClientOriginalName();
+            $rutaArchivo = 'plantillas/anexos/' . $nombreArchivo;
+
+            // Comprobar si ya existe un archivo con el mismo nombre
+            if (Storage::disk('public')->exists($rutaArchivo)) {
+                return response()->json(['error' => 'Ya existe una plantilla con ese nombre'], 400);
+            }
+
+            // Guardar la plantilla Excel en el sistema de archivos
+            $rutaPlantilla = Storage::disk('public')->putFileAs('plantillas/anexos', $archivoPlantilla, $nombreArchivo);
+
+            // Añadir la ruta de la plantilla a la tabla tipo_producto
+            DB::table('tipos_anexos')
+                ->where('letras_identificacion', $letrasIdentificacion)
+                ->update(['plantilla_path' => $rutaPlantilla]);
+
+            return response()->json(['message' => 'Plantilla subida correctamente'], 200);
+        } else {
+            return response()->json(['error' => 'No se recibió ninguna plantilla'], 400);
+        }
+
     }
 }

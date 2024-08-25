@@ -19,6 +19,13 @@ class ExportController extends Controller
     {
         
         try {
+
+            // Obtener el id del request
+            $id = $request->input('id');
+            
+            // Obtener los valores de los campos de la tabla que se llama igual que las letrasIdentificacion
+            $valores = DB::table($letrasIdentificacion)->where('id', $id)->first();
+
             // Obtener el tipo de producto basado en las letras de identificación
             $tipoProducto = DB::table('tipo_producto')->where('letras_identificacion', $letrasIdentificacion)->first();
             
@@ -27,7 +34,7 @@ class ExportController extends Controller
             }
 
             // Obtener la ruta de la plantilla
-            $plantillaPath = storage_path('app/public/' . $tipoProducto->plantilla_path);
+            $plantillaPath = storage_path('app/public/' . $valores->plantilla_path);
             
             if (!file_exists($plantillaPath)) {
                 return response()->json(['error' => 'Plantilla no encontrada'. $plantillaPath], 404);
@@ -44,11 +51,6 @@ class ExportController extends Controller
                 ->whereNotNull('fila')
                 ->get();
 
-            // Obtener el id del request
-            $id = $request->input('id');
-            
-            // Obtener los valores de los campos de la tabla que se llama igual que las letrasIdentificacion
-            $valores = DB::table($letrasIdentificacion)->where('id', $id)->first();
 
             if (!$valores) {
                 return response()->json(['error' => 'Valores no encontrados'], 404);
@@ -71,38 +73,7 @@ class ExportController extends Controller
                 $sheet->setCellValue($celda, $nuevoContenido);
             }
 
-            // // ANEXOS:
-            // // Mirar si el tipoProducto tiene algun anexo asociado y coger los campos de esos anexos que no tenga columna y fila null
-            // $tiposAnexos = DB::table('tipos_anexos')
-            // ->where('id_tipo_producto', $tipoProducto->id)
-            // ->get();
-
-            // if($tiposAnexos){
-
-            //     foreach ($tiposAnexos as $tipoAnexo) {
-            //         $letrasIdentificacionAnexo = strtolower($tipoAnexo->letras_identificacion);
-                    
-            //         // Coger los anexos relacionados con el id del producto de la tabla con el nombre $letrasIdentificacionAnexo
-            //         $anexos = DB::table($letrasIdentificacionAnexo)->where('producto_id', $id)->get();
-
-            //         if($anexos){
-            //             $camposAnexo = DB::table('campos')
-            //             ->where('tipo_producto_id', $tipoAnexo->id)
-            //             ->whereNotNull('columna')
-            //             ->whereNotNull('fila')
-            //             ->get();
-
-            //             for($i = 0; $i < count($anexos); $i++){
-            //                 $valoresAnexos = $anexos[$i];
-            //                 foreach($camposAnexo as $campoAnexo){
-            //                     $celda = $campoAnexo->columna . ($campoAnexo->fila + $i);
-            //                     $valorAnexo = $valoresAnexos->{$campoAnexo->nombre_codigo};
-            //                     $sheet->setCellValue($celda, $campoAnexo->nombre);
-            //                 }
-            //             }
-            //         }
-            //     }
-            // }
+            
 
             // Guardar el archivo Excel con los nuevos datos
             $tempExcelPath = storage_path('app/public/temp/plantilla_' . time() . '.xlsx');
@@ -130,6 +101,90 @@ class ExportController extends Controller
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
+    }
+
+    public function exportAnexoExcelToPdf($tipoAnexoId , Request $request){
+        // Obtener el id del request
+        $id = $request->input('id');
+
+        // Obtener el tipoAnexo desde las letrasIdentificacion (Para coger la plantilla)
+        $tipoAnexo = DB::table('tipos_anexos')
+        ->where('id', $tipoAnexoId)
+        ->first();
+
+        $letrasIdentificacionAnexo = $tipoAnexo->letras_identificacion;
+
+        // Obtener la ruta de la plantilla
+        $plantillaPath = storage_path('app/public/' . $tipoAnexo->plantilla_path);
+        
+        if (!file_exists($plantillaPath)) {
+            return response()->json(['error' => 'Plantilla no encontrada'. $plantillaPath], 404);
+        }
+
+        // Cargar el archivo Excel
+        $spreadsheet = IOFactory::load($plantillaPath);
+        $sheet = $spreadsheet->getActiveSheet();
+                
+        // Coger los anexos relacionados con el id del producto de la tabla con el nombre $letrasIdentificacionAnexo
+        $anexos = DB::table($letrasIdentificacionAnexo)->where('producto_id', $id)->get();
+
+        if ($anexos->isNotEmpty()) {
+            // Obtener los campos de la tabla 'campos' que están asociados con el tipo de producto
+            $camposAnexo = DB::table('campos_anexos')
+                ->where('tipo_anexo', $tipoAnexo->id)
+                ->whereNotNull('columna')
+                ->whereNotNull('fila')
+                ->get();
+
+            // Recorrer cada anexo
+            foreach ($anexos as $index => $anexo) {
+                // Recorrer cada campo del anexo
+                foreach ($camposAnexo as $campoAnexo) {
+                    // Determinar la celda en la hoja de cálculo
+                    $celda = $campoAnexo->columna . ($campoAnexo->fila + $index);
+
+                    // Obtener el valor correspondiente al campo en el anexo
+                    $valorAnexo = $anexo->{$campoAnexo->nombre_codigo};
+
+                    // Obtener el valor existente en la celda
+                    $valorExistente = $sheet->getCell($celda)->getValue();
+
+
+                    // Concatenar el valor existente con el nuevo valor solo si tenia un valor previo
+                    if($valorExistente != ''){
+                        $nuevoValor = $valorExistente . ' ' . $valorAnexo;
+                    }else{
+                        $nuevoValor = $valorAnexo;
+                    }
+
+                    // Escribir el nuevo valor en la celda
+                    $sheet->setCellValue($celda, $nuevoValor);
+                }
+            }
+        }
+
+        // Guardar el archivo Excel con los nuevos datos
+        $tempExcelPath = storage_path('app/public/temp/plantilla_' . time() . '.xlsx');
+        $writer = new Xlsx($spreadsheet);
+        $writer->save($tempExcelPath);
+
+        // Convertir el archivo Excel a PDF usando mPDF
+        IOFactory::registerWriter('Pdf', PdfMpdf::class);
+        $pdfWriter = IOFactory::createWriter($spreadsheet, 'Pdf');
+        
+        // Guardar el archivo PDF temporalmente
+        $tempPdfPath = storage_path('app/public/temp/plantilla_' . time() . '.pdf');
+        $pdfWriter->save($tempPdfPath);
+
+        // Devolver el archivo PDF como respuesta HTTP con el tipo de contenido adecuado
+        $fileContent = file_get_contents($tempPdfPath);
+        $response = response($fileContent, 200)->header('Content-Type', 'application/pdf');
+
+        // Eliminar los archivos temporales
+        unlink($tempExcelPath);
+        unlink($tempPdfPath);
+
+        return $response;
     }
 
 
@@ -284,4 +339,5 @@ class ExportController extends Controller
     //     $htmlContent = preg_replace('/<img[^>]+src="data:image\/[^;]+;base64,([^"]+)"[^>]*>/', '', $htmlContent);
     //     return $htmlContent;
     // }
+
 }

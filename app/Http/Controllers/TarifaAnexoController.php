@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\TarifasAnexos;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class TarifaAnexoController extends Controller
 {
@@ -16,17 +18,20 @@ class TarifaAnexoController extends Controller
             'cuota_asociacion' => 'required|numeric',
             'precio_total' => 'required|numeric',
         ]);
-
-        // Crear el nuevo registro en la base de datos con el ID generado
-        $tarifaAnexo = TarifasAnexos::create([
+    
+        // Insertar el nuevo registro y obtener el ID generado
+        $id = DB::table('tarifas_anexos')->insertGetId([
             'id_tipo_anexo' => $request->input('id_tipo_anexo'),
             'id_sociedad' => $request->input('id_sociedad'),
             'prima_seguro' => $request->input('prima_seguro'),
             'cuota_asociacion' => $request->input('cuota_asociacion'),
             'precio_total' => $request->input('precio_total'),
+            'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
+            'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
         ]);
-
-        return response()->json($tarifaAnexo, 201);
+    
+        // Devolver una respuesta JSON con el ID generado
+        return response()->json(['id' => $id], 201);
     }
 
     public function getTarifaPorSociedadAndTipoAnexo($id_sociedad, $id_tipo_anexo){
