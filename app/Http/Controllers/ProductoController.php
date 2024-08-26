@@ -22,7 +22,7 @@ class ProductoController extends Controller
             'letrasIdentificacion' => 'required|string',
             'campos' => 'required|array',
             'campos.*.nombre' => 'required|string',
-            'campos.*.tipoDato' => 'required|string|in:text,number,date,decimal',
+            'campos.*.tipo_dato' => 'required|string|in:text,number,date,decimal',
         ]);
 
         $nombreProducto = $request->input('nombreProducto');
@@ -51,7 +51,7 @@ class ProductoController extends Controller
 
             foreach ($campos as $campo) {
                 $nombreCampo = strtolower(str_replace(' ', '_', $campo['nombre']));
-                switch ($campo['tipoDato']) {
+                switch ($campo['tipo_dato']) {
                     case 'text':
                         $table->string($nombreCampo)->nullable();
                         break;
@@ -86,7 +86,7 @@ class ProductoController extends Controller
                 'tipo_producto_id' => $tipoProductoId,
                 'columna' => $campo['columna'] ?? null,
                 'fila' => $campo['fila'] ?? null,
-                'tipo_dato' => $campo['tipoDato'],
+                'tipo_dato' => $campo['tipo_dato'],
                 'visible' => $campo['visible'] ?? false,
                 'obligatorio' => $campo['obligatorio'] ?? false,
                 'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
@@ -269,24 +269,22 @@ class ProductoController extends Controller
             ->update(['anulado' => true]);
 
         // Meter la anulación a la tabla de anulaciones
-        $anulacion = new Anulacion();
-        $anulacion->fecha = Carbon::now()->format('Y-m-d\TH:i:s');
-
-        $anulacion->sociedad_id = $request->input('sociedad_id');
-        $anulacion->comercial_id = $request->input('comercial_id');
-        $anulacion->sociedad_nombre = $request->input('sociedad_nombre');
-        $anulacion->comercial_nombre = $request->input('comercial_nombre'); 
-        $anulacion->causa = $request->input('causa');
-        $anulacion->letrasIdentificacion = $letrasIdentificacion;
-        $anulacion->producto_id = $id;
-        $anulacion->codigo_producto = $request->input('codigo_producto');
-
-        $anulacion->save();
+        $anulacionId = DB::table('anulaciones')->insertGetId([
+            'fecha' => Carbon::now()->format('Y-m-d\TH:i:s'),
+            'sociedad_id' => $request->input('sociedad_id'),
+            'comercial_id' => $request->input('comercial_id'),
+            'sociedad_nombre' => $request->input('sociedad_nombre'),
+            'comercial_nombre' => $request->input('comercial_nombre'),
+            'causa' => $request->input('causa'),
+            'letrasIdentificacion' => $letrasIdentificacion,
+            'producto_id' => $id,
+            'codigo_producto' => $request->input('codigo_producto')
+        ]);
         
         return response()->json(['message' => 'Producto anulado con éxito'], 200);
     }
 
-    public function addNuevosCampos(Request $request, $letrasIdentificacion)
+    public function addCampos(Request $request, $letrasIdentificacion)
     {
         // Validar la estructura de los campos que se esperan en el request
         $campos = $request->input('campos');
@@ -295,7 +293,7 @@ class ProductoController extends Controller
         Schema::table($letrasIdentificacion, function (Blueprint $table) use ($campos) {
             foreach ($campos as $campo) {
                 $nombreCampo = strtolower(str_replace(' ', '_', $campo['nombre']));
-                switch ($campo['tipoDato']) {
+                switch ($campo['tipo_dato']) {
                     case 'text':
                         $table->string($nombreCampo)->nullable();
                         break;

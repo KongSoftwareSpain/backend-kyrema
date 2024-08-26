@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Campos;
 use Illuminate\Http\Request;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class CampoController extends Controller
 {
@@ -72,23 +74,39 @@ class CampoController extends Controller
         return response()->json($campo);
     }
 
-    public function updatePorTipoProducto(Request $request, $id){
-
+    public function updatePorTipoProducto(Request $request, $id_tipo_producto)
+    {
         $campos = $request->input('campos');
-        
-        //Recorremos los campos y los que tienen id los actualizamos y los que no los creamos:
+
         foreach ($campos as $campo) {
-            //Añado el campo tipo_producto_id
-            $campo['tipo_producto_id'] = $id;
-            if(isset($campo['id'])){
-                $campo = Campos::findOrFail($campo['id']);
-                $campo->update($campo);
-            }else{
-                $campo = Campos::create($campo);
+            // Añadir el campo tipo_producto_id
+            $campo['tipo_producto_id'] = $id_tipo_producto;
+
+            // Obtener el id y eliminarlo del array de atributos
+            $id = $campo['id'];
+            unset($campo['id']);
+
+            // Asegurarse de que updated_at esté en el formato correcto
+            $campo['updated_at'] = Carbon::now()->format('Y-m-d\TH:i:s');
+
+            if (isset($id)) {
+                
+                // Asegurarse de no incluir created_at en la actualización
+                unset($campo['created_at']);
+
+                // Actualizar el registro en la base de datos
+                DB::table('campos')->where('id', $id)->update($campo);
+            } else {
+                // Asegurarse de que el campo created_at esté formateado correctamente
+                $campo['created_at'] = Carbon::now()->format('Y-m-d\TH:i:s');
+                $campo['updated_at'] = Carbon::now()->format('Y-m-d\TH:i:s');
+
+                // Crear un nuevo registro
+                DB::table('campos')->insert($campo);
             }
         }
 
-        return response()->json($campos);
+        return response()->json(['message' => 'Campos actualizados correctamente']);
     }
 
     /**
