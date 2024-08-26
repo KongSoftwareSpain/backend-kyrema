@@ -49,12 +49,14 @@ Route::get('/descargar-plantilla/{letrasIdentificacion}', [ExportController::cla
 
 Route::apiResource('campos', CampoController::class);
 Route::get('/campos', [CampoController::class, 'getByTipoProducto']);
+Route::put('/campos/{id}', [CampoController::class, 'updatePorTipoProducto']);
 
 
 Route::get('tipos-producto/sociedad/{id_sociedad}', [TipoProductoController::class, 'getTiposProductoPorSociedad']);
 Route::get('tipos-producto/all', [TipoProductoController::class, 'index']);
 Route::get('tipo-producto/{letras}', [TipoProductoController::class, 'getByLetras']);
 Route::get('tipo-producto/show/{ruta}', [TipoProductoController::class, 'show']);
+Route::put('tipo-producto/{id}', [TipoProductoController::class, 'update']);
 // Route::delete('tipo-producto/delete/{id}', [TipoProductoController::class, 'delete']);
 
 

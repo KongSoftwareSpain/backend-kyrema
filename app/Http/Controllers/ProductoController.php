@@ -285,5 +285,34 @@ class ProductoController extends Controller
         
         return response()->json(['message' => 'Producto anulado con éxito'], 200);
     }
+
+    public function addNuevosCampos(Request $request, $letrasIdentificacion)
+    {
+        // Validar la estructura de los campos que se esperan en el request
+        $campos = $request->input('campos');
+
+        // Modificar la tabla $letrasIdentificacion
+        Schema::table($letrasIdentificacion, function (Blueprint $table) use ($campos) {
+            foreach ($campos as $campo) {
+                $nombreCampo = strtolower(str_replace(' ', '_', $campo['nombre']));
+                switch ($campo['tipoDato']) {
+                    case 'text':
+                        $table->string($nombreCampo)->nullable();
+                        break;
+                    case 'decimal':
+                        $table->decimal($nombreCampo, 8, 2)->nullable();
+                        break;
+                    case 'number':
+                        $table->integer($nombreCampo)->nullable();
+                        break;
+                    case 'date':
+                        $table->date($nombreCampo)->nullable();
+                        break;
+                }
+            }
+        });
+
+        return response()->json(['message' => 'Campos añadidos con éxito'], 200);
+    }
     
 }

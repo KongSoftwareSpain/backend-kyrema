@@ -72,6 +72,25 @@ class CampoController extends Controller
         return response()->json($campo);
     }
 
+    public function updatePorTipoProducto(Request $request, $id){
+
+        $campos = $request->input('campos');
+        
+        //Recorremos los campos y los que tienen id los actualizamos y los que no los creamos:
+        foreach ($campos as $campo) {
+            //Añado el campo tipo_producto_id
+            $campo['tipo_producto_id'] = $id;
+            if(isset($campo['id'])){
+                $campo = Campos::findOrFail($campo['id']);
+                $campo->update($campo);
+            }else{
+                $campo = Campos::create($campo);
+            }
+        }
+
+        return response()->json($campos);
+    }
+
     /**
      * Remove the specified resource from storage.
      */
