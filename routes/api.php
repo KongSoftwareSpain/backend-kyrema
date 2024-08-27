@@ -50,7 +50,10 @@ Route::get('/descargar-plantilla/{letrasIdentificacion}', [ExportController::cla
 Route::apiResource('campos', CampoController::class);
 Route::get('/campos', [CampoController::class, 'getByTipoProducto']);
 Route::put('/campos-update/{id_tipo_producto}', [CampoController::class, 'updatePorTipoProducto']);
-Route::post('/add-campos/{id_tipo_producto}', [ProductoController::class, 'addCampos']);
+Route::post('/add-campos/{id_tipo_producto}', [CampoController::class, 'addCampos']);
+Route::post('create-campo-opciones/{id_tipo_producto}', [CampoController::class, 'createCampoOpciones']);
+Route::put('/update-campo-opciones/{id}', [CampoController::class, 'updateCampoOpciones']);
+
 
 
 Route::get('tipos-producto/sociedad/{id_sociedad}', [TipoProductoController::class, 'getTiposProductoPorSociedad']);

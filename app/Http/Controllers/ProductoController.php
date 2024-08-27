@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log; // Importar la clase Log
 use App\Models\Anulacion; // Importar el modelo Anulacion
+// Usar CampoController;
+use App\Http\Controllers\CampoController;
 
 class ProductoController extends Controller
 {
@@ -23,11 +25,17 @@ class ProductoController extends Controller
             'campos' => 'required|array',
             'campos.*.nombre' => 'required|string',
             'campos.*.tipo_dato' => 'required|string|in:text,number,date,decimal',
+            'camposConOpciones' => 'nullable|array',
+            'camposConOpciones.*.nombre' => 'required|string',
+            'camposConOpciones.*.opciones' => 'required|array',
+            'camposConOpciones.*.opciones.*.nombre' => 'required|string',
+            'camposConOpciones.*.opciones.*.precio' => 'nullable|string',
         ]);
 
         $nombreProducto = $request->input('nombreProducto');
         $letrasIdentificacion = $request->input('letrasIdentificacion');
         $campos = $request->input('campos');
+        $camposConOpciones = $request->input('camposConOpciones', []);
 
         // Definir el nombre de la nueva tabla usando las letras de identificación
         $nombreTabla = strtolower($letrasIdentificacion);
@@ -94,6 +102,13 @@ class ProductoController extends Controller
                 'grupo' => $campo['grupo'] ?? null,
             ]);
         }
+
+        // Crear campos con opciones recorriendo el array de camposConOpciones
+        foreach ($camposConOpciones as $campoConOpciones) {
+            // Crear el campo con opciones
+            CampoController::createCampoConOpciones($campoConOpciones, $tipoProductoId);
+        }
+        
 
         return response()->json([
             'message' => 'Producto creado con éxito',
@@ -284,33 +299,6 @@ class ProductoController extends Controller
         return response()->json(['message' => 'Producto anulado con éxito'], 200);
     }
 
-    public function addCampos(Request $request, $letrasIdentificacion)
-    {
-        // Validar la estructura de los campos que se esperan en el request
-        $campos = $request->input('campos');
-
-        // Modificar la tabla $letrasIdentificacion
-        Schema::table($letrasIdentificacion, function (Blueprint $table) use ($campos) {
-            foreach ($campos as $campo) {
-                $nombreCampo = strtolower(str_replace(' ', '_', $campo['nombre']));
-                switch ($campo['tipo_dato']) {
-                    case 'text':
-                        $table->string($nombreCampo)->nullable();
-                        break;
-                    case 'decimal':
-                        $table->decimal($nombreCampo, 8, 2)->nullable();
-                        break;
-                    case 'number':
-                        $table->integer($nombreCampo)->nullable();
-                        break;
-                    case 'date':
-                        $table->date($nombreCampo)->nullable();
-                        break;
-                }
-            }
-        });
-
-        return response()->json(['message' => 'Campos añadidos con éxito'], 200);
-    }
+    
     
 }

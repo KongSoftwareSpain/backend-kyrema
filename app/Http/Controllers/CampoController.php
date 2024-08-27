@@ -6,6 +6,9 @@ use App\Models\Campos;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use App\Models\TipoProducto;
+
 
 class CampoController extends Controller
 {
@@ -109,6 +112,120 @@ class CampoController extends Controller
         return response()->json(['message' => 'Campos actualizados correctamente']);
     }
 
+
+    // Crea un campo con opciones
+    public function createCampoConOpciones($requestOrData, $id_tipo_producto)
+    {
+        // Verificar si el primer argumento es una instancia de Request
+        if ($requestOrData instanceof Request) {
+            $data = $requestOrData->validate([
+                'nombre' => 'required|string|max:255',
+                'visible' => 'required|boolean',
+                'obligatorio' => 'required|boolean',
+                'grupo' => 'nullable|string|max:255',
+                'opciones' => 'nullable|array',
+            ]);
+        } else {
+            // Asumir que es un array de datos ya validados
+            $data = $this->validateData($requestOrData);
+        }
+
+        // Generar nombre de la tabla OPCIONES_NOMBRECAMPO_LETRAS:
+        $tipo_producto = TipoProducto::findOrFail($id_tipo_producto);
+        $nombreTabla = strtolower('OPCIONES_' . $data['nombre'] . '_' . $tipo_producto->letras_identificacion);
+
+        // Crear la tabla de opciones
+        Schema::create($nombreTabla, function (Blueprint $table) {
+            $table->id();
+            $table->string('nombre');
+            $table->decimal('precio', 8, 2)->nullable();
+            $table->timestamps();
+        });
+
+        // Insertar las opciones en la tabla
+        if (!empty($data['opciones'])) {
+            foreach ($data['opciones'] as $opcion) {
+                DB::table($nombreTabla)->insert([
+                    'nombre' => $opcion['nombre'],
+                    'precio' => $opcion['precio'] ?? null,
+                    'created_at' => Carbon::now(),
+                    'updated_at' => Carbon::now(),
+                ]);
+            }
+        }
+
+        // Crear el campo en la tabla 'campos'
+        DB::table('campos')->insert([
+            'nombre' => $data['nombre'],
+            'tipo_producto_id' => $id_tipo_producto,
+            'visible' => $data['visible'],
+            'obligatorio' => $data['obligatorio'],
+            'grupo' => $data['grupo'] ?? null,
+            'opciones' => $nombreTabla,
+            'created_at' => Carbon::now(),
+            'updated_at' => Carbon::now(),
+        ]);
+
+        return response()->json(['message' => 'Campo con opciones creado exitosamente'], 201);
+    }
+
+    // Método para validar manualmente los datos en caso de recibir un array
+    private function validateData(array $data)
+    {
+        return Validator::make($data, [
+            'nombre' => 'required|string|max:255',
+            'visible' => 'required|boolean',
+            'obligatorio' => 'required|boolean',
+            'grupo' => 'nullable|string|max:255',
+            'opciones' => 'nullable|array',
+            'opciones.*.nombre' => 'required|string|max:255',
+            'opciones.*.precio' => 'nullable|numeric',
+        ])->validate();
+    }
+
+
+    public function updateCampoOpciones(Request $request, $id)
+    {
+        $request->validate([
+            'nombre' => 'string|max:255',
+            'visible' => 'boolean',
+            'obligatorio' => 'boolean',
+            'grupo' => 'nullable|string|max:255',
+            'opciones' => 'nullable|array',  // Validar que 'opciones' sea un array
+            'opciones.*.nombre' => 'required|string|max:255',  // Validar cada opción
+            'opciones.*.precio' => 'nullable|string',  // Validar precio si existe
+        ]);
+
+        // Buscar el campo existente
+        $campo = Campos::findOrFail($id);
+
+        // Nombre de la tabla de opciones
+        $nombreTablaOpciones = $campo->opciones;
+
+        // Actualizar el campo principal si es necesario
+        DB::table('campos')->where('id', $id)->update([
+            'nombre' => $request->input('nombre'),
+            'visible' => $request->input('visible'),
+            'obligatorio' => $request->input('obligatorio'),
+            'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
+        ]);
+
+        // Vaciar la tabla de opciones
+        DB::table($nombreTablaOpciones)->truncate();
+
+        // Recorrer y procesar las opciones
+        foreach ($request->input('opciones', []) as $opcion) {
+            DB::table($nombreTablaOpciones)->insert([
+                'nombre' => $opcion['nombre'],
+                'precio' => $opcion['precio'] ?? null,
+                'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
+                'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
+            ]);
+        }
+
+        return response()->json(['message' => 'Campo y opciones actualizados correctamente']);
+    }
+
     /**
      * Remove the specified resource from storage.
      */
@@ -118,6 +235,35 @@ class CampoController extends Controller
         $campo->delete();
 
         return response()->json(null, 204);
+    }
+
+    public function addCampos(Request $request, $letrasIdentificacion)
+    {
+        // Validar la estructura de los campos que se esperan en el request
+        $campos = $request->input('campos');
+
+        // Modificar la tabla $letrasIdentificacion
+        Schema::table($letrasIdentificacion, function (Blueprint $table) use ($campos) {
+            foreach ($campos as $campo) {
+                $nombreCampo = strtolower(str_replace(' ', '_', $campo['nombre']));
+                switch ($campo['tipo_dato']) {
+                    case 'text':
+                        $table->string($nombreCampo)->nullable();
+                        break;
+                    case 'decimal':
+                        $table->decimal($nombreCampo, 8, 2)->nullable();
+                        break;
+                    case 'number':
+                        $table->integer($nombreCampo)->nullable();
+                        break;
+                    case 'date':
+                        $table->date($nombreCampo)->nullable();
+                        break;
+                }
+            }
+        });
+
+        return response()->json(['message' => 'Campos añadidos con éxito'], 200);
     }
 }
 
