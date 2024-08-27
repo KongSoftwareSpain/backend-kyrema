@@ -51,8 +51,9 @@ Route::apiResource('campos', CampoController::class);
 Route::get('/campos', [CampoController::class, 'getByTipoProducto']);
 Route::put('/campos-update/{id_tipo_producto}', [CampoController::class, 'updatePorTipoProducto']);
 Route::post('/add-campos/{id_tipo_producto}', [CampoController::class, 'addCampos']);
-Route::post('create-campo-opciones/{id_tipo_producto}', [CampoController::class, 'createCampoOpciones']);
-Route::put('/update-campo-opciones/{id}', [CampoController::class, 'updateCampoOpciones']);
+Route::post('create-campo-opciones/{id_tipo_producto}', [CampoController::class, 'createCampoConOpciones']);
+Route::put('/update-campo-opciones/{id}', [CampoController::class, 'updateCampoConOpciones']);
+Route::get('/opciones/{id_campo}', [CampoController::class, 'getOpcionesPorCampo']);
 
 
 

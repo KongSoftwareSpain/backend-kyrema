@@ -53,8 +53,6 @@ class ProductoController extends Controller
 
             //Booleano de si está anulado o no
             $table->boolean('anulado')->default(false);
-
-
             
 
             foreach ($campos as $campo) {
@@ -72,6 +70,9 @@ class ProductoController extends Controller
                         break;
                     case 'date':
                         $table->date($nombreCampo)->nullable();
+                        break;
+                    default:
+                        $table->string($nombreCampo)->nullable();
                         break;
                 }
             }

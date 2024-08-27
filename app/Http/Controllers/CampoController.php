@@ -8,6 +8,8 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use App\Models\TipoProducto;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Validator;
 
 
 class CampoController extends Controller
@@ -84,6 +86,7 @@ class CampoController extends Controller
         foreach ($campos as $campo) {
             // Añadir el campo tipo_producto_id
             $campo['tipo_producto_id'] = $id_tipo_producto;
+            $campo['nombre_codigo'] = strtolower(str_replace(' ', '_', $campo['nombre']));
 
             // Obtener el id y eliminarlo del array de atributos
             $id = $campo['id'];
@@ -112,14 +115,27 @@ class CampoController extends Controller
         return response()->json(['message' => 'Campos actualizados correctamente']);
     }
 
+    // Obtiene las opciones de un campo con opciones
+    public function getOpcionesPorCampo($id_campo)
+    {
+        $campo = Campos::findOrFail($id_campo);
+        $opciones = DB::table($campo->opciones)->get();
+
+        return response()->json($opciones);
+
+    }
+
 
     // Crea un campo con opciones
-    public function createCampoConOpciones($requestOrData, $id_tipo_producto)
+    public function createCampoConOpciones(Request $request, $id_tipo_producto, $campoConOpciones = null)
     {
         // Verificar si el primer argumento es una instancia de Request
-        if ($requestOrData instanceof Request) {
-            $data = $requestOrData->validate([
+        if ($campoConOpciones === null) {
+            $data = $request->validate([
                 'nombre' => 'required|string|max:255',
+                'tipo_dato' => 'required|string|max:255',
+                'columna' => 'nullable|string|max:255',
+                'fila' => 'nullable|string|max:255',
                 'visible' => 'required|boolean',
                 'obligatorio' => 'required|boolean',
                 'grupo' => 'nullable|string|max:255',
@@ -127,12 +143,12 @@ class CampoController extends Controller
             ]);
         } else {
             // Asumir que es un array de datos ya validados
-            $data = $this->validateData($requestOrData);
+            $data = $campoConOpciones;
         }
 
         // Generar nombre de la tabla OPCIONES_NOMBRECAMPO_LETRAS:
         $tipo_producto = TipoProducto::findOrFail($id_tipo_producto);
-        $nombreTabla = strtolower('OPCIONES_' . $data['nombre'] . '_' . $tipo_producto->letras_identificacion);
+        $nombreTabla = strtolower('OPCIONES_' . str_replace(' ', '_', $data['nombre']) . '_' . $tipo_producto->letras_identificacion);
 
         // Crear la tabla de opciones
         Schema::create($nombreTabla, function (Blueprint $table) {
@@ -148,8 +164,8 @@ class CampoController extends Controller
                 DB::table($nombreTabla)->insert([
                     'nombre' => $opcion['nombre'],
                     'precio' => $opcion['precio'] ?? null,
-                    'created_at' => Carbon::now(),
-                    'updated_at' => Carbon::now(),
+                    'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
+                    'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
                 ]);
             }
         }
@@ -157,13 +173,17 @@ class CampoController extends Controller
         // Crear el campo en la tabla 'campos'
         DB::table('campos')->insert([
             'nombre' => $data['nombre'],
+            'nombre_codigo' => strtolower(str_replace(' ', '_', $data['nombre'])),
             'tipo_producto_id' => $id_tipo_producto,
+            'tipo_dato' => $data['tipo_dato'],
+            'columna' => $data['columna'],
+            'fila' => $data['fila'],
             'visible' => $data['visible'],
             'obligatorio' => $data['obligatorio'],
             'grupo' => $data['grupo'] ?? null,
             'opciones' => $nombreTabla,
-            'created_at' => Carbon::now(),
-            'updated_at' => Carbon::now(),
+            'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
+            'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
         ]);
 
         return response()->json(['message' => 'Campo con opciones creado exitosamente'], 201);
@@ -175,6 +195,9 @@ class CampoController extends Controller
         return Validator::make($data, [
             'nombre' => 'required|string|max:255',
             'visible' => 'required|boolean',
+            'tipo_dato' => 'required|string|max:255',
+            'columna' => 'nullable|string|max:255',
+            'fila' => 'nullable|string|max:255',
             'obligatorio' => 'required|boolean',
             'grupo' => 'nullable|string|max:255',
             'opciones' => 'nullable|array',
@@ -184,10 +207,13 @@ class CampoController extends Controller
     }
 
 
-    public function updateCampoOpciones(Request $request, $id)
+    public function updateCampoConOpciones(Request $request, $id)
     {
         $request->validate([
             'nombre' => 'string|max:255',
+            'tipo_dato' => 'required|string|max:255',
+            'columna' => 'nullable|string|max:255',
+            'fila' => 'nullable|string|max:255',
             'visible' => 'boolean',
             'obligatorio' => 'boolean',
             'grupo' => 'nullable|string|max:255',
