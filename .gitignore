@@ -5,7 +5,11 @@
 /public/storage
 /storage/*.key
 /vendor
-/storage/app/public/temp/*
+# Ignorar todos los archivos en /storage/app/public/temp/
+storage/app/public/temp/*
+
+# Excluir README.txt de ser ignorado
+!storage/app/public/temp/README.txt
 .env
 .phpactor.json
 .phpunit.result.cache

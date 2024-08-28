@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Schema;
 use App\Models\TipoProducto;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Config;
 
 
 class CampoController extends Controller
@@ -127,28 +128,13 @@ class CampoController extends Controller
 
 
     // Crea un campo con opciones
-    public function createCampoConOpciones(Request $request, $id_tipo_producto, $campoConOpciones = null)
+    public function createCampoConOpciones($campoConOpciones, $id_tipo_producto)
     {
-        // Verificar si el primer argumento es una instancia de Request
-        if ($campoConOpciones === null) {
-            $data = $request->validate([
-                'nombre' => 'required|string|max:255',
-                'tipo_dato' => 'required|string|max:255',
-                'columna' => 'nullable|string|max:255',
-                'fila' => 'nullable|string|max:255',
-                'visible' => 'required|boolean',
-                'obligatorio' => 'required|boolean',
-                'grupo' => 'nullable|string|max:255',
-                'opciones' => 'nullable|array',
-            ]);
-        } else {
-            // Asumir que es un array de datos ya validados
-            $data = $campoConOpciones;
-        }
+        $data = $this->validateData($campoConOpciones);
 
         // Generar nombre de la tabla OPCIONES_NOMBRECAMPO_LETRAS:
         $tipo_producto = TipoProducto::findOrFail($id_tipo_producto);
-        $nombreTabla = strtolower('OPCIONES_' . str_replace(' ', '_', $data['nombre']) . '_' . $tipo_producto->letras_identificacion);
+        $nombreTabla = strtolower(Config::get('app.prefijo_tabla_opciones') . str_replace(' ', '_', $data['nombre']) . '_' . $tipo_producto->letras_identificacion);
 
         // Crear la tabla de opciones
         Schema::create($nombreTabla, function (Blueprint $table) {
@@ -186,8 +172,76 @@ class CampoController extends Controller
             'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
         ]);
 
+
         return response()->json(['message' => 'Campo con opciones creado exitosamente'], 201);
     }
+
+    public function createCampoConOpcionesHTTP(Request $request, $id_tipo_producto)
+    {
+        // Verificar si el primer argumento es una instancia de Request
+        $data = $request->validate([
+            'nombre' => 'required|string|max:255',
+            'tipo_dato' => 'required|string|max:255',
+            'columna' => 'nullable|string|max:255',
+            'fila' => 'nullable|string|max:255',
+            'visible' => 'required|boolean',
+            'obligatorio' => 'required|boolean',
+            'grupo' => 'nullable|string|max:255',
+            'opciones' => 'nullable|array',
+        ]);
+
+        // Generar nombre de la tabla OPCIONES_NOMBRECAMPO_LETRAS:
+        $tipo_producto = TipoProducto::findOrFail($id_tipo_producto);
+        $nombreTabla = strtolower(Config::get('app.prefijo_tabla_opciones') . str_replace(' ', '_', $data['nombre']) . '_' . $tipo_producto->letras_identificacion);
+
+        // Crear la tabla de opciones
+        Schema::create($nombreTabla, function (Blueprint $table) {
+            $table->id();
+            $table->string('nombre');
+            $table->decimal('precio', 8, 2)->nullable();
+            $table->timestamps();
+        });
+
+        // Insertar las opciones en la tabla
+        if (!empty($data['opciones'])) {
+            foreach ($data['opciones'] as $opcion) {
+                DB::table($nombreTabla)->insert([
+                    'nombre' => $opcion['nombre'],
+                    'precio' => $opcion['precio'] ?? null,
+                    'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
+                    'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
+                ]);
+            }
+        }
+
+        // Crear el campo en la tabla 'campos'
+        DB::table('campos')->insert([
+            'nombre' => $data['nombre'],
+            'nombre_codigo' => strtolower(str_replace(' ', '_', $data['nombre'])),
+            'tipo_producto_id' => $id_tipo_producto,
+            'tipo_dato' => $data['tipo_dato'],
+            'columna' => $data['columna'],
+            'fila' => $data['fila'],
+            'visible' => $data['visible'],
+            'obligatorio' => $data['obligatorio'],
+            'grupo' => $data['grupo'] ?? null,
+            'opciones' => $nombreTabla,
+            'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
+            'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
+        ]);
+
+        self::addCampoConOpciones($data, $tipo_producto->letras_identificacion);
+
+        return response()->json(['message' => 'Campo con opciones creado exitosamente'], 201);
+    }
+
+    //Funcion para añadir la columna del campo con opciones a la tabla de la base de datos
+    private function addCampoConOpciones($campoConOpciones, $letrasIdentificacion){
+        Schema::table($letrasIdentificacion, function (Blueprint $table) {
+            $table->string($campoConOpciones['nombre'])->nullable();
+        });
+    }
+
 
     // Método para validar manualmente los datos en caso de recibir un array
     private function validateData(array $data)

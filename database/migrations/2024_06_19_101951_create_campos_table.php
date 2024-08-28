@@ -19,6 +19,7 @@ return new class extends Migration
             $table->boolean('visible');
             $table->boolean('obligatorio');
             $table->string('grupo')->nullable();
+            $table->string('opciones')->nullable();
             $table->timestamps();
         });
     }

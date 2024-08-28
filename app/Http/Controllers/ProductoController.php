@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Log; // Importar la clase Log
 use App\Models\Anulacion; // Importar el modelo Anulacion
 // Usar CampoController;
 use App\Http\Controllers\CampoController;
+use Illuminate\Support\Facades\Config;
 
 class ProductoController extends Controller
 {
@@ -35,49 +36,7 @@ class ProductoController extends Controller
         $nombreProducto = $request->input('nombreProducto');
         $letrasIdentificacion = $request->input('letrasIdentificacion');
         $campos = $request->input('campos');
-        $camposConOpciones = $request->input('camposConOpciones', []);
-
-        // Definir el nombre de la nueva tabla usando las letras de identificación
-        $nombreTabla = strtolower($letrasIdentificacion);
-
-        // Crear la tabla en la base de datos
-        Schema::create($nombreTabla, function (Blueprint $table) use ($campos) {
-            $table->id();
-
-            // Agregar campos adicionales
-            $table->unsignedBigInteger('sociedad_id')->nullable();
-            $table->unsignedBigInteger('tipo_de_pago_id')->nullable();
-            $table->unsignedBigInteger('comercial_id')->nullable();
-            $table->string('plantilla_path')->nullable();
-            
-
-            //Booleano de si está anulado o no
-            $table->boolean('anulado')->default(false);
-            
-
-            foreach ($campos as $campo) {
-                $nombreCampo = strtolower(str_replace(' ', '_', $campo['nombre']));
-                switch ($campo['tipo_dato']) {
-                    case 'text':
-                        $table->string($nombreCampo)->nullable();
-                        break;
-                    case 'decimal':
-                        $table->string($nombreCampo)->nullable();
-                        $campo['tipo'] = 'text';
-                        break;
-                    case 'number':
-                        $table->integer($nombreCampo)->nullable();
-                        break;
-                    case 'date':
-                        $table->date($nombreCampo)->nullable();
-                        break;
-                    default:
-                        $table->string($nombreCampo)->nullable();
-                        break;
-                }
-            }
-            $table->timestamps();
-        });
+        $camposConOpciones = $request->input('camposConOpciones') ?? [];
 
         // Insertar información del tipo de producto en la tabla correspondiente y obtener el ID
         $tipoProductoId = DB::table('tipo_producto')->insertGetId([
@@ -107,8 +66,58 @@ class ProductoController extends Controller
         // Crear campos con opciones recorriendo el array de camposConOpciones
         foreach ($camposConOpciones as $campoConOpciones) {
             // Crear el campo con opciones
-            CampoController::createCampoConOpciones($campoConOpciones, $tipoProductoId);
+            $campoController = new CampoController();
+
+            $campoController->createCampoConOpciones($campoConOpciones, $tipoProductoId);
         }
+
+        
+        // Definir el nombre de la nueva tabla usando las letras de identificación
+        $nombreTabla = strtolower($letrasIdentificacion);
+
+        // Crear la tabla en la base de datos
+        Schema::create($nombreTabla, function (Blueprint $table) use ($campos, $camposConOpciones) {
+            $table->id();
+
+            // Agregar campos adicionales
+            $table->unsignedBigInteger('sociedad_id')->nullable();
+            $table->unsignedBigInteger('tipo_de_pago_id')->nullable();
+            $table->unsignedBigInteger('comercial_id')->nullable();
+            $table->string('plantilla_path')->nullable();
+            
+            // Booleano de si está anulado o no
+            $table->boolean('anulado')->default(false);
+            
+            // Añadimos campos a la tabla
+            foreach ($campos as $campo) {
+                $nombreCampo = strtolower(str_replace(' ', '_', $campo['nombre']));
+                switch ($campo['tipo_dato']) {
+                    case 'text':
+                        $table->string($nombreCampo)->nullable();
+                        break;
+                    case 'decimal':
+                        $table->decimal($nombreCampo, 8, 2)->nullable();  // Cambié a decimal en lugar de string para manejar mejor los números decimales
+                        break;
+                    case 'number':
+                        $table->integer($nombreCampo)->nullable();
+                        break;
+                    case 'date':
+                        $table->date($nombreCampo)->nullable();
+                        break;
+                    default:
+                        $table->string($nombreCampo)->nullable();
+                        break;
+                }
+            }
+
+            // Añadimos campos con opciones a la tabla
+            foreach ($camposConOpciones as $campoConOpciones) {
+                $nombreCampo = strtolower(str_replace(' ', '_', $campoConOpciones['nombre']));
+                $table->string($nombreCampo)->nullable();
+            }
+            
+            $table->timestamps();
+        });
         
 
         return response()->json([
@@ -131,12 +140,12 @@ class ProductoController extends Controller
             }
 
             // Guardar la plantilla Excel en el sistema de archivos
-            $rutaPlantilla = Storage::disk('public')->putFileAs('plantillas', $archivoPlantilla, $nombreArchivo);
+            Storage::disk('public')->putFileAs('plantillas', $archivoPlantilla, $nombreArchivo);
 
             // Añadir la ruta de la plantilla a la tabla tipo_producto
             DB::table('tipo_producto')
-                ->where('letras_identificacion', $letrasIdentificacion)
-                ->update(['plantilla_path' => $rutaPlantilla]);
+                ->where('letras_identificacion', (Config::get('app.prefijo_tipo_producto') . $letrasIdentificacion))
+                ->update(['plantilla_path' => $rutaArchivo]);
 
             return response()->json(['message' => 'Plantilla subida correctamente'], 200);
         } else {
@@ -220,8 +229,13 @@ class ProductoController extends Controller
         $lastNumber = $lastProduct ? intval(substr($lastProduct->codigo_producto, -6)) : 0;
         $newNumber = str_pad($lastNumber + 1, 6, '0', STR_PAD_LEFT);
 
-        // Generar el nuevo código de producto
-        $newCodigoProducto = $tableDatePrefix . strtoupper($letrasIdentificacion) . $newNumber;
+        // Obtén el prefijo desde la configuración
+        $prefijo = Config::get('app.prefijo_tipo_producto');
+    
+        // Elimina el prefijo del código
+        $codigoPorTipoProducto = str_replace($prefijo, '', $letrasIdentificacion);
+
+        $newCodigoProducto = $tableDatePrefix . strtoupper($codigoPorTipoProducto) . $newNumber;
 
         // Añadir el código de producto al array de datos
         $datos['codigo_producto'] = $newCodigoProducto;

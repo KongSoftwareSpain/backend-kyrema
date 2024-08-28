@@ -11,6 +11,7 @@ return new class extends Migration
         Schema::create('tipo_producto', function (Blueprint $table) {
             $table->id();
             $table->string('nombre');
+            $table->string('codigo_tipo_producto')->unique();
             $table->string('letras_identificacion')->nullable();
             $table->string('plantilla_path')->nullable(); // Ruta del archivo en lugar de los datos binarios
             $table->unsignedBigInteger('padre_id')->nullable();
