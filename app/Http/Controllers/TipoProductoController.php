@@ -119,4 +119,10 @@ class TipoProductoController extends Controller
         //  }
  
     }
+
+    public function getSubproductosPorPadre($id)
+    {
+        $subproductos = TipoProducto::where('padre_id', $id)->get();
+        return response()->json($subproductos);
+    }
 }

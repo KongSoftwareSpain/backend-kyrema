@@ -9,6 +9,7 @@ class TiposAnexos extends Model
 {
     protected $table = 'tipos_anexos';
     protected $primaryKey = 'id';
+    protected $keyType = 'string';
 
     // ,[nombre]
     //   ,[letras_identificacion]

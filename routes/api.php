@@ -64,6 +64,7 @@ Route::get('tipo-producto/show/{ruta}', [TipoProductoController::class, 'show'])
 Route::put('tipo-producto/{id}', [TipoProductoController::class, 'update']);
 Route::put('tipo-producto/edit-nombre/{id}', [TipoProductoController::class, 'updateNombre']);
 Route::delete('tipo-producto/delete/{id}', [TipoProductoController::class, 'deleteTipoProducto']);
+Route::get('subproductos/padre/{id}', [TipoProductoController::class, 'getSubproductosPorPadre']);
 
 
 Route::get('sociedad/{id}', [SociedadController::class, 'show']);
@@ -110,7 +111,7 @@ Route::get('/descargar-plantilla-anexo/{tipoAnexoId}', [ExportController::class,
 
 Route::get('/anexos/tipo-producto/{id_tipo_producto}', [AnexosController::class, 'getTipoAnexosPorTipoProducto']);
 
-Route::apiResource('tipos-anexo', TipoAnexoController::class);
+
 Route::get('tipos-anexo/all', [TipoAnexoController::class, 'index']);
 Route::apiResource('campos-anexo', CampoAnexoController::class);
 

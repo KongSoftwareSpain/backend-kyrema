@@ -9,7 +9,7 @@ class TipoProducto extends Model
 {
     protected $table = 'tipo_producto';
     protected $primaryKey = 'id';
-    public $incrementing = false;
+    public $incrementing = true;
     protected $keyType = 'string';
     public $timestamps = false;
 
