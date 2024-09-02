@@ -16,6 +16,8 @@ use Illuminate\Support\Facades\Config;
 
 class ProductoController extends Controller
 {
+    // Array para seleccionar el numero de días dependiendo de el tipoDuracion
+
 
     public function crearTipoProducto(Request $request)
     {
@@ -31,17 +33,60 @@ class ProductoController extends Controller
             'camposConOpciones.*.opciones' => 'required|array',
             'camposConOpciones.*.opciones.*.nombre' => 'required|string',
             'camposConOpciones.*.opciones.*.precio' => 'nullable|string',
+            'duracion' => 'required|array',
+            'duracion.*.nombre' => 'required|string',
+            'duracion.*.tipo_dato' => 'required|string|in:anual,diario,dias_delimitados,selector_dias,fecha_exacta',
         ]);
 
         $nombreProducto = $request->input('nombreProducto');
         $letrasIdentificacion = $request->input('letrasIdentificacion');
         $campos = $request->input('campos');
         $camposConOpciones = $request->input('camposConOpciones') ?? [];
+        $duracion = $request->input('duracion')[0];
+
+        // Gestión de la duración del tipo de producto
+        $tipoDuracion = $duracion['tipo_dato'];
+        $valorDuracion = null;
+
+        // Array asociativo para relacionar tipos de duración con días
+        $diasRelacionados = [
+            'anual' => 365,   // Ejemplo: 365 días
+            'diario' => 1,    // Ejemplo: 1 día
+        ];
+
+        if (array_key_exists($tipoDuracion, $diasRelacionados)) {
+            // Asignar el valor de duración basado en el array asociativo
+            $valorDuracion = $diasRelacionados[$tipoDuracion];
+        } elseif ($tipoDuracion == 'dias_delimitados') {
+            // Si el tipo de duración es 'dias_delimitados', coger la primera opción disponible
+            $valorDuracion = $duracion['opciones'][0] ?? null;
+        } elseif ($tipoDuracion == 'selector_dias') {
+            // Add your code here for 'selector_dias' duration type
+            $valorDuracion = Config::get('app.prefijo_duracion') . $letrasIdentificacion;
+            Schema::create($valorDuracion, function (Blueprint $table) {
+                $table->id();
+                $table->string('duracion');
+                $table->decimal('precio', 8, 2)->nullable();
+                $table->timestamps();
+            });
+            if (!empty($duracion['opciones'])) {
+                foreach ($duracion['opciones'] as $opcion) {
+                    DB::table($valorDuracion)->insert([
+                        'duracion' => $opcion['nombre'],
+                        'precio' => $opcion['precio'] ?? null,
+                        'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
+                        'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
+                    ]);
+                }
+            }
+        }
 
         // Insertar información del tipo de producto en la tabla correspondiente y obtener el ID
         $tipoProductoId = DB::table('tipo_producto')->insertGetId([
             'letras_identificacion' => $letrasIdentificacion,
             'nombre' => $nombreProducto,
+            'tipo_duracion' => $tipoDuracion,
+            'duracion' => $valorDuracion,
             'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
             'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
         ]);
@@ -62,6 +107,8 @@ class ProductoController extends Controller
                 'grupo' => $campo['grupo'] ?? null,
             ]);
         }
+
+        self::insertDuracionEnCampos($duracion, $tipoProductoId);
 
         // Crear campos con opciones recorriendo el array de camposConOpciones
         foreach ($camposConOpciones as $campoConOpciones) {
@@ -84,6 +131,9 @@ class ProductoController extends Controller
             $table->unsignedBigInteger('tipo_de_pago_id')->nullable();
             $table->unsignedBigInteger('comercial_id')->nullable();
             $table->string('plantilla_path')->nullable();
+            $table->string('fecha_inicio')->nullable();
+            $table->string('hora_inicio')->nullable();
+            $table->string('fecha_fin')->nullable();
             
             // Booleano de si está anulado o no
             $table->boolean('anulado')->default(false);
@@ -124,6 +174,22 @@ class ProductoController extends Controller
             'message' => 'Producto creado con éxito',
             'id' => $tipoProductoId
         ], 200);
+    }
+
+    private function insertDuracionEnCampos($duracion, $tipoProductoId){
+        DB::table('campos')->insert([
+            'nombre' => $duracion['nombre'],
+            'nombre_codigo' => strtolower(str_replace(' ', '_', $duracion['nombre'])),
+            'tipo_producto_id' => $tipoProductoId,
+            'columna' => $duracion['columna'] ?? null,
+            'fila' => $duracion['fila'] ?? null,
+            'tipo_dato' => $duracion['tipo_dato'],
+            'visible' => $duracion['visible'] ?? false,
+            'obligatorio' => $duracion['obligatorio'] ?? false,
+            'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
+            'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
+            'grupo' => $duracion['grupo'] ?? null,
+        ]);
     }
 
     public function subirPlantilla($letrasIdentificacion, Request $request)
@@ -243,6 +309,8 @@ class ProductoController extends Controller
         // Añadir created_at y updated_at al array de datos
         $datos['created_at'] = Carbon::now()->format('Y-m-d\TH:i:s');
         $datos['updated_at'] = Carbon::now()->format('Y-m-d\TH:i:s');
+        $datos['fecha_inicio'] = Carbon::now()->format('Y-m-d\TH:i:s');
+        $datos['hora_inicio'] = Carbon::now()->format('H:i:s');
 
         // Insertar los datos en la tabla correspondiente
         $id = DB::table($nombreTabla)->insertGetId($datos);
@@ -312,6 +380,15 @@ class ProductoController extends Controller
         ]);
         
         return response()->json(['message' => 'Producto anulado con éxito'], 200);
+    }
+
+    public function getDuraciones($nombreTabla){
+
+        // Coger todos los datos de la tabla $nombreTabla:
+        $datos = DB::table($nombreTabla)->get();
+
+        return response()->json($datos);
+
     }
 
     

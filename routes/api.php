@@ -38,6 +38,7 @@ Route::post('/crear-producto/{letrasIdentificacion}', [ProductoController::class
 Route::post('/editar-producto/{letrasIdentificacion}', [ProductoController::class, 'editarProducto']);
 Route::post('/anular-producto/{letrasIdentificacion}', [ProductoController::class, 'anularProducto']);
 Route::delete('/eliminar-producto/{letrasIdentificacion}', [ProductoController::class, 'eliminarProducto']);
+Route::get('/duraciones/{nombreTabla}', [ProductoController::class, 'getDuraciones']);
 
 
 Route::post('/crear-tipo-producto', [ProductoController::class, 'crearTipoProducto']);
