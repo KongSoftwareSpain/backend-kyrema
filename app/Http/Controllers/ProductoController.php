@@ -51,6 +51,7 @@ class ProductoController extends Controller
         // Array asociativo para relacionar tipos de duración con días
         $diasRelacionados = [
             'anual' => 365,   // Ejemplo: 365 días
+            'mensual' => 30,  // Ejemplo: 30 días
             'diario' => 1,    // Ejemplo: 1 día
         ];
 
@@ -59,10 +60,11 @@ class ProductoController extends Controller
             $valorDuracion = $diasRelacionados[$tipoDuracion];
         } elseif ($tipoDuracion == 'dias_delimitados') {
             // Si el tipo de duración es 'dias_delimitados', coger la primera opción disponible
-            $valorDuracion = $duracion['opciones'][0] ?? null;
+            $valorDuracion = $duracion['opciones'][0]['nombre'] ?? null;
         } elseif ($tipoDuracion == 'selector_dias') {
             // Add your code here for 'selector_dias' duration type
             $valorDuracion = Config::get('app.prefijo_duracion') . $letrasIdentificacion;
+            $valorDuracion = strtolower($valorDuracion);
             Schema::create($valorDuracion, function (Blueprint $table) {
                 $table->id();
                 $table->string('duracion');
@@ -131,9 +133,8 @@ class ProductoController extends Controller
             $table->unsignedBigInteger('tipo_de_pago_id')->nullable();
             $table->unsignedBigInteger('comercial_id')->nullable();
             $table->string('plantilla_path')->nullable();
-            $table->string('fecha_inicio')->nullable();
-            $table->string('hora_inicio')->nullable();
-            $table->string('fecha_fin')->nullable();
+            $table->string('duracion')->nullable();
+
             
             // Booleano de si está anulado o no
             $table->boolean('anulado')->default(false);
@@ -178,8 +179,8 @@ class ProductoController extends Controller
 
     private function insertDuracionEnCampos($duracion, $tipoProductoId){
         DB::table('campos')->insert([
-            'nombre' => $duracion['nombre'],
-            'nombre_codigo' => strtolower(str_replace(' ', '_', $duracion['nombre'])),
+            'nombre' => 'Duración',
+            'nombre_codigo' => strtolower(str_replace(' ', '_', 'duracion')),
             'tipo_producto_id' => $tipoProductoId,
             'columna' => $duracion['columna'] ?? null,
             'fila' => $duracion['fila'] ?? null,
@@ -309,8 +310,12 @@ class ProductoController extends Controller
         // Añadir created_at y updated_at al array de datos
         $datos['created_at'] = Carbon::now()->format('Y-m-d\TH:i:s');
         $datos['updated_at'] = Carbon::now()->format('Y-m-d\TH:i:s');
-        $datos['fecha_inicio'] = Carbon::now()->format('Y-m-d\TH:i:s');
-        $datos['hora_inicio'] = Carbon::now()->format('H:i:s');
+        // $datos['hora_inicio'] = Carbon::now()->format('H:i:s');
+        $hora = Carbon::now()->format('H:i:s');
+
+        // $datos['fecha_de_inicio'] = $datos['fecha_de_inicio'] . $hora;
+
+        // $datos['fecha_de_fin'] = $datos['fecha_de_fin'] . $hora;
 
         // Insertar los datos en la tabla correspondiente
         $id = DB::table($nombreTabla)->insertGetId($datos);
