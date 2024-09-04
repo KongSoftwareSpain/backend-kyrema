@@ -17,6 +17,7 @@ class ProductsSeeder extends Seeder
     {
         $faker = Faker::create();
         $tableName = 'SE';
+        $plantillaPath = 'plantillas/SE-plantilla.docx';
         $tableDatePrefix = Carbon::now()->format('mY');
         
         for ($i = 0; $i < 100; $i++) { // Cambiado a 1000 para más datos
@@ -63,6 +64,7 @@ class ProductsSeeder extends Seeder
                 'codigo_postal' => $faker->numerify('#####'),
                 'fecha_de_nacimiento' => $fechaDeNacimiento,
                 'numero_anexos' => 0,
+                'plantilla_path' => $plantillaPath,
 
                 // Campos variables
                 'tipo_de_caceria' => $faker->randomElement(['Montería', 'Ganchos', 'Rececho', 'Aguardo', 'Espera', 'Ojeo']),

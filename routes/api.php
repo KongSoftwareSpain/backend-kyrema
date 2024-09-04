@@ -16,7 +16,6 @@ use App\Http\Controllers\TarifaProductoController;
 use App\Http\Controllers\TarifaAnexoController;
 use App\Http\Controllers\EscaladoAnexoController;
 use App\Http\Controllers\NavegacionController;
-use App\Http\Controllers\CPFamiliaController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ProductoController;
 use App\Http\Controllers\ExportController;
@@ -39,6 +38,7 @@ Route::post('/crear-producto/{letrasIdentificacion}', [ProductoController::class
 Route::post('/editar-producto/{letrasIdentificacion}', [ProductoController::class, 'editarProducto']);
 Route::post('/anular-producto/{letrasIdentificacion}', [ProductoController::class, 'anularProducto']);
 Route::delete('/eliminar-producto/{letrasIdentificacion}', [ProductoController::class, 'eliminarProducto']);
+Route::get('/duraciones/{nombreTabla}', [ProductoController::class, 'getDuraciones']);
 
 
 Route::post('/crear-tipo-producto', [ProductoController::class, 'crearTipoProducto']);
@@ -50,13 +50,22 @@ Route::get('/descargar-plantilla/{letrasIdentificacion}', [ExportController::cla
 
 Route::apiResource('campos', CampoController::class);
 Route::get('/campos', [CampoController::class, 'getByTipoProducto']);
+Route::put('/campos-update/{id_tipo_producto}', [CampoController::class, 'updatePorTipoProducto']);
+Route::post('/add-campos/{id_tipo_producto}', [CampoController::class, 'addCampos']);
+Route::post('create-campo-opciones/{id_tipo_producto}', [CampoController::class, 'createCampoConOpciones']);
+Route::put('/update-campo-opciones/{id}', [CampoController::class, 'updateCampoConOpciones']);
+Route::get('/opciones/{id_campo}', [CampoController::class, 'getOpcionesPorCampo']);
+
 
 
 Route::get('tipos-producto/sociedad/{id_sociedad}', [TipoProductoController::class, 'getTiposProductoPorSociedad']);
 Route::get('tipos-producto/all', [TipoProductoController::class, 'index']);
 Route::get('tipo-producto/{letras}', [TipoProductoController::class, 'getByLetras']);
 Route::get('tipo-producto/show/{ruta}', [TipoProductoController::class, 'show']);
-// Route::delete('tipo-producto/delete/{id}', [TipoProductoController::class, 'delete']);
+Route::put('tipo-producto/{id}', [TipoProductoController::class, 'update']);
+Route::put('tipo-producto/edit-nombre/{id}', [TipoProductoController::class, 'updateNombre']);
+Route::delete('tipo-producto/delete/{id}', [TipoProductoController::class, 'deleteTipoProducto']);
+Route::get('subproductos/padre/{id}', [TipoProductoController::class, 'getSubproductosPorPadre']);
 
 
 Route::get('sociedad/{id}', [SociedadController::class, 'show']);
@@ -91,10 +100,19 @@ Route::post('/anexos/{id_producto}', [AnexosController::class, 'conectarAnexosCo
 
 //Tipo anexo:
 Route::delete('/anexos/{id}', [AnexosController::class, 'destroy']);
+
+// Crear tipo anexo:
 Route::post('/anexos', [AnexosController::class, 'createTipoAnexo']);
+// Subir plantilla:
+Route::post('subir-plantilla-anexo/{letrasIdentificacion}', [AnexosController::class, 'subirPlantillaAnexo']);
+
+// Descargar plantilla anexo:
+Route::get('/descargar-plantilla-anexo/{tipoAnexoId}', [ExportController::class, 'exportAnexoExcelToPdf']);
+
+
 Route::get('/anexos/tipo-producto/{id_tipo_producto}', [AnexosController::class, 'getTipoAnexosPorTipoProducto']);
 
-Route::apiResource('tipos-anexo', TipoAnexoController::class);
+
 Route::get('tipos-anexo/all', [TipoAnexoController::class, 'index']);
 Route::apiResource('campos-anexo', CampoAnexoController::class);
 
@@ -121,4 +139,3 @@ Route::apiResource('escalado-anexos', EscaladoAnexoController::class);
 
 Route::get('/nav/{id_sociedad}', [NavController::class, 'getNavegacion']);
 
-Route::apiResource('cp-familia', CPFamiliaController::class);
