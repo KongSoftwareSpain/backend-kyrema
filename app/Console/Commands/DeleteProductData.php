@@ -63,6 +63,30 @@ class DeleteProductData extends Command
                 Storage::disk('public')->delete($plantillaPath);
             }
 
+
+            $anexos = DB::table('tipos_anexos')->where('id_tipo_producto', $productId)->get();
+
+            if($anexos != null && count($anexos) > 0){
+                foreach ($anexos as $anexo) {
+                    // Eliminar los anexos de la tabla anexos
+                    DB::table('tipos_anexos')->where('id', $anexo->id)->delete();
+
+                    // Eliminar la tabla de anexos si existe
+                    if (Schema::hasTable($anexo->letras_identificacion)) {
+                        Schema::dropIfExists($anexo->letras_identificacion);
+                    }
+
+                    DB::table('campos_anexos')->where('tipo_anexo', $anexo->id)->delete();
+
+                    $plantillaPathAnexo = $anexo->plantilla_path ?? null;
+
+                    // Eliminar la plantilla si existe
+                    if ($plantillaPathAnexo && Storage::disk('public')->exists($plantillaPathAnexo)) {
+                        Storage::disk('public')->delete($plantillaPathAnexo);
+                    }
+                }
+            }
+
             
 
             $this->info("Data for product ID $productId has been deleted.");

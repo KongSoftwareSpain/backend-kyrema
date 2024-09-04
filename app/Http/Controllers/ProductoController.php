@@ -180,7 +180,7 @@ class ProductoController extends Controller
     private function insertDuracionEnCampos($duracion, $tipoProductoId){
         DB::table('campos')->insert([
             'nombre' => 'Duración',
-            'nombre_codigo' => strtolower(str_replace(' ', '_', 'duracion')),
+            'nombre_codigo' => 'duracion',
             'tipo_producto_id' => $tipoProductoId,
             'columna' => $duracion['columna'] ?? null,
             'fila' => $duracion['fila'] ?? null,
