@@ -397,5 +397,4 @@ class ProductoController extends Controller
     }
 
     
-    
 }
