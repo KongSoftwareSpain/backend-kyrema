@@ -46,7 +46,7 @@ class TipoProductoController extends Controller
         // Si tiene subproductos (hay algun tipo_producto con su id en padre_id), devolverlos
         $subproductos = TipoProducto::where('padre_id', $tipoProducto->id)->get();
         if ($subproductos->count() > 0) {
-            $tipoProducto['subproductos'] = self::getSubproductosPorPadreId($tipoProducto->id);
+            $tipoProducto['subproductos'] = self::getSubproductosPorPadreId($tipoProducto->id, $subproductos);
         }
 
 
@@ -127,35 +127,34 @@ class TipoProductoController extends Controller
  
     }
 
-    public function getSubproductosPorPadreId($id)
+    public function getSubproductosPorPadreId($id, $subproductos = null)
     {
-        $subproductos = TipoProducto::where('padre_id', $id)->get();
-
+        if ($subproductos == null) {
+            // Obtener los subproductos con tarifas y campos utilizando las relaciones
+            $subproductos = TipoProducto::where('padre_id', $id)
+                ->with(['tarifas', 'campos'])
+                ->get();
+        }
 
         // Construir la respuesta incluyendo los campos y tarifas de cada subproducto
         $subproductosConDetalles = $subproductos->map(function ($subproducto) {
-            // Obtener las tarifas asociadas al subproducto
-            $tarifas = DB::table('tarifas_producto')->where('tipo_producto_id', $subproducto->id)->get();
-
-            // Obtener los campos asociados al subproducto
-            $campos = DB::table('campos')->where('tipo_producto_id', $subproducto->id)->get();
-
-            // Retornar la estructura de datos con los detalles completos del subproducto
             return [
                 'id' => $subproducto->id,
                 'nombre' => $subproducto->nombre,
                 'letras_identificacion' => $subproducto->letras_identificacion,
                 'plantilla_path' => $subproducto->plantilla_path,
                 'padre_id' => $subproducto->padre_id,
-                'tarifas' => $tarifas,
-                'campos' => $campos,
+                // Utilizando relaciones para obtener tarifas y campos
+                'tarifas' => $subproducto->tarifas,
+                'campos' => $subproducto->campos,
                 'created_at' => $subproducto->created_at,
                 'updated_at' => $subproducto->updated_at,
+                'tipo_duracion' => $subproducto->tipo_duracion,
+                'duracion' => $subproducto->duracion,
             ];
         });
 
-        
-
         return $subproductosConDetalles;
     }
+
 }

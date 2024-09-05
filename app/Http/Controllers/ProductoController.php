@@ -25,9 +25,10 @@ class ProductoController extends Controller
         $request->validate([
             'nombreProducto' => 'required|string',
             'letrasIdentificacion' => 'required|string',
-            'campos' => 'required|array',
+            'padre_id' => 'nullable|integer',
+            'campos' => 'nullable|array',
             'campos.*.nombre' => 'required|string',
-            'campos.*.tipo_dato' => 'required|string|in:text,number,date,decimal',
+            'campos.*.tipo_dato' => 'required|string|in:text,number,date,decimal,selector',
             'camposConOpciones' => 'nullable|array',
             'camposConOpciones.*.nombre' => 'required|string',
             'camposConOpciones.*.opciones' => 'required|array',
@@ -40,6 +41,7 @@ class ProductoController extends Controller
 
         $nombreProducto = $request->input('nombreProducto');
         $letrasIdentificacion = $request->input('letrasIdentificacion');
+        $padre_id = $request->input('padre_id');
         $campos = $request->input('campos');
         $camposConOpciones = $request->input('camposConOpciones') ?? [];
         $duracion = $request->input('duracion')[0];
@@ -87,6 +89,7 @@ class ProductoController extends Controller
         $tipoProductoId = DB::table('tipo_producto')->insertGetId([
             'letras_identificacion' => $letrasIdentificacion,
             'nombre' => $nombreProducto,
+            'padre_id' => $padre_id,
             'tipo_duracion' => $tipoDuracion,
             'duracion' => $valorDuracion,
             'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
@@ -134,6 +137,7 @@ class ProductoController extends Controller
             $table->unsignedBigInteger('comercial_id')->nullable();
             $table->string('plantilla_path')->nullable();
             $table->string('duracion')->nullable();
+            $table->string('subproducto')->nullable();
 
             
             // Booleano de si está anulado o no

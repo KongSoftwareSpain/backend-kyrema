@@ -61,7 +61,7 @@ Route::get('/opciones/{id_campo}', [CampoController::class, 'getOpcionesPorCampo
 Route::get('tipos-producto/sociedad/{id_sociedad}', [TipoProductoController::class, 'getTiposProductoPorSociedad']);
 Route::get('tipos-producto/all', [TipoProductoController::class, 'index']);
 Route::get('tipo-producto/{letras}', [TipoProductoController::class, 'getByLetras']);
-Route::get('tipo-producto/show/{ruta}', [TipoProductoController::class, 'show']);
+Route::get('tipo-producto/show/{id}', [TipoProductoController::class, 'show']);
 Route::put('tipo-producto/{id}', [TipoProductoController::class, 'update']);
 Route::put('tipo-producto/edit-nombre/{id}', [TipoProductoController::class, 'updateNombre']);
 Route::delete('tipo-producto/delete/{id}', [TipoProductoController::class, 'deleteTipoProducto']);
