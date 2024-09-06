@@ -316,6 +316,7 @@ class ProductoController extends Controller
         // Obtener la plantilla antes de gestionar el tipoProducto padre
         $plantilla_path = $tipoProducto->plantilla_path ?? null;
 
+        // Si el tipoProducto tiene padre, coger el tipoProducto padre para meter los datos en la tabla correspondiente
         if($tipoProducto->padre_id != null){
             $tipoProducto = DB::table('tipo_producto')
                         ->where('id', $tipoProducto->padre_id)
