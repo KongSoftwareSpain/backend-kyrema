@@ -79,9 +79,19 @@ class ExportController extends Controller
             $tempExcelPath = storage_path('app/public/temp/plantilla_' . time() . '.xlsx');
             $writer = new Xlsx($spreadsheet);
             $writer->save($tempExcelPath);
-
+            
             // Convertir el archivo Excel a PDF usando mPDF
-            IOFactory::registerWriter('Pdf', PdfMpdf::class);
+            try{
+                IOFactory::registerWriter('Pdf', PdfMpdf::class);
+            } catch (\PhpOffice\PhpSpreadsheet\Writer\Exception $e) {
+                // Limpieza del directorio temporal
+                $tempDir = sys_get_temp_dir() . '/mpdf/ttfontdata/';
+                if (is_dir($tempDir)) {
+                    array_map('unlink', glob("$tempDir/*"));
+                }
+                return response()->json(['error' => 'El servicio de generación de PDF está temporalmente fuera de servicio. Vuelve a intentarlo más tarde'], 503);
+            }
+            
             $pdfWriter = IOFactory::createWriter($spreadsheet, 'Pdf');
             
             // Guardar el archivo PDF temporalmente

@@ -39,7 +39,14 @@ class DeleteProductData extends Command
                     }
                 }
             }
-            
+            //Comprobar si tiene tipos hijos:
+            $tiposHijos = DB::table('tipo_producto')->where('padre_id', $productId)->get();
+
+            if($tiposHijos != null && count($tiposHijos) > 0){
+                foreach ($tiposHijos as $tipoHijo) {
+                    $this->call('delete:product-data', ['productId' => $tipoHijo->id]);
+                }
+            }
 
             // Delete from tipo_producto
             DB::table('tipo_producto')->where('id', $productId)->delete();
