@@ -22,6 +22,8 @@ use App\Http\Controllers\ExportController;
 use App\Http\Controllers\NavController;
 use App\Http\Controllers\AnuladosController;
 use App\Http\Controllers\AnexosController;
+use App\Http\Controllers\TipoPagoController;
+use App\Http\Controllers\TipoPagoProductoSociedadController;
 
 
 
@@ -118,6 +120,8 @@ Route::apiResource('campos-anexo', CampoAnexoController::class);
 
 Route::get('campos-anexo/tipo-anexo/{id_tipo_anexo}', [CampoAnexoController::class, 'getCamposPorTipoAnexo']);
 
+
+
 // Todas las tarifas por sociedad
 Route::get('tarifas/sociedad/{id_sociedad}', [TarifaProductoController::class, 'getTarifaPorSociedad']);
 // Tarifa por tipoProducto y Sociedad
@@ -133,6 +137,13 @@ Route::apiResource('tarifas-anexo', TarifaAnexoController::class);
 
 Route::post('tarifa-anexo/sociedad', [TarifaAnexoController::class, 'store']);
 Route::get('tarifa-anexo/sociedad/{id_sociedad}/tipo-anexo/{id_tipo_anexo}', [TarifaAnexoController::class, 'getTarifaPorSociedadAndTipoAnexo']);
+
+// TIPOS PAGO:
+Route::get('tipos-pago/all', [TipoPagoController::class, 'index']);
+Route::post('tipo_pago_producto_sociedad', [TipoPagoProductoSociedadController::class, 'store']);
+Route::get('tipo_pago_producto_sociedad/sociedad/{id_sociedad}', [TipoPagoProductoSociedadController::class, 'getTiposPagoPorSociedad']);
+Route::get('/tipo_pago_producto_sociedad/sociedad/{sociedad_id}/tipo-producto/{tipo_producto_id}', [TipoPagoProductoSociedadController::class, 'getTiposPagoPorSociedadYTipoProducto']);
+Route::post('sociedad/{sociedad_padre_id}/hija/{sociedad_hija_id}/tipos-pago', [TipoPagoProductoSociedadController::class, 'transferirTiposPago']);
 
 
 Route::apiResource('escalado-anexos', EscaladoAnexoController::class);
