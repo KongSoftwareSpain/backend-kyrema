@@ -96,6 +96,8 @@ Route::apiResource('comercial-comisiones', ComercialComisionController::class);
 // ANEXOS:
 Route::get('/anexos/sociedad/{id_sociedad}', [AnexosController::class, 'getAnexosPorSociedad']);
 
+Route::get('/anexos/{id}', [AnexosController::class, 'show']);
+
 Route::get('anexos/{id_tipo_producto}/producto/{id_producto}', [AnexosController::class, 'getAnexosPorProducto']);
 // Conectar anexo con producto:
 Route::post('/anexos/{id_producto}', [AnexosController::class, 'conectarAnexosConProducto']);

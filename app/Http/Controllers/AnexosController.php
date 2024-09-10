@@ -89,6 +89,7 @@ class AnexosController extends Controller
             // Agregar campos adicionales
             $table->unsignedBigInteger('producto_id')->nullable();
             $table->string('plantilla_path')->nullable();
+            $table->string('duracion')->nullable();
 
             foreach ($campos as $campo) {
                 $nombreCampo = strtolower(str_replace(' ', '_', $campo['nombre']));
@@ -142,6 +143,22 @@ class AnexosController extends Controller
         ], 200);
     }
 
+    private function insertDuracionEnCampos($duracion, $tipoProductoId){
+        DB::table('campos')->insert([
+            'nombre' => 'Duración',
+            'nombre_codigo' => 'duracion',
+            'tipo_producto_id' => $tipoProductoId,
+            'columna' => $duracion['columna'] ?? null,
+            'fila' => $duracion['fila'] ?? null,
+            'tipo_dato' => $duracion['tipo_dato'],
+            'visible' => $duracion['visible'] ?? false,
+            'obligatorio' => $duracion['obligatorio'] ?? false,
+            'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
+            'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
+            'grupo' => $duracion['grupo'] ?? null,
+        ]);
+    }
+
     public function getAnexosPorProducto($id_tipo_producto , $id_producto){ 
         // IMPORTANTE PUEDE HABER MÁS DE UN TIPO ANEXO POR TIPO PRODUCTO
         // Necesito coger todos las letras_identificacion e ids de TiposAnexos que tengan id_tipo_producto = $id_tipo_producto
@@ -181,6 +198,10 @@ class AnexosController extends Controller
         return response()->json($anexos);
     }
 
+    public function show(string $id){
+        $tipoAnexo = TiposAnexos::findOrFail($id);
+        return response()->json($tipoAnexo);
+    }
 
 
     public function getAnexosPorSociedad($id_sociedad){
