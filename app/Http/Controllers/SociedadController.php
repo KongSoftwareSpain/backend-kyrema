@@ -96,7 +96,7 @@ class SociedadController extends Controller
             'direccion' => 'nullable|string|max:255',
             'poblacion' => 'nullable|string|max:255',
             'pais' => 'nullable|string|max:255',
-            'codigo_postal' => 'nullable|numeric|max:10',
+            'codigo_postal' => 'nullable|numeric',
             'codigo_sociedad' => 'nullable|string|max:255',
             'telefono' => 'nullable|string|max:20',
             'fax' => 'nullable|string|max:20',

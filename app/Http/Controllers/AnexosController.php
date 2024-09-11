@@ -70,14 +70,55 @@ class AnexosController extends Controller
             'letras_identificacion' => 'required|string',
             'campos' => 'required|array',
             'campos.*.nombre' => 'required|string',
-            'campos.*.tipoDato' => 'required|string|in:text,number,date,decimal',
+            'campos.*.tipo_dato' => 'required|string|in:text,number,date,decimal',
             'tipoProductoAsociado' => 'required|integer|exists:tipo_producto,id',
+            'duracion' => 'nullable|array',
         ]);
 
         $nombre = $request->input('nombre');
         $letrasIdentificacion = $request->input('letras_identificacion');
         $campos = $request->input('campos');
         $tipoProductoAsociado = $request->input('tipoProductoAsociado');
+        $duracion = $request->input('duracion')[0];
+
+        // Gestión de la duración del tipo de producto
+        $tipoDuracion = $duracion['tipo_dato'];
+        $valorDuracion = null;
+
+        // Array asociativo para relacionar tipos de duración con días
+        $diasRelacionados = [
+            'anual' => 365,   // Ejemplo: 365 días
+            'mensual' => 30,  // Ejemplo: 30 días
+            'diario' => 1,    // Ejemplo: 1 día
+        ];
+
+        if (array_key_exists($tipoDuracion, $diasRelacionados)) {
+            // Asignar el valor de duración basado en el array asociativo
+            $valorDuracion = $diasRelacionados[$tipoDuracion];
+        } elseif ($tipoDuracion == 'dias_delimitados') {
+            // Si el tipo de duración es 'dias_delimitados', coger la primera opción disponible
+            $valorDuracion = $duracion['opciones'][0]['nombre'] ?? null;
+        } elseif ($tipoDuracion == 'selector_dias') {
+            // Add your code here for 'selector_dias' duration type
+            $valorDuracion = Config::get('app.prefijo_duracion') . $letrasIdentificacion;
+            $valorDuracion = strtolower($valorDuracion);
+            Schema::create($valorDuracion, function (Blueprint $table) {
+                $table->id();
+                $table->string('duracion');
+                $table->decimal('precio', 8, 2)->nullable();
+                $table->timestamps();
+            });
+            if (!empty($duracion['opciones'])) {
+                foreach ($duracion['opciones'] as $opcion) {
+                    DB::table($valorDuracion)->insert([
+                        'duracion' => $opcion['nombre'],
+                        'precio' => $opcion['precio'] ?? null,
+                        'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
+                        'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
+                    ]);
+                }
+            }
+        }
 
         // Definir el nombre de la nueva tabla usando las letras de identificación
         $nombreTabla = strtolower($letrasIdentificacion);
@@ -93,7 +134,7 @@ class AnexosController extends Controller
 
             foreach ($campos as $campo) {
                 $nombreCampo = strtolower(str_replace(' ', '_', $campo['nombre']));
-                switch ($campo['tipoDato']) {
+                switch ($campo['tipo_dato']) {
                     case 'text':
                         $table->string($nombreCampo)->nullable();
                         break;
@@ -116,6 +157,8 @@ class AnexosController extends Controller
             'nombre' => $nombre,
             'letras_identificacion' => $letrasIdentificacion,
             'id_tipo_producto' => $tipoProductoAsociado,
+            'duracion' => $valorDuracion,
+            'tipo_duracion' => $tipoDuracion,
             'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
             'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
         ]);
@@ -129,12 +172,15 @@ class AnexosController extends Controller
                 'tipo_anexo' => $tipoAnexoId,
                 'columna' => $campo['columna'] ?? null,
                 'fila' => $campo['fila'] ?? null,
-                'tipo_dato' => $campo['tipoDato'],
+                'tipo_dato' => $campo['tipo_dato'],
                 'obligatorio' => $campo['obligatorio'] ?? false,
                 'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
                 'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
+                'grupo' => $campo['grupo'] ?? null,
             ]);
         }
+
+        self::insertDuracionEnCampos($duracion, $tipoAnexoId);
 
         return response()->json([
             'message' => 'Anexo creado con éxito',
@@ -144,14 +190,13 @@ class AnexosController extends Controller
     }
 
     private function insertDuracionEnCampos($duracion, $tipoProductoId){
-        DB::table('campos')->insert([
+        DB::table('campos_anexos')->insert([
             'nombre' => 'Duración',
             'nombre_codigo' => 'duracion',
-            'tipo_producto_id' => $tipoProductoId,
+            'tipo_anexo' => $tipoProductoId,
             'columna' => $duracion['columna'] ?? null,
             'fila' => $duracion['fila'] ?? null,
             'tipo_dato' => $duracion['tipo_dato'],
-            'visible' => $duracion['visible'] ?? false,
             'obligatorio' => $duracion['obligatorio'] ?? false,
             'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
             'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
