@@ -33,16 +33,34 @@ class ExportController extends Controller
                 return response()->json(['error' => 'Tipo de producto no encontrado'], 404);
             }
 
-            // Obtener la ruta de la plantilla
-            $plantillaPath = storage_path('app/public/' . $valores->plantilla_path);
-            
-            if (!file_exists($plantillaPath)) {
-                return response()->json(['error' => 'Plantilla no encontrada'. $plantillaPath], 404);
-            }
+           // Obtener la ruta de la plantilla
+           $plantillaPath = storage_path('app/public/' . $valores->plantilla_path);
 
-            // Cargar el archivo Excel
-            $spreadsheet = IOFactory::load($plantillaPath);
-            $sheet = $spreadsheet->getActiveSheet();
+           if (!file_exists($plantillaPath)) {
+               return response()->json(['error' => 'Plantilla no encontrada'. $plantillaPath], 404);
+           }
+
+           // Obtener la ruta del logo
+            //    $logoPath = storage_path('app/public/' . 'img/Logo_CANAMA__003.png');
+            
+            //    if (!file_exists($logoPath)) {
+            //        // $logoPath = storage_path('app/public/' . 'img/Logo_CANAMA__003.png');
+            //        return response()->json(['error' => 'Logo no encontrado'], 404);
+            //    }
+
+           // Cargar el archivo Excel
+           $spreadsheet = IOFactory::load($plantillaPath);
+           $sheet = $spreadsheet->getActiveSheet();
+
+            // Insertar el logo en la celda A1
+            // Crear una nueva instancia de Drawing
+            //    $drawing = new Drawing();
+            //    $drawing->setName('Logo');
+            //    $drawing->setDescription('Logo de la empresa');
+            //    $drawing->setPath($logoPath); // Ruta de la imagen
+            //    $drawing->setHeight(90); // Altura de la imagen (puedes ajustarlo según sea necesario)
+            //    $drawing->setCoordinates('A1'); // Celda en la que deseas insertar la imagen
+            //    $drawing->setWorksheet($sheet); // Asignar la hoja donde se insertará la imagen
 
             // Obtener los campos del tipo de producto con columna y fila no nulos
             $campos = DB::table('campos')
