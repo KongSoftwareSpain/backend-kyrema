@@ -354,7 +354,7 @@ class ProductoController extends Controller
 
         // Obtener el último código de producto generado
         $tableDatePrefix = Carbon::now()->format('mY');
-        $lastProduct = DB::table('producto_psub')
+        $lastProduct = DB::table($nombreTabla)
             ->orderBy('id', 'desc')
             ->first();
 
