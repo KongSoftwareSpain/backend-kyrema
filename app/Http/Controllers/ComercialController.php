@@ -22,8 +22,9 @@ class ComercialController extends Controller
             'id_sociedad' => 'required|numeric|exists:sociedad,id',
             'usuario' => 'required|string|max:255',
             'email' => 'required|string|email|max:255',
+            'responsable' => 'nullable|boolean',
             'contraseña' => 'required|string|max:255',
-            'dni' => 'required|string|max:255',
+            'dni' => 'nullable|string|max:255',
             'sexo' => 'nullable|string|max:10',
             'fecha_nacimiento' => 'required|date',
             'fecha_alta' => 'nullable|date',
@@ -85,8 +86,9 @@ class ComercialController extends Controller
             'id_sociedad' => 'required|numeric|exists:sociedad,id',
             'usuario' => 'required|string|max:255',
             'email' => 'required|string|email|max:255',
+            'responsable' => 'nullable|boolean',
             'contraseña' => 'required|string|max:255',
-            'dni' => 'required|string|max:255',
+            'dni' => 'nullable|string|max:255',
             'sexo' => 'nullable|string|max:10',
             'fecha_nacimiento' => 'required|date',
             'fecha_alta' => 'nullable|date',
@@ -110,7 +112,7 @@ class ComercialController extends Controller
         }
         if ($request->fecha_alta) {
             $request->fecha_alta = date('Y-m-d\TH:i:s', strtotime($request->fecha_alta));
-        }
+        }   
         
 
         $comercial = Comercial::findOrFail($id);

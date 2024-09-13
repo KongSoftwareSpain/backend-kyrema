@@ -126,13 +126,13 @@ class NavController extends Controller
         $sociedadPadreId = $sociedad->sociedad_padre_id;
 
         // Condición para eliminar la parte de gestión solo si ambas condiciones se cumplen
-        if ($id_sociedad != self::SOCIEDAD_ADMIN_ID && $sociedadPadreId != self::SOCIEDAD_ADMIN_ID) {
-            //Cambiar el navegacion[2] por el 1 y quitar el 2:
-            if (isset($navegacion[2])) {
-                $navegacion[1] = $navegacion[2];
-                unset($navegacion[2]);
-            }
-        }
+        // if ($id_sociedad != self::SOCIEDAD_ADMIN_ID && $sociedadPadreId != self::SOCIEDAD_ADMIN_ID) {
+        //     //Cambiar el navegacion[2] por el 1 y quitar el 2:
+        //     if (isset($navegacion[2])) {
+        //         $navegacion[1] = $navegacion[2];
+        //         unset($navegacion[2]);
+        //     }
+        // }
 
         // Condición para filtrar las opciones en el array de navegación
         if ($sociedadPadreId == self::SOCIEDAD_ADMIN_ID && isset($navegacion[2])) {

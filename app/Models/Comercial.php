@@ -22,6 +22,7 @@ class Comercial extends Authenticatable implements JWTSubject
         'id_sociedad',
         'usuario',
         'email',
+        'responsable',
         'contraseña',
         'dni',
         'sexo',

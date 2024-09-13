@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\TipoPagoProductoSociedad;
 use App\Models\TipoProductoSociedad;
 use App\Models\TipoPago;
+use Illuminate\Support\Facades\DB;
 
 class TipoPagoProductoSociedadController extends Controller
 {
@@ -24,7 +25,7 @@ class TipoPagoProductoSociedadController extends Controller
         // Insertar los nuevos registros
         $data = $request->tipo_pago_producto_sociedades;
         foreach ($data as $item) {
-            TipoPagoProductoSociedad::create([
+            DB::table('tipo_pago_producto_sociedad')->insert([
                 'tipo_pago_id' => $item['tipo_pago_id'],
                 'tipo_producto_id' => $item['tipo_producto_id'],
                 'sociedad_id' => $request->sociedad_id,
@@ -49,7 +50,7 @@ class TipoPagoProductoSociedadController extends Controller
         // Recorrer los tipos de pago por producto de la sociedad padre:
         foreach ($tiposPagoProductoSociedad as $tipoPagoProductoSociedad) {
             // Crear un nuevo registro en la tabla 'tipo_pago_producto_sociedad' con la sociedad hija:
-            TipoPagoProductoSociedad::create([
+            DB::table('tipo_pago_producto_sociedad')->insert([
                 'tipo_pago_id' => $tipoPagoProductoSociedad->tipo_pago_id,
                 'tipo_producto_id' => $tipoPagoProductoSociedad->tipo_producto_id,
                 'sociedad_id' => $sociedad_hija_id,

@@ -30,6 +30,7 @@ use App\Http\Controllers\TipoPagoProductoSociedadController;
 // Route::get('/productos/{letras_identificativas}', [ProductoController::class, 'getProductosPorTipo']);
 
 Route::get('/productos/{letrasIdentificacion}', [ProductoController::class, 'getProductosByTipoAndSociedades']);
+Route::get('/productos/{letrasIdentificacion}/comercial/{comercial_id}', [ProductoController::class, 'getProductosByTipoAndComercial']);
 
 // ANULADOS
 Route::get('anulados/{letrasIdentificacion}', [AnuladosController::class, 'getAnulados']);
@@ -74,6 +75,7 @@ Route::get('sociedad/{id}', [SociedadController::class, 'show']);
 Route::get('sociedad/hijas/{id}', [SociedadController::class, 'getSociedadesHijas']);
 Route::post('sociedad', [SociedadController::class, 'store']);
 Route::delete('sociedad/{id}', [SociedadController::class, 'destroy']);
+Route::put('sociedad/{id}', [SociedadController::class, 'update']);
 Route::put('sociedad/{id}/permisos', [SociedadController::class, 'updatePermisos']);
 Route::get('sociedades/padres', [SociedadController::class, 'getSociedadesPadres']);
 

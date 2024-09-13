@@ -300,6 +300,24 @@ class ProductoController extends Controller
         return response()->json($productos);
     }
 
+    public function getProductosByTipoAndComercial($letrasIdentificacion, $comercial_id){
+        
+        // Convertir letras de identificación a nombre de tabla
+        $nombreTabla = strtolower($letrasIdentificacion);
+        
+        // Obtener la fecha y hora actual
+        $fechaActual = now();
+        
+        // Realizar consulta dinámica usando el nombre de la tabla
+        $productos = DB::table($nombreTabla)
+            ->where('comercial_id', $comercial_id)
+            ->where('fecha_de_fin', '>', $fechaActual) // Filtrar productos con fecha_de_fin mayor que la fecha actual
+            ->orderBy('updated_at', 'desc') // Ordenar por fecha de actualización de forma descendente
+            ->get();
+        
+        return response()->json($productos);
+    }
+
 
     public function crearProducto($letrasIdentificacion, Request $request)
     {
