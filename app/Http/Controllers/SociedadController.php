@@ -104,7 +104,7 @@ class SociedadController extends Controller
             return $existeRelacion;
         });
 
-        return response()->json($sociedadesFiltradas);
+        return response()->json($sociedadesFiltradas->toArray());
     }
 
 

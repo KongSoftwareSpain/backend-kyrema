@@ -68,6 +68,8 @@ class ProductsSeeder extends Seeder
                 'provincia' => $faker->state,
                 'codigo_postal' => $faker->numerify('#####'),
                 'fecha_de_nacimiento' => $fechaDeNacimiento,
+
+                
                 'dni_acompañante' => $faker->unique()->numerify('########') . strtoupper($faker->randomLetter),
                 'acompañante' => $faker->firstName . ' ' . $faker->lastName,
                 'cazador' => $faker->boolean,
