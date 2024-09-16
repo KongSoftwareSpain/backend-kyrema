@@ -22,8 +22,8 @@ class ProductsSeeder extends Seeder
             $fechaDeEmision = $faker->dateTimeBetween('-30 years', 'now')->format('Y-m-d');
             $fechaDeInicio = $faker->dateTimeBetween('-1 year', 'now')->format('Y-m-d');
             $fechaDeFin = $faker->dateTimeBetween('now', '+1 year')->format('Y-m-d');
-            $createdAt = Carbon::now()->toDateTimeString();
-            $updatedAt = Carbon::now()->toDateTimeString();
+            $createdAt = Carbon::now()->format('Y-m-d');
+            $updatedAt = Carbon::now()->format('Y-m-d');
             
             // Obtener el último código de producto generado
             $lastProduct = DB::table($tableName)

@@ -185,6 +185,9 @@ class ProductoController extends Controller
                 $table->unsignedBigInteger('comercial_id')->nullable();
                 $table->string('plantilla_path')->nullable();
                 $table->string('duracion')->nullable();
+
+                // Campo para saber si que comercial crea el producto en nombre de otro
+                $table->unsignedBigInteger('comercial_creador_id')->nullable();
                 
                 // Booleano de si está anulado o no
                 $table->boolean('anulado')->default(false);
