@@ -21,7 +21,7 @@ class ComercialController extends Controller
             'nombre' => 'required|string|max:255',
             'id_sociedad' => 'required|numeric|exists:sociedad,id',
             'usuario' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255',
+            'email' => 'required|string|max:255',
             'responsable' => 'nullable|boolean',
             'contraseña' => 'required|string|max:255',
             'dni' => 'nullable|string|max:255',
@@ -59,6 +59,7 @@ class ComercialController extends Controller
     
         // Hashear la contraseña
         $data['contraseña'] = Hash::make($request->contraseña);
+        $data['dni'] == null ? $data['dni'] = '' : $data['dni']; 
     
         // Crear el comercial usando los datos modificados
         $comercial = Comercial::create($data);
@@ -85,7 +86,7 @@ class ComercialController extends Controller
             'nombre' => 'required|string|max:255',
             'id_sociedad' => 'required|numeric|exists:sociedad,id',
             'usuario' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255',
+            'email' => 'required|string|max:255',
             'responsable' => 'nullable|boolean',
             'contraseña' => 'required|string|max:255',
             'dni' => 'nullable|string|max:255',

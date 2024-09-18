@@ -101,28 +101,29 @@ class ExportController extends Controller
             // Convertir el archivo Excel a PDF usando mPDF
             try{
                 IOFactory::registerWriter('Pdf', PdfMpdf::class);
+            
+                $pdfWriter = IOFactory::createWriter($spreadsheet, 'Pdf');
+                
+                // Guardar el archivo PDF temporalmente
+                $tempPdfPath = storage_path('app/public/temp/plantilla_' . time() . '.pdf');
+                $pdfWriter->save($tempPdfPath);
+
+                // Devolver el archivo PDF como respuesta HTTP con el tipo de contenido adecuado
+                $fileContent = file_get_contents($tempPdfPath);
+                $response = response($fileContent, 200)->header('Content-Type', 'application/pdf');
+
+                // Eliminar los archivos temporales
+                unlink($tempExcelPath);
+                unlink($tempPdfPath);
+
             } catch (\PhpOffice\PhpSpreadsheet\Writer\Exception $e) {
                 // Limpieza del directorio temporal
-                $tempDir = sys_get_temp_dir() . '/mpdf/ttfontdata/';
+                $tempDir = sys_get_temp_dir() . '/phpsppdf/mpdf/ttfontdata/';
                 if (is_dir($tempDir)) {
                     array_map('unlink', glob("$tempDir/*"));
                 }
                 return response()->json(['error' => 'El servicio de generación de PDF está temporalmente fuera de servicio. Vuelve a intentarlo más tarde'], 503);
             }
-            
-            $pdfWriter = IOFactory::createWriter($spreadsheet, 'Pdf');
-            
-            // Guardar el archivo PDF temporalmente
-            $tempPdfPath = storage_path('app/public/temp/plantilla_' . time() . '.pdf');
-            $pdfWriter->save($tempPdfPath);
-
-            // Devolver el archivo PDF como respuesta HTTP con el tipo de contenido adecuado
-            $fileContent = file_get_contents($tempPdfPath);
-            $response = response($fileContent, 200)->header('Content-Type', 'application/pdf');
-
-            // Eliminar los archivos temporales
-            unlink($tempExcelPath);
-            unlink($tempPdfPath);
 
             return $response;
 

@@ -116,7 +116,7 @@ class NavController extends Controller
         $navegacion[2]["children"] = $tiposProducto->map(function($tipoProducto){
             return [
                 "label" => $tipoProducto->nombre,
-                "link" => "/operaciones/" . $tipoProducto->letras_identificacion
+                "link" => "/operaciones/" . strtolower($tipoProducto->letras_identificacion)
             ];
         })->toArray();
         // La parte de gestion solo si el id es el mismo que la sociedad admin, despues coger tipos producto y en Administracion coger los nombres

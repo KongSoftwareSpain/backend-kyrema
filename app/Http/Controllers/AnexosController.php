@@ -31,21 +31,28 @@ class AnexosController extends Controller
         foreach ($anexos as $anexo) {
             $tipoAnexo = $anexo['tipo_anexo']; // Tipo de anexo
             $letrasIdentificacion = strtolower($tipoAnexo['letras_identificacion']); // Nombre de la tabla
+            $duracion = $tipoAnexo['duracion']; // Duración del anexo
+            $plantillaPath = $tipoAnexo['plantilla_path']; // Ruta de la plantilla
             $anexoId = $anexo['id']; // ID del anexo (si existe)
             $formato = $anexo['formato']; // Campos dinámicos del anexo
 
             // Verificar que la tabla existe
             if (Schema::hasTable($letrasIdentificacion)) {
                 // Construir los datos a insertar/actualizar, agregando siempre el id_producto y las marcas de tiempo
+
                 $data = [
                     'producto_id' => $id_producto,
-                    'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
+                    'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s')
                 ];
 
+                
                 // Agregar los campos dinámicos del formato
                 foreach ($formato as $key => $value) {
                     $data[$key] = $value;
                 }
+
+                // Agregar la plantilla que tenga asignado el tipo de anexo
+                $data['plantilla_path'] = $plantillaPath;
 
                 if ($anexoId) {
                     // Si el anexo tiene un ID, se actualiza el registro existente
@@ -54,6 +61,20 @@ class AnexosController extends Controller
                     // Si no tiene ID, se crea un nuevo registro
                     // Se añade el dato de created_at a data:
                     $data['created_at'] = Carbon::now()->format('Y-m-d\TH:i:s');
+
+                    if($tipoAnexo['tipo_duracion'] != 'fecha_dependiente'){
+                        // Se añade la duracion a la fecha de inicio y se inserta en la fecha_de_fin
+                        $data['fecha_de_fin'] = Carbon::parse($formato['fecha_de_inicio'])
+                            ->addDays(intval($duracion)) // Convertir la duración a un entero
+                            ->format('Y-m-d\TH:i:s');
+                        $data['duracion'] = $duracion;    
+                    } else {
+                        // Si la fecha es dependiente, la duracion son los dias entre fecha de inicio y fecha de fin
+                        $data['duracion'] = Carbon::parse($formato['fecha_de_fin'])
+                            ->diffInDays(Carbon::parse($formato['fecha_de_inicio']));
+                    }
+                    $data['fecha_de_emisión'] = Carbon::now()->format('Y-m-d\TH:i:s');
+                    
                     DB::table($letrasIdentificacion)->insert($data);
                 }
             } else {
@@ -131,6 +152,8 @@ class AnexosController extends Controller
             $table->unsignedBigInteger('producto_id')->nullable();
             $table->string('plantilla_path')->nullable();
             $table->string('duracion')->nullable();
+            // Booleano de si está anulado o no
+            $table->boolean('anulado')->default(false);
 
             foreach ($campos as $campo) {
                 $nombreCampo = strtolower(str_replace(' ', '_', $campo['nombre']));
