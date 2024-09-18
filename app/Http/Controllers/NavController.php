@@ -16,7 +16,7 @@ class NavController extends Controller
         $tipoProductoIds = TipoProductoSociedad::where('id_sociedad', $id_sociedad)->pluck('id_tipo_producto');
 
         // Coger los tipos de producto basados en los IDs obtenidos
-        $tiposProducto = TipoProducto::whereIn('id', $tipoProductoIds)->get();
+        $tiposProducto = TipoProducto::whereIn('id', $tipoProductoIds)->whereNull('padre_id')->get();
 
         //Devolver la navegación con el siguiente formato:
         
@@ -116,7 +116,7 @@ class NavController extends Controller
         $navegacion[2]["children"] = $tiposProducto->map(function($tipoProducto){
             return [
                 "label" => $tipoProducto->nombre,
-                "link" => "/operaciones/" . $tipoProducto->letras_identificacion
+                "link" => "/operaciones/" . strtolower($tipoProducto->letras_identificacion)
             ];
         })->toArray();
         // La parte de gestion solo si el id es el mismo que la sociedad admin, despues coger tipos producto y en Administracion coger los nombres
@@ -126,13 +126,13 @@ class NavController extends Controller
         $sociedadPadreId = $sociedad->sociedad_padre_id;
 
         // Condición para eliminar la parte de gestión solo si ambas condiciones se cumplen
-        if ($id_sociedad != self::SOCIEDAD_ADMIN_ID && $sociedadPadreId != self::SOCIEDAD_ADMIN_ID) {
-            //Cambiar el navegacion[2] por el 1 y quitar el 2:
-            if (isset($navegacion[2])) {
-                $navegacion[1] = $navegacion[2];
-                unset($navegacion[2]);
-            }
-        }
+        // if ($id_sociedad != self::SOCIEDAD_ADMIN_ID && $sociedadPadreId != self::SOCIEDAD_ADMIN_ID) {
+        //     //Cambiar el navegacion[2] por el 1 y quitar el 2:
+        //     if (isset($navegacion[2])) {
+        //         $navegacion[1] = $navegacion[2];
+        //         unset($navegacion[2]);
+        //     }
+        // }
 
         // Condición para filtrar las opciones en el array de navegación
         if ($sociedadPadreId == self::SOCIEDAD_ADMIN_ID && isset($navegacion[2])) {

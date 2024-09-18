@@ -33,16 +33,34 @@ class ExportController extends Controller
                 return response()->json(['error' => 'Tipo de producto no encontrado'], 404);
             }
 
-            // Obtener la ruta de la plantilla
-            $plantillaPath = storage_path('app/public/' . $valores->plantilla_path);
-            
-            if (!file_exists($plantillaPath)) {
-                return response()->json(['error' => 'Plantilla no encontrada'. $plantillaPath], 404);
-            }
+           // Obtener la ruta de la plantilla
+           $plantillaPath = storage_path('app/public/' . $valores->plantilla_path);
 
-            // Cargar el archivo Excel
-            $spreadsheet = IOFactory::load($plantillaPath);
-            $sheet = $spreadsheet->getActiveSheet();
+           if (!file_exists($plantillaPath)) {
+               return response()->json(['error' => 'Plantilla no encontrada'. $plantillaPath], 404);
+           }
+
+           // Obtener la ruta del logo
+            //    $logoPath = storage_path('app/public/' . 'img/Logo_CANAMA__003.png');
+            
+            //    if (!file_exists($logoPath)) {
+            //        // $logoPath = storage_path('app/public/' . 'img/Logo_CANAMA__003.png');
+            //        return response()->json(['error' => 'Logo no encontrado'], 404);
+            //    }
+
+           // Cargar el archivo Excel
+           $spreadsheet = IOFactory::load($plantillaPath);
+           $sheet = $spreadsheet->getActiveSheet();
+
+            // Insertar el logo en la celda A1
+            // Crear una nueva instancia de Drawing
+            //    $drawing = new Drawing();
+            //    $drawing->setName('Logo');
+            //    $drawing->setDescription('Logo de la empresa');
+            //    $drawing->setPath($logoPath); // Ruta de la imagen
+            //    $drawing->setHeight(90); // Altura de la imagen (puedes ajustarlo según sea necesario)
+            //    $drawing->setCoordinates('A1'); // Celda en la que deseas insertar la imagen
+            //    $drawing->setWorksheet($sheet); // Asignar la hoja donde se insertará la imagen
 
             // Obtener los campos del tipo de producto con columna y fila no nulos
             $campos = DB::table('campos')
@@ -79,22 +97,33 @@ class ExportController extends Controller
             $tempExcelPath = storage_path('app/public/temp/plantilla_' . time() . '.xlsx');
             $writer = new Xlsx($spreadsheet);
             $writer->save($tempExcelPath);
-
-            // Convertir el archivo Excel a PDF usando mPDF
-            IOFactory::registerWriter('Pdf', PdfMpdf::class);
-            $pdfWriter = IOFactory::createWriter($spreadsheet, 'Pdf');
             
-            // Guardar el archivo PDF temporalmente
-            $tempPdfPath = storage_path('app/public/temp/plantilla_' . time() . '.pdf');
-            $pdfWriter->save($tempPdfPath);
+            // Convertir el archivo Excel a PDF usando mPDF
+            try{
+                IOFactory::registerWriter('Pdf', PdfMpdf::class);
+            
+                $pdfWriter = IOFactory::createWriter($spreadsheet, 'Pdf');
+                
+                // Guardar el archivo PDF temporalmente
+                $tempPdfPath = storage_path('app/public/temp/plantilla_' . time() . '.pdf');
+                $pdfWriter->save($tempPdfPath);
 
-            // Devolver el archivo PDF como respuesta HTTP con el tipo de contenido adecuado
-            $fileContent = file_get_contents($tempPdfPath);
-            $response = response($fileContent, 200)->header('Content-Type', 'application/pdf');
+                // Devolver el archivo PDF como respuesta HTTP con el tipo de contenido adecuado
+                $fileContent = file_get_contents($tempPdfPath);
+                $response = response($fileContent, 200)->header('Content-Type', 'application/pdf');
 
-            // Eliminar los archivos temporales
-            unlink($tempExcelPath);
-            unlink($tempPdfPath);
+                // Eliminar los archivos temporales
+                unlink($tempExcelPath);
+                unlink($tempPdfPath);
+
+            } catch (\PhpOffice\PhpSpreadsheet\Writer\Exception $e) {
+                // Limpieza del directorio temporal
+                $tempDir = sys_get_temp_dir() . '/phpsppdf/mpdf/ttfontdata/';
+                if (is_dir($tempDir)) {
+                    array_map('unlink', glob("$tempDir/*"));
+                }
+                return response()->json(['error' => 'El servicio de generación de PDF está temporalmente fuera de servicio. Vuelve a intentarlo más tarde'], 503);
+            }
 
             return $response;
 

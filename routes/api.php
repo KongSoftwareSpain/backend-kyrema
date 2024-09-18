@@ -22,12 +22,15 @@ use App\Http\Controllers\ExportController;
 use App\Http\Controllers\NavController;
 use App\Http\Controllers\AnuladosController;
 use App\Http\Controllers\AnexosController;
+use App\Http\Controllers\TipoPagoController;
+use App\Http\Controllers\TipoPagoProductoSociedadController;
 
 
 
 // Route::get('/productos/{letras_identificativas}', [ProductoController::class, 'getProductosPorTipo']);
 
 Route::get('/productos/{letrasIdentificacion}', [ProductoController::class, 'getProductosByTipoAndSociedades']);
+Route::get('/productos/{letrasIdentificacion}/comercial/{comercial_id}', [ProductoController::class, 'getProductosByTipoAndComercial']);
 
 // ANULADOS
 Route::get('anulados/{letrasIdentificacion}', [AnuladosController::class, 'getAnulados']);
@@ -61,17 +64,19 @@ Route::get('/opciones/{id_campo}', [CampoController::class, 'getOpcionesPorCampo
 Route::get('tipos-producto/sociedad/{id_sociedad}', [TipoProductoController::class, 'getTiposProductoPorSociedad']);
 Route::get('tipos-producto/all', [TipoProductoController::class, 'index']);
 Route::get('tipo-producto/{letras}', [TipoProductoController::class, 'getByLetras']);
-Route::get('tipo-producto/show/{ruta}', [TipoProductoController::class, 'show']);
+Route::get('tipo-producto/show/{id}', [TipoProductoController::class, 'show']);
 Route::put('tipo-producto/{id}', [TipoProductoController::class, 'update']);
 Route::put('tipo-producto/edit-nombre/{id}', [TipoProductoController::class, 'updateNombre']);
 Route::delete('tipo-producto/delete/{id}', [TipoProductoController::class, 'deleteTipoProducto']);
-Route::get('subproductos/padre/{id}', [TipoProductoController::class, 'getSubproductosPorPadre']);
+Route::get('subproductos/padre/{id}', [TipoProductoController::class, 'getSubproductosPorPadreId']);
 
 
 Route::get('sociedad/{id}', [SociedadController::class, 'show']);
 Route::get('sociedad/hijas/{id}', [SociedadController::class, 'getSociedadesHijas']);
+Route::get('sociedad/{sociedad_id}/hijas/tipo-producto/{letras_identificacion}', [SociedadController::class, 'getSociedadesHijasPorTipoProducto']);
 Route::post('sociedad', [SociedadController::class, 'store']);
 Route::delete('sociedad/{id}', [SociedadController::class, 'destroy']);
+Route::put('sociedad/{id}', [SociedadController::class, 'update']);
 Route::put('sociedad/{id}/permisos', [SociedadController::class, 'updatePermisos']);
 Route::get('sociedades/padres', [SociedadController::class, 'getSociedadesPadres']);
 
@@ -93,6 +98,8 @@ Route::apiResource('comercial-comisiones', ComercialComisionController::class);
 
 // ANEXOS:
 Route::get('/anexos/sociedad/{id_sociedad}', [AnexosController::class, 'getAnexosPorSociedad']);
+
+Route::get('/anexos/{id}', [AnexosController::class, 'show']);
 
 Route::get('anexos/{id_tipo_producto}/producto/{id_producto}', [AnexosController::class, 'getAnexosPorProducto']);
 // Conectar anexo con producto:
@@ -118,6 +125,8 @@ Route::apiResource('campos-anexo', CampoAnexoController::class);
 
 Route::get('campos-anexo/tipo-anexo/{id_tipo_anexo}', [CampoAnexoController::class, 'getCamposPorTipoAnexo']);
 
+
+
 // Todas las tarifas por sociedad
 Route::get('tarifas/sociedad/{id_sociedad}', [TarifaProductoController::class, 'getTarifaPorSociedad']);
 // Tarifa por tipoProducto y Sociedad
@@ -133,6 +142,13 @@ Route::apiResource('tarifas-anexo', TarifaAnexoController::class);
 
 Route::post('tarifa-anexo/sociedad', [TarifaAnexoController::class, 'store']);
 Route::get('tarifa-anexo/sociedad/{id_sociedad}/tipo-anexo/{id_tipo_anexo}', [TarifaAnexoController::class, 'getTarifaPorSociedadAndTipoAnexo']);
+
+// TIPOS PAGO:
+Route::get('tipos-pago/all', [TipoPagoController::class, 'index']);
+Route::post('tipo_pago_producto_sociedad', [TipoPagoProductoSociedadController::class, 'store']);
+Route::get('tipo_pago_producto_sociedad/sociedad/{id_sociedad}', [TipoPagoProductoSociedadController::class, 'getTiposPagoPorSociedad']);
+Route::get('/tipo_pago_producto_sociedad/sociedad/{sociedad_id}/tipo-producto/{tipo_producto_id}', [TipoPagoProductoSociedadController::class, 'getTiposPagoPorSociedadYTipoProducto']);
+Route::post('sociedad/{sociedad_padre_id}/hija/{sociedad_hija_id}/tipos-pago', [TipoPagoProductoSociedadController::class, 'transferirTiposPago']);
 
 
 Route::apiResource('escalado-anexos', EscaladoAnexoController::class);

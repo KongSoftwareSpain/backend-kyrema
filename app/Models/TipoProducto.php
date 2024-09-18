@@ -4,6 +4,8 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Models\TarifasProducto;
+use App\Models\Campos;
 
 class TipoProducto extends Model
 {
@@ -17,6 +19,16 @@ class TipoProducto extends Model
         'id',
         'nombre',
     ];
+
+    public function tarifas()
+    {
+        return $this->hasOne(TarifasProducto::class, 'tipo_producto_id');
+    }
+
+    public function campos()
+    {
+        return $this->hasMany(Campos::class, 'tipo_producto_id');
+    }
 
     public function sociedades()
     {

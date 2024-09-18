@@ -36,7 +36,7 @@ class SociedadController extends Controller
             'direccion' => 'nullable|string|max:255',
             'poblacion' => 'nullable|string|max:255',
             'pais' => 'nullable|string|max:255',
-            'codigo_postal' => 'nullable|string|max:10',
+            'codigo_postal' => 'nullable|numeric',
             'codigo_sociedad' => 'nullable|string|max:255',
             'telefono' => 'nullable|string|max:20',
             'fax' => 'nullable|string|max:20',
@@ -74,6 +74,40 @@ class SociedadController extends Controller
         return response()->json($sociedadesCompletas);
     }
 
+    public function getSociedadesHijasPorTipoProducto($sociedad_id, $letras_identificacion)
+    {
+        // Obtener la sociedad inicial
+        $sociedad = Sociedad::findOrFail($sociedad_id);
+
+        // Obtener las sociedades hijas
+        $sociedadesHijas = $sociedad->getSociedadesHijasRecursivo($sociedad_id);
+
+        // Combinar la sociedad principal con las sociedades hijas en una colección
+        $sociedadesCompletas = collect(array_merge([$sociedad], $sociedadesHijas));
+
+        // Obtener los tipos de producto basados en letras de identificación
+        $tipoProducto = DB::table('tipo_producto')
+            ->where('letras_identificacion', $letras_identificacion)
+            ->get();
+
+        // Obtener los IDs de los tipos de producto
+        $tipoProductoId = $tipoProducto->pluck('id');
+
+        $sociedadesFiltradas = $sociedadesCompletas->filter(function($sociedad) use ($tipoProductoId) {
+            // Verifica si existe una relación entre la sociedad y el tipo de producto
+            $existeRelacion = DB::table('tipo_producto_sociedad')
+                ->where('id_tipo_producto', $tipoProductoId)
+                ->where('id_sociedad', $sociedad->id)
+                ->exists();
+        
+            // Retorna true si existe la relación, lo que mantendrá la sociedad
+            return $existeRelacion;
+        });
+
+        return response()->json($sociedadesFiltradas->toArray());
+    }
+
+
     public function show($id)
     {
         $sociedad = Sociedad::findOrFail($id);
@@ -96,7 +130,7 @@ class SociedadController extends Controller
             'direccion' => 'nullable|string|max:255',
             'poblacion' => 'nullable|string|max:255',
             'pais' => 'nullable|string|max:255',
-            'codigo_postal' => 'nullable|string|max:10',
+            'codigo_postal' => 'nullable|numeric',
             'codigo_sociedad' => 'nullable|string|max:255',
             'telefono' => 'nullable|string|max:20',
             'fax' => 'nullable|string|max:20',

@@ -25,9 +25,10 @@ class ProductoController extends Controller
         $request->validate([
             'nombreProducto' => 'required|string',
             'letrasIdentificacion' => 'required|string',
-            'campos' => 'required|array',
+            'padre_id' => 'nullable|integer',
+            'campos' => 'nullable|array',
             'campos.*.nombre' => 'required|string',
-            'campos.*.tipo_dato' => 'required|string|in:text,number,date,decimal',
+            'campos.*.tipo_dato' => 'required|string|in:text,number,date,decimal,selector',
             'camposConOpciones' => 'nullable|array',
             'camposConOpciones.*.nombre' => 'required|string',
             'camposConOpciones.*.opciones' => 'required|array',
@@ -35,11 +36,12 @@ class ProductoController extends Controller
             'camposConOpciones.*.opciones.*.precio' => 'nullable|string',
             'duracion' => 'required|array',
             'duracion.*.nombre' => 'required|string',
-            'duracion.*.tipo_dato' => 'required|string|in:anual,diario,dias_delimitados,selector_dias,fecha_exacta',
+            'duracion.*.tipo_dato' => 'required|string|in:anual,diario,dias_delimitados,selector_dias,fecha_exacta,heredada',
         ]);
 
         $nombreProducto = $request->input('nombreProducto');
         $letrasIdentificacion = $request->input('letrasIdentificacion');
+        $padre_id = $request->input('padre_id');
         $campos = $request->input('campos');
         $camposConOpciones = $request->input('camposConOpciones') ?? [];
         $duracion = $request->input('duracion')[0];
@@ -87,6 +89,7 @@ class ProductoController extends Controller
         $tipoProductoId = DB::table('tipo_producto')->insertGetId([
             'letras_identificacion' => $letrasIdentificacion,
             'nombre' => $nombreProducto,
+            'padre_id' => $padre_id,
             'tipo_duracion' => $tipoDuracion,
             'duracion' => $valorDuracion,
             'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
@@ -124,51 +127,102 @@ class ProductoController extends Controller
         // Definir el nombre de la nueva tabla usando las letras de identificación
         $nombreTabla = strtolower($letrasIdentificacion);
 
-        // Crear la tabla en la base de datos
-        Schema::create($nombreTabla, function (Blueprint $table) use ($campos, $camposConOpciones) {
-            $table->id();
+        if ($padre_id) {
+            // Obtén el nombre de la tabla del padre
+            $nombreTablaPadre = DB::table('tipo_producto')->where('id', $padre_id)->value('letras_identificacion');
+        
+            // Verifica si la tabla existe antes de modificarla
+            if (Schema::hasTable($nombreTablaPadre)) {
+                Schema::table($nombreTablaPadre, function (Blueprint $table) use ($campos, $camposConOpciones) {
+                    if(!Schema::hasColumn($table->getTable(), 'subproducto')){
+                        $table->string('duracion')->nullable();
+                    }
+                    if(!Schema::hasColumn($table->getTable(), 'subproducto_codigo')){
+                        $table->string('plantilla_path')->nullable();
+                    }
+                    // Añadir los campos dinámicos desde $campos
+                    foreach ($campos as $campo) {
+                        $nombreCampo = strtolower(str_replace(' ', '_', $campo['nombre']));
+                        if (!Schema::hasColumn($table->getTable(), $nombreCampo)) {
+                            switch ($campo['tipo_dato']) {
+                                case 'text':
+                                    $table->string($nombreCampo)->nullable();
+                                    break;
+                                case 'decimal':
+                                    $table->decimal($nombreCampo, 8, 2)->nullable();
+                                    break;
+                                case 'number':
+                                    $table->integer($nombreCampo)->nullable();
+                                    break;
+                                case 'date':
+                                    $table->date($nombreCampo)->nullable();
+                                    break;
+                                default:
+                                    $table->string($nombreCampo)->nullable();
+                                    break;
+                            }
+                        }
+                    }
+        
+                    // Añadir campos con opciones desde $camposConOpciones
+                    foreach ($camposConOpciones as $campoConOpciones) {
+                        $nombreCampo = strtolower(str_replace(' ', '_', $campoConOpciones['nombre']));
+                        if (!Schema::hasColumn($table->getTable(), $nombreCampo)) {
+                            $table->string($nombreCampo)->nullable();
+                        }
+                    }
+        
+                });
+            }
+        } else {
+            // Crear la tabla en la base de datos
+            Schema::create($nombreTabla, function (Blueprint $table) use ($campos, $camposConOpciones) {
+                $table->id();
 
-            // Agregar campos adicionales
-            $table->unsignedBigInteger('sociedad_id')->nullable();
-            $table->unsignedBigInteger('tipo_de_pago_id')->nullable();
-            $table->unsignedBigInteger('comercial_id')->nullable();
-            $table->string('plantilla_path')->nullable();
-            $table->string('duracion')->nullable();
+                // Agregar campos adicionales
+                $table->unsignedBigInteger('sociedad_id')->nullable();
+                $table->unsignedBigInteger('tipo_de_pago_id')->nullable();
+                $table->unsignedBigInteger('comercial_id')->nullable();
+                $table->string('plantilla_path')->nullable();
+                $table->string('duracion')->nullable();
 
-            
-            // Booleano de si está anulado o no
-            $table->boolean('anulado')->default(false);
-            
-            // Añadimos campos a la tabla
-            foreach ($campos as $campo) {
-                $nombreCampo = strtolower(str_replace(' ', '_', $campo['nombre']));
-                switch ($campo['tipo_dato']) {
-                    case 'text':
-                        $table->string($nombreCampo)->nullable();
-                        break;
-                    case 'decimal':
-                        $table->decimal($nombreCampo, 8, 2)->nullable();  // Cambié a decimal en lugar de string para manejar mejor los números decimales
-                        break;
-                    case 'number':
-                        $table->integer($nombreCampo)->nullable();
-                        break;
-                    case 'date':
-                        $table->date($nombreCampo)->nullable();
-                        break;
-                    default:
-                        $table->string($nombreCampo)->nullable();
-                        break;
+                // Campo para saber si que comercial crea el producto en nombre de otro
+                $table->unsignedBigInteger('comercial_creador_id')->nullable();
+                
+                // Booleano de si está anulado o no
+                $table->boolean('anulado')->default(false);
+                
+                // Añadimos campos a la tabla
+                foreach ($campos as $campo) {
+                    $nombreCampo = strtolower(str_replace(' ', '_', $campo['nombre']));
+                    switch ($campo['tipo_dato']) {
+                        case 'text':
+                            $table->string($nombreCampo)->nullable();
+                            break;
+                        case 'decimal':
+                            $table->decimal($nombreCampo, 8, 2)->nullable();  // Cambié a decimal en lugar de string para manejar mejor los números decimales
+                            break;
+                        case 'number':
+                            $table->integer($nombreCampo)->nullable();
+                            break;
+                        case 'date':
+                            $table->date($nombreCampo)->nullable();
+                            break;
+                        default:
+                            $table->string($nombreCampo)->nullable();
+                            break;
+                    }
                 }
-            }
 
-            // Añadimos campos con opciones a la tabla
-            foreach ($camposConOpciones as $campoConOpciones) {
-                $nombreCampo = strtolower(str_replace(' ', '_', $campoConOpciones['nombre']));
-                $table->string($nombreCampo)->nullable();
-            }
-            
-            $table->timestamps();
-        });
+                // Añadimos campos con opciones a la tabla
+                foreach ($camposConOpciones as $campoConOpciones) {
+                    $nombreCampo = strtolower(str_replace(' ', '_', $campoConOpciones['nombre']));
+                    $table->string($nombreCampo)->nullable();
+                }
+                
+                $table->timestamps();
+            });
+        }
         
 
         return response()->json([
@@ -234,16 +288,39 @@ class ProductoController extends Controller
         // Convertir letras de identificación a nombre de tabla
         $nombreTabla = strtolower($letrasIdentificacion);
         
+        // Obtener la fecha y hora actual
+        $fechaActual = now();
+        
         // Realizar consulta dinámica usando el nombre de la tabla
         $productos = DB::table($nombreTabla)
             ->when(count($sociedades) > 0, function ($query) use ($sociedades) {
                 $query->whereIn('sociedad_id', $sociedades);
             })
+            ->where('fecha_de_fin', '>', $fechaActual) // Filtrar productos con fecha_de_fin mayor que la fecha actual
             ->orderBy('updated_at', 'desc') // Ordenar por fecha de actualización de forma descendente
             ->get();
         
         return response()->json($productos);
     }
+
+    public function getProductosByTipoAndComercial($letrasIdentificacion, $comercial_id){
+        
+        // Convertir letras de identificación a nombre de tabla
+        $nombreTabla = strtolower($letrasIdentificacion);
+        
+        // Obtener la fecha y hora actual
+        $fechaActual = now();
+        
+        // Realizar consulta dinámica usando el nombre de la tabla
+        $productos = DB::table($nombreTabla)
+            ->where('comercial_id', $comercial_id)
+            ->where('fecha_de_fin', '>', $fechaActual) // Filtrar productos con fecha_de_fin mayor que la fecha actual
+            ->orderBy('updated_at', 'desc') // Ordenar por fecha de actualización de forma descendente
+            ->get();
+        
+        return response()->json($productos);
+    }
+
 
     public function crearProducto($letrasIdentificacion, Request $request)
     {
@@ -252,8 +329,19 @@ class ProductoController extends Controller
                         ->where('letras_identificacion', $letrasIdentificacion)
                         ->first();
 
+
         if (!$tipoProducto) {
             return response()->json(['error' => 'Tipo de producto no encontrado'], 404);
+        }
+
+        // Obtener la plantilla antes de gestionar el tipoProducto padre
+        $plantilla_path = $tipoProducto->plantilla_path ?? null;
+
+        // Si el tipoProducto tiene padre, coger el tipoProducto padre para meter los datos en la tabla correspondiente
+        if($tipoProducto->padre_id != null){
+            $tipoProducto = DB::table('tipo_producto')
+                        ->where('id', $tipoProducto->padre_id)
+                        ->first();
         }
 
         $tipoProductoId = $tipoProducto->id;
@@ -264,7 +352,7 @@ class ProductoController extends Controller
                                 ->get();
 
         // Convertir letras de identificación a nombre de tabla
-        $nombreTabla = strtolower($letrasIdentificacion);
+        $nombreTabla = strtolower($tipoProducto->letras_identificacion);
 
         // Validar los datos recibidos
         $request->validate([
@@ -275,7 +363,7 @@ class ProductoController extends Controller
         $datos = $request->input('nuevoProducto');
 
         //Añadir a los datos la plantilla_path que tenga el seguro en ese momento:
-        $datos['plantilla_path'] = $tipoProducto->plantilla_path;
+        $datos['plantilla_path'] = $plantilla_path;
 
         // Formatear los campos datetime al formato deseado
         foreach ($camposRelacionados as $campo) {
@@ -288,8 +376,7 @@ class ProductoController extends Controller
         // Obtener el último código de producto generado
         $tableDatePrefix = Carbon::now()->format('mY');
         $lastProduct = DB::table($nombreTabla)
-            ->where('codigo_producto', 'like', $tableDatePrefix . '%')
-            ->orderBy('codigo_producto', 'desc')
+            ->orderBy('id', 'desc')
             ->first();
 
         // Calcular el siguiente número secuencial
@@ -396,6 +483,5 @@ class ProductoController extends Controller
 
     }
 
-    
     
 }

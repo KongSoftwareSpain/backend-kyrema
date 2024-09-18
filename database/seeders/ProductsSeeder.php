@@ -4,53 +4,58 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
 use Faker\Factory as Faker;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class ProductsSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
     public function run()
     {
         $faker = Faker::create();
-        $tableName = 'SE';
-        $plantillaPath = 'plantillas/SE-plantilla.docx';
+        $tableName = 'producto_pss';
+        $plantillaPath = 'plantillas/PRODUCTO PSS.docx';
         $tableDatePrefix = Carbon::now()->format('mY');
-        
-        for ($i = 0; $i < 100; $i++) { // Cambiado a 1000 para más datos
+
+        for ($i = 0; $i < 1000; $i++) {
             $fechaDeNacimiento = $faker->dateTimeBetween('-80 years', '-18 years')->format('Y-m-d');
-            $pruebaFecha = $faker->dateTimeBetween('-30 years', 'now')->format('Y-m-d');
-            $createdAt = Carbon::now()->toDateTimeString();
-            $updatedAt = Carbon::now()->toDateTimeString();
+            $fechaDeEmision = $faker->dateTimeBetween('-30 years', 'now')->format('Y-m-d');
+            $fechaDeInicio = $faker->dateTimeBetween('-1 year', 'now')->format('Y-m-d');
+            $fechaDeFin = $faker->dateTimeBetween('now', '+1 year')->format('Y-m-d');
+            $createdAt = Carbon::now()->format('Y-m-d');
+            $updatedAt = Carbon::now()->format('Y-m-d');
             
             // Obtener el último código de producto generado
             $lastProduct = DB::table($tableName)
-                ->where('codigo_producto', 'like', $tableDatePrefix . $tableName . '%')
-                ->orderBy('codigo_producto', 'desc')
-                ->first();
+            ->orderBy('id', 'desc')
+            ->first();
             
             // Calcular el siguiente número secuencial
             $lastNumber = $lastProduct ? intval(substr($lastProduct->codigo_producto, -6)) : 0;
             $newNumber = str_pad($lastNumber + 1, 6, '0', STR_PAD_LEFT);
             
             // Generar el nuevo código de producto
-            $newCodigoProducto = $tableDatePrefix . $tableName . $newNumber;
+            $newCodigoProducto = $tableDatePrefix . $newNumber;
 
             DB::table($tableName)->insert([
-                // Campos fijos
+                'sociedad_id' => 1,
+                'tipo_de_pago_id' => $faker->randomElement([5, 6, 7, 8, 9]),
+                'comercial_id' => 1,
+                'plantilla_path' => $plantillaPath,
+                'duracion' => $faker->numberBetween(1, 12),
+                'anulado' => false,
                 'codigo_producto' => $newCodigoProducto,
-                'tipo_de_pago' => $faker->randomElement(['Mensual', 'Trimestral', 'Semestral', 'Anual']),
-                'tipo_de_pago_id' => $faker->randomElement([1, 2, 3, 4]),
+                'fecha_de_emisión' => $fechaDeEmision,
+                'fecha_de_inicio' => $fechaDeInicio,
+                'fecha_de_fin' => $fechaDeFin,
+                'sociedad' => 'Admin',
+                'comercial' => 'Admin',
+                'tipo_de_pago' => $faker->randomElement(['Transferencia', 'No completado', 'Domiciliación', 'Efectivo', 'Tarjeta']),
                 'prima_del_seguro' => $faker->randomFloat(2, 0, 99999),
                 'cuota_de_asociación' => $faker->randomFloat(2, 0, 99999),
                 'precio_total' => $faker->randomFloat(2, 0, 99999),
-                'sociedad_id' => 1,
-                'sociedad' => 'Admin',
-                'comercial_id' => 1,
-                'comercial' => 'Admin',
+                'precio_final' => $faker->randomFloat(2, 0, 99999),
+                'numero_anexos' => 0,
                 'dni' => $faker->unique()->numerify('########') . strtoupper($faker->randomLetter),
                 'nombre_socio' => $faker->firstName,
                 'apellido_1' => $faker->lastName,
@@ -63,19 +68,13 @@ class ProductsSeeder extends Seeder
                 'provincia' => $faker->state,
                 'codigo_postal' => $faker->numerify('#####'),
                 'fecha_de_nacimiento' => $fechaDeNacimiento,
-                'numero_anexos' => 0,
-                'plantilla_path' => $plantillaPath,
 
-                // Campos variables
-                'tipo_de_caceria' => $faker->randomElement(['Montería', 'Ganchos', 'Rececho', 'Aguardo', 'Espera', 'Ojeo']),
-                'poblacion' => $faker->city,
-                'codigo_postal_caceria' => $faker->numerify('#####'),
-                'matricula' => $faker->numerify('######'),
-                'dia_de_la_caceria' => $pruebaFecha,
-
-                // Timestamps
-                'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'), // Formato 'Y-m-d\TH:i:s'
-                'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'), // Formato 'Y-m-d\TH:i:s'
+                
+                'dni_acompañante' => $faker->unique()->numerify('########') . strtoupper($faker->randomLetter),
+                'acompañante' => $faker->firstName . ' ' . $faker->lastName,
+                'cazador' => $faker->boolean,
+                'created_at' => $createdAt,
+                'updated_at' => $updatedAt,
             ]);
         }
     }

@@ -43,6 +43,13 @@ class TipoProductoController extends Controller
         // Buscar el tipo de producto cuya ruta contiene la ruta pasada como parámetro
         $tipoProducto = TipoProducto::where('letras_identificacion', $letras)->first();
 
+        // Si tiene subproductos (hay algun tipo_producto con su id en padre_id), devolverlos
+        $subproductos = TipoProducto::where('padre_id', $tipoProducto->id)->get();
+        if ($subproductos->count() > 0) {
+            $tipoProducto['subproductos'] = self::getSubproductosPorPadreId($tipoProducto->id, $subproductos);
+        }
+
+
         if (!$tipoProducto) {
             return response()->json(['message' => 'No se encontraron resultados'], 404);
         }
@@ -120,9 +127,34 @@ class TipoProductoController extends Controller
  
     }
 
-    public function getSubproductosPorPadre($id)
+    public function getSubproductosPorPadreId($id, $subproductos = null)
     {
-        $subproductos = TipoProducto::where('padre_id', $id)->get();
-        return response()->json($subproductos);
+        if ($subproductos == null) {
+            // Obtener los subproductos con tarifas y campos utilizando las relaciones
+            $subproductos = TipoProducto::where('padre_id', $id)
+                ->with(['tarifas', 'campos'])
+                ->get();
+        }
+
+        // Construir la respuesta incluyendo los campos y tarifas de cada subproducto
+        $subproductosConDetalles = $subproductos->map(function ($subproducto) {
+            return [
+                'id' => $subproducto->id,
+                'nombre' => $subproducto->nombre,
+                'letras_identificacion' => $subproducto->letras_identificacion,
+                'plantilla_path' => $subproducto->plantilla_path,
+                'padre_id' => $subproducto->padre_id,
+                // Utilizando relaciones para obtener tarifas y campos
+                'tarifas' => $subproducto->tarifas,
+                'campos' => $subproducto->campos,
+                'created_at' => $subproducto->created_at,
+                'updated_at' => $subproducto->updated_at,
+                'tipo_duracion' => $subproducto->tipo_duracion,
+                'duracion' => $subproducto->duracion,
+            ];
+        });
+
+        return $subproductosConDetalles;
     }
+
 }
