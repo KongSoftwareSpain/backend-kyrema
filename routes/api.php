@@ -79,6 +79,7 @@ Route::delete('sociedad/{id}', [SociedadController::class, 'destroy']);
 Route::put('sociedad/{id}', [SociedadController::class, 'update']);
 Route::put('sociedad/{id}/permisos', [SociedadController::class, 'updatePermisos']);
 Route::get('sociedades/padres', [SociedadController::class, 'getSociedadesPadres']);
+Route::get('sociedad/comercial/{comercial_id}', [SociedadController::class, 'getSociedadPorComercial']);
 
 
 // Gestiona todas las solicitudes de la conexion entre TipoProducto y Sociedad
