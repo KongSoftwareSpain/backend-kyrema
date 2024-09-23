@@ -24,6 +24,7 @@ use App\Http\Controllers\AnuladosController;
 use App\Http\Controllers\AnexosController;
 use App\Http\Controllers\TipoPagoController;
 use App\Http\Controllers\TipoPagoProductoSociedadController;
+use App\Http\Controllers\PaymentController;
 
 
 
@@ -79,6 +80,7 @@ Route::delete('sociedad/{id}', [SociedadController::class, 'destroy']);
 Route::put('sociedad/{id}', [SociedadController::class, 'update']);
 Route::put('sociedad/{id}/permisos', [SociedadController::class, 'updatePermisos']);
 Route::get('sociedades/padres', [SociedadController::class, 'getSociedadesPadres']);
+Route::get('sociedad/comercial/{comercial_id}', [SociedadController::class, 'getSociedadPorComercial']);
 
 
 // Gestiona todas las solicitudes de la conexion entre TipoProducto y Sociedad
@@ -154,4 +156,7 @@ Route::post('sociedad/{sociedad_padre_id}/hija/{sociedad_hija_id}/tipos-pago', [
 Route::apiResource('escalado-anexos', EscaladoAnexoController::class);
 
 Route::get('/nav/{id_sociedad}', [NavController::class, 'getNavegacion']);
+
+//Pagos:
+Route::post('/payment/create', [PaymentController::class, 'createPayment']);
 
