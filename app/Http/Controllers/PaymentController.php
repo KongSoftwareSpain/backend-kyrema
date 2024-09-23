@@ -3,35 +3,58 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Stripe\Stripe;
-use Stripe\PaymentIntent;
 
 class PaymentController extends Controller
 {
-    public function handlePayment(Request $request)
+    public function createPayment(Request $request)
     {
-        // Validar la entrada
-        $request->validate([
-            'paymentMethodId' => 'required|string',
-            'amount' => 'required|integer', // Asegúrate de recibir el monto
-        ]);
+        try{
+            $orderId = uniqid();
+            $amount = 1000;
 
-        // Establecer la clave secreta de Stripe
-        Stripe::setApiKey(env('STRIPE_SECRET'));
 
-        // Crear un PaymentIntent
-        try {
-            $paymentIntent = PaymentIntent::create([
-                'amount' => $request->input('amount'), // Monto en centavos
-                'currency' => 'usd', // Cambia esto según tus necesidades
-                'payment_method' => $request->input('paymentMethodId'),
-                'confirmation_method' => 'manual',
-                'confirm' => true,
+            $merchantCode = env('REDSYS_MERCHANT_CODE');
+            $secretKey = env('REDSYS_SECRET_KEY');
+            $terminal = env('REDSYS_TERMINAL');
+            $currency = '978'; // Código ISO para euros
+            $transactionType = '0'; // Para compra normal
+
+            // Datos que vas a enviar a Redsys
+            $params = [
+                'Ds_Merchant_Amount' => $amount,
+                'Ds_Merchant_Order' => $orderId,
+                'Ds_Merchant_MerchantCode' => $merchantCode,
+                'Ds_Merchant_Currency' => $currency,
+                'Ds_Merchant_TransactionType' => $transactionType,
+                'Ds_Merchant_Terminal' => $terminal,
+                'Ds_Merchant_UrlOK' => env('FRONTEND_SUCCESS_URL'),
+                'Ds_Merchant_UrlKO' => env('FRONTEND_FAILED_URL'),
+            ];
+
+            
+            // Generar la firma
+            $signature = $this->generateSignature($params, $secretKey);
+
+            // URL del servicio Redsys
+            $redsysUrl = 'https://sis-t.redsys.es:25443/sis/realizarPago'; // Sandbox URL
+
+            // Devuelves los datos para redirigir al formulario de Redsys
+            return response()->json([
+                'redsysUrl' => $redsysUrl,
+                'params' => $params,
+                'signature' => $signature,
             ]);
 
-            return response()->json($paymentIntent);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
+    }
+
+    private function generateSignature($params, $secretKey)
+    {
+        $payload = base64_encode(json_encode($params));
+        $key = base64_decode($secretKey);
+        $signature = hash_hmac('sha256', $payload, $key, true);
+        return base64_encode($signature);
     }
 }

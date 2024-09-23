@@ -158,5 +158,5 @@ Route::apiResource('escalado-anexos', EscaladoAnexoController::class);
 Route::get('/nav/{id_sociedad}', [NavController::class, 'getNavegacion']);
 
 //Pagos:
-Route::post('/payment', [PaymentController::class, 'handlePayment']);
+Route::post('/payment/create', [PaymentController::class, 'createPayment']);
 
