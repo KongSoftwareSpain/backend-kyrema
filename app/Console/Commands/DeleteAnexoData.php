@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
-class DeleteProductData extends Command
+class DeleteAnexoData extends Command
 {
     protected $signature = 'delete:anexo-data {anexoId}';
     protected $description = 'Deletes anexos data from various tables';
