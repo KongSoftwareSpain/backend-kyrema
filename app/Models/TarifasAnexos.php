@@ -17,8 +17,10 @@ class TarifasAnexos extends Model
     protected $fillable = [
         'id_tipo_anexo',
         'id_sociedad',
-        'prima_seguro',
-        'cuota_asociacion',
+        'precio_base',
+        'extra_1',
+        'extra_2',
+        'extra_3',
         'precio_total',
         'tiene_escalado',
         'created_at',

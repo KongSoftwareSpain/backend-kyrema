@@ -14,8 +14,10 @@ class TarifaAnexoController extends Controller
         $request->validate([
             'id_tipo_anexo' => 'required|numeric',
             'id_sociedad' => 'required|numeric',
-            'prima_seguro' => 'required|numeric',
-            'cuota_asociacion' => 'required|numeric',
+            'precio_base' => 'required|numeric',
+            'extra_1' => 'required|numeric',
+            'extra_2' => 'required|numeric',
+            'extra_3' => 'required|numeric',
             'precio_total' => 'required|numeric',
         ]);
     
@@ -23,8 +25,10 @@ class TarifaAnexoController extends Controller
         $id = DB::table('tarifas_anexos')->insertGetId([
             'id_tipo_anexo' => $request->input('id_tipo_anexo'),
             'id_sociedad' => $request->input('id_sociedad'),
-            'prima_seguro' => $request->input('prima_seguro'),
-            'cuota_asociacion' => $request->input('cuota_asociacion'),
+            'precio_base' => $request->input('precio_base'),
+            'extra_1' => $request->input('extra_1'),
+            'extra_2' => $request->input('extra_2'),
+            'extra_3' => $request->input('extra_3'),
             'precio_total' => $request->input('precio_total'),
             'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
             'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
