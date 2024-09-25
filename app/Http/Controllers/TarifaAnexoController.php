@@ -59,20 +59,6 @@ class TarifaAnexoController extends Controller
         return response()->json($tarifaAnexo);
     }
 
-    public function update(Request $request, $id)
-    {
-        $request->validate([
-            'anexo' => 'string|max:255|exists:tipo_anexos,id',
-            'tiene_escala' => 'boolean',
-            'id_tipo_producto' => 'numeric|exists:tarifa_productos,id',
-            'precio' => 'numeric',
-        ]);
-
-        $tarifaAnexo = TarifaAnexo::findOrFail($id);
-        $tarifaAnexo->update($request->all());
-
-        return response()->json($tarifaAnexo);
-    }
 
     public function destroy($id)
     {
