@@ -6,6 +6,7 @@ use App\Models\TarifasAnexos;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use App\Models\TarifasProducto;
 
 class TarifaAnexoController extends Controller
 {
@@ -39,8 +40,8 @@ class TarifaAnexoController extends Controller
     }
 
     public function getTarifaPorSociedadAndTipoAnexo($id_sociedad, $id_tipo_anexo){
-        $tarifaAnexo = TarifasAnexos::where('id_sociedad', $id_sociedad)
-            ->where('id_tipo_anexo', $id_tipo_anexo)
+        $tarifaAnexo = TarifasProducto::where('id_sociedad', $id_sociedad)
+            ->where('tipo_producto_id', $id_tipo_anexo)
             ->first();
 
         return response()->json($tarifaAnexo);

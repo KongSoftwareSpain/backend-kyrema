@@ -18,6 +18,8 @@ class TipoProducto extends Model
     protected $fillable = [
         'id',
         'nombre',
+        'padre_id',
+        'tipo_producto_asociado',
     ];
 
     public function tarifas()

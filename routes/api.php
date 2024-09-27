@@ -73,6 +73,7 @@ Route::get('subproductos/padre/{id}', [TipoProductoController::class, 'getSubpro
 
 
 Route::get('sociedad/{id}', [SociedadController::class, 'show']);
+Route::get('sociedad/{id_sociedad}/segundo-nivel', [SociedadController::class, 'getSocietySecondLevel']);
 Route::get('sociedad/hijas/{id}', [SociedadController::class, 'getSociedadesHijas']);
 Route::get('sociedad/{sociedad_id}/hijas/tipo-producto/{letras_identificacion}', [SociedadController::class, 'getSociedadesHijasPorTipoProducto']);
 Route::post('sociedad', [SociedadController::class, 'store']);

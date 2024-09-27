@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
 use App\Models\TiposAnexos;
 use App\Models\TipoProductoSociedad;
+use App\Models\TipoProducto;
 
 class AnexosController extends Controller
 {
@@ -235,8 +236,8 @@ class AnexosController extends Controller
         // {id: '', formato: this.formatosAnexos[tipo_anexo.id], tipo_anexo: tipo_anexo} (Es decir que el tipo_anexo me lo deberia de haber guardado previamente)
         
          // Obtener los tipos de anexos asociados al tipo de producto
-        $tiposAnexos = DB::table('tipos_anexos')
-        ->where('id_tipo_producto', $id_tipo_producto)
+        $tiposAnexos = DB::table('tipo_producto')
+        ->where('tipo_producto_asociado', $id_tipo_producto)
         ->get();
 
         $anexos = [];
@@ -257,6 +258,7 @@ class AnexosController extends Controller
                         'id' => $anexo->id,
                         // El formato son todos los campos excepto los campos de control (producto_id, created_at, updated_at)
                         'formato' => collect($anexo)->except(['id', 'producto_id', 'created_at', 'updated_at'])->toArray(),
+                        'tarifas' => collect($anexo)->only(['precio_base', 'extra_1', 'extra_2', 'extra_3', 'precio_total'])->toArray(),
                         'tipo_anexo' => $tipoAnexo
                     ];
                 }
@@ -279,14 +281,14 @@ class AnexosController extends Controller
         $tiposProductoSociedadIds = $tiposProductoSociedad->pluck('id_tipo_producto');
 
         //Cogemos todos los tipos_anexo asociados a estos tipos_productos:
-        $tiposAnexo = TiposAnexos::whereIn('id_tipo_producto', $tiposProductoSociedadIds)->get();
+        $tiposAnexo = TipoProducto::whereIn('tipo_producto_asociado', $tiposProductoSociedadIds)->get();
 
         return response()->json($tiposAnexo);
     }
 
     public function getTipoAnexosPorTipoProducto($id_tipo_producto){
 
-        $tiposAnexo = TiposAnexos::where('id_tipo_producto', $id_tipo_producto)->get();
+        $tiposAnexo = TipoProducto::where('tipo_producto_asociado', $id_tipo_producto)->get();
 
         return response()->json($tiposAnexo);
 
@@ -298,7 +300,7 @@ class AnexosController extends Controller
     public function destroy(string $id)
     {
         
-        $tipoAnexo = TiposAnexos::findOrFail($id);
+        $tipoAnexo = TipoProducto::findOrFail($id);
         $plantillaPath = $tipoAnexo->plantilla_path;
 
         // Borrar la tabla asociada al tipo de anexo
@@ -313,7 +315,7 @@ class AnexosController extends Controller
         DB::table('campos_anexos')->where('tipo_anexo', $id)->delete();
 
         //Eliminar las tarifas asociadas al tipo de anexo
-        DB::table('tarifas_anexos')->where('id_tipo_anexo', $id)->delete();
+        DB::table('tarifas_producto')->where('tipo_producto_id', $id)->delete();
 
         // Eliminar la plantilla si existe
         if ($plantillaPath && Storage::disk('public')->exists($plantillaPath)) {

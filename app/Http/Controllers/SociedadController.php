@@ -73,7 +73,35 @@ class SociedadController extends Controller
         ], 201);
     }
 
-    
+    public function getSocietySecondLevel($id_sociedad)
+    {
+        // Obtener la sociedad actual
+        $sociedad = Sociedad::find($id_sociedad);
+
+        // Si la sociedad es admin (id = 1), devolvemos null
+        if ($sociedad->id == 1) {
+            return null;
+        }
+
+        // Verificar si la sociedad ya es de nivel 2 (su padre es admin)
+        if ($sociedad->padre_id == 1) {
+            return $sociedad;
+        }
+
+        // Si no es de nivel 2, seguir subiendo en la jerarquía hasta llegar a nivel 2
+        while ($sociedad->padre_id != 1) {
+            $sociedad = Sociedad::find($sociedad->padre_id);
+
+            // Si llegamos a la sociedad admin (id = 1), devolvemos null
+            if ($sociedad->id == 1) {
+                return null;
+            }
+        }
+
+        // Si llegamos aquí, significa que hemos encontrado la sociedad de nivel 2
+        return $sociedad;
+    }
+
 
     public function getSociedadesHijas($id)
     {
