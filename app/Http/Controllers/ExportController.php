@@ -26,6 +26,8 @@ class ExportController extends Controller
             // Obtener los valores de los campos de la tabla que se llama igual que las letrasIdentificacion
             $valores = DB::table($letrasIdentificacion)->where('id', $id)->first();
 
+            
+
             // Obtener el tipo de producto basado en las letras de identificación
             $tipoProducto = DB::table('tipo_producto')->where('letras_identificacion', $letrasIdentificacion)->first();
             

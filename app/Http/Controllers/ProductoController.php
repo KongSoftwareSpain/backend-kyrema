@@ -422,7 +422,7 @@ class ProductoController extends Controller
         $prefijo = strtolower(Config::get('app.prefijo_tipo_producto'));
     
         // Elimina el prefijo del código
-        $codigoPorTipoProducto = str_replace($prefijo, '', $letrasIdentificacion);
+        $codigoPorTipoProducto = str_replace($prefijo, '', strtolower($letrasIdentificacion));
 
         $newCodigoProducto = $tableDatePrefix . strtoupper($codigoPorTipoProducto) . $newNumber;
 
