@@ -14,6 +14,7 @@ class Comercial extends Authenticatable implements JWTSubject
 
     protected $table = 'comercial';
     protected $primaryKey = 'id';
+    protected $keyType = 'string';
     public $timestamps = false;
 
     protected $fillable = [

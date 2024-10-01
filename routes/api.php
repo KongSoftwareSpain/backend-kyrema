@@ -25,10 +25,16 @@ use App\Http\Controllers\AnexosController;
 use App\Http\Controllers\TipoPagoController;
 use App\Http\Controllers\TipoPagoProductoSociedadController;
 use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\Auth\ForgotPasswordController;
+use App\Http\Controllers\Auth\ResetPasswordController;
+use Illuminate\Support\Facades\Mail;
 
 
 
 // Route::get('/productos/{letras_identificativas}', [ProductoController::class, 'getProductosPorTipo']);
+Route::post('password/email', [ForgotPasswordController::class, 'sendResetLinkEmail']);
+Route::post('password/reset', [ResetPasswordController::class, 'reset']);
+
 
 Route::get('/productos/{letrasIdentificacion}', [ProductoController::class, 'getProductosByTipoAndSociedades']);
 Route::get('/productos/{letrasIdentificacion}/comercial/{comercial_id}', [ProductoController::class, 'getProductosByTipoAndComercial']);
@@ -88,7 +94,7 @@ Route::get('sociedad/comercial/{comercial_id}', [SociedadController::class, 'get
 Route::post('tipo-producto-sociedad', [TipoProductoSociedadController::class, 'store']);
 Route::post('sociedad/{sociedad_padre_id}/hija/{sociedad_hija_id}', [TipoProductoSociedadController::class, 'transferirTiposProductos']);
 
-Route::apiResource('comerciales', ComercialController::class);
+Route::get('comerciales/all', [ComercialController::class, 'getAllUsers']);
 Route::get('comerciales/sociedad/{id_sociedad}', [ComercialController::class, 'getComercialesPorSociedad']);
 Route::delete('comercial/{id}', [ComercialController::class, 'destroy']);
 

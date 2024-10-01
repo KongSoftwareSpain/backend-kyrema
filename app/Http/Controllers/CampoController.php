@@ -28,23 +28,7 @@ class CampoController extends Controller
     {
         $id_tipo_producto = $request->input('id_tipo_producto');
 
-        // Obtener el tipo de producto actual
-        $tipo_producto = TipoProducto::find($id_tipo_producto);
-
-        // Verificar si el tipo de producto tiene un padre
-        if ($tipo_producto->padre_id !== null) {
-            // Obtener los campos del tipo de producto padre
-            $camposPadre = Campos::where('tipo_producto_id', $tipo_producto->padre_id)->get();
-
-            // Obtener los campos del tipo de producto actual
-            $camposActuales = Campos::where('tipo_producto_id', $id_tipo_producto)->get();
-
-            // Combinar los campos del padre con los del tipo de producto actual
-            $campos = $camposPadre->merge($camposActuales);
-        } else {
-            // Si no tiene padre, solo obtener los campos del tipo de producto actual
-            $campos = Campos::where('tipo_producto_id', $id_tipo_producto)->get();
-        }
+        $campos = Campos::where('tipo_producto_id', $id_tipo_producto)->get();
 
         // Devolver los resultados en formato JSON
         return response()->json($campos);
