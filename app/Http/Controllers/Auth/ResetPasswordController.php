@@ -5,6 +5,9 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use Illuminate\Foundation\Auth\ResetsPasswords;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use App\Models\Comercial;
 
 class ResetPasswordController extends Controller
 {
@@ -36,14 +39,23 @@ class ResetPasswordController extends Controller
             'password' => 'required|confirmed|min:8',
         ]);
 
-        // Restablecer la contraseña
-        $response = Password::reset($request->only('email', 'password', 'password_confirmation', 'token'), function ($user, $password) {
-            $user->password = Hash::make($password);
-            $user->save();
-        });
+        // Buscar al usuario en la tabla 'comercial'
+        $user = Comercial::where('email', $request->email)->first();
 
-        return $response == Password::PASSWORD_RESET
-                    ? redirect()->route('login')->with('status', __('Tu contraseña ha sido restablecida.'))
-                    : back()->withErrors(['email' => __('Error al restablecer la contraseña.')]);
+        // Comprobar si el usuario existe y si el token es válido
+        if (!$user) {
+            return response()->json(['msg' => 'El usuario no existe.'], 400);
+        }
+
+        if(!Password::tokenExists($user, $request->token)){
+            return response()->json(['msg' => 'El token no es válido.'], 400);
+        }
+
+        // Restablecer la contraseña
+        $user->contraseña = Hash::make($request->password);
+        $user->save();
+
+        return response()->json(['msg' => 'Tu contraseña ha sido restablecida.']);
     }
+
 }

@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Tymon\JWTAuth\Contracts\JWTSubject;
+use App\Notifications\CustomResetPassword;
 
 class Comercial extends Authenticatable implements JWTSubject
 {
@@ -42,6 +43,10 @@ class Comercial extends Authenticatable implements JWTSubject
         'path_otros',
         'path_foto',
     ];
+    public function sendPasswordResetNotification($token)
+    {
+        $this->notify(new CustomResetPassword($token));
+    }
 
     public function sociedad()
     {

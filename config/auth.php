@@ -38,15 +38,16 @@ return [
     'guards' => [
         'comercial' => [
             'driver' => 'jwt',
-            'provider' => 'comercials',
+            'provider' => 'comercial',
         ],
     ],
 
     'providers' => [
-        'comercials' => [
+        'comercial' => [
             'driver' => 'eloquent',
             'model' => App\Models\Comercial::class,
         ],
+        
     ],
 
     /*
@@ -70,7 +71,7 @@ return [
 
     'passwords' => [
         'users' => [
-            'provider' => 'users',
+            'provider' => 'comercial',
             'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
             'expire' => 60,
             'throttle' => 60,
