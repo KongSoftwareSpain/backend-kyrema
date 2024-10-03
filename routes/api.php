@@ -73,7 +73,7 @@ Route::get('tipos-producto/all', [TipoProductoController::class, 'index']);
 Route::get('tipo-producto/{letras}', [TipoProductoController::class, 'getByLetras']);
 Route::get('tipo-producto/show/{id}', [TipoProductoController::class, 'show']);
 Route::put('tipo-producto/{id}', [TipoProductoController::class, 'update']);
-Route::put('tipo-producto/edit-nombre/{id}', [TipoProductoController::class, 'updateNombre']);
+Route::put('tipo-producto/edit/{id}', [TipoProductoController::class, 'updateTipoProducto']);
 Route::delete('tipo-producto/delete/{id}', [TipoProductoController::class, 'deleteTipoProducto']);
 Route::get('subproductos/padre/{id}', [TipoProductoController::class, 'getSubproductosPorPadreId']);
 

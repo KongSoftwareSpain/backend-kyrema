@@ -19,6 +19,7 @@ class TipoProducto extends Model
         'id',
         'nombre',
         'padre_id',
+        'casilla_logo_sociedad',
         'tipo_producto_asociado',
     ];
 

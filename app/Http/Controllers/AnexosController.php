@@ -36,6 +36,7 @@ class AnexosController extends Controller
             $plantillaPath = $tipoAnexo['plantilla_path']; // Ruta de la plantilla
             $anexoId = $anexo['id']; // ID del anexo (si existe)
             $formato = $anexo['formato']; // Campos dinámicos del anexo
+            $tarifas = $anexo['tarifas']; // Tarifas del anexo
 
             // Verificar que la tabla existe
             if (Schema::hasTable($letrasIdentificacion)) {
@@ -46,6 +47,13 @@ class AnexosController extends Controller
                     'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s')
                 ];
 
+
+                $data['precio_base'] = $tarifas['precio_base'];
+                $data['extra_1'] = $tarifas['extra_1'];
+                $data['extra_2'] = $tarifas['extra_2'];
+                $data['extra_3'] = $tarifas['extra_3'];
+                $data['precio_total'] = $tarifas['precio_total'];
+                
                 
                 // Agregar los campos dinámicos del formato
                 foreach ($formato as $key => $value) {

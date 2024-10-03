@@ -25,6 +25,7 @@ class ProductoController extends Controller
         $request->validate([
             'nombreProducto' => 'required|string',
             'letrasIdentificacion' => 'required|string',
+            'casilla_logo_sociedad' => 'nullable|string',
             'padre_id' => 'nullable|integer',
             'tipo_producto_asociado' => 'nullable|integer',
             'campos' => 'nullable|array',
@@ -42,6 +43,7 @@ class ProductoController extends Controller
 
         $nombreProducto = $request->input('nombreProducto');
         $letrasIdentificacion = $request->input('letrasIdentificacion');
+        $casilla_logo_sociedad = $request->input('casilla_logo_sociedad');
         $padre_id = $request->input('padre_id');
         $tipo_producto_asociado = $request->input('tipo_producto_asociado');
         $campos = $request->input('campos');
@@ -99,6 +101,7 @@ class ProductoController extends Controller
         $tipoProductoId = DB::table('tipo_producto')->insertGetId([
             'letras_identificacion' => $letrasIdentificacion,
             'nombre' => $nombreProducto,
+            'casilla_logo_sociedad' => $casilla_logo_sociedad,
             'padre_id' => $padre_id,
             'tipo_producto_asociado' => $tipo_producto_asociado,
             'tipo_duracion' => $tipoDuracion,
@@ -213,6 +216,7 @@ class ProductoController extends Controller
                     $table->unsignedBigInteger('comercial_id')->nullable();
                     // Campo para saber si que comercial crea el producto en nombre de otro
                     $table->unsignedBigInteger('comercial_creador_id')->nullable();
+                    $table->string('logo_sociedad_path')->nullable();
                 } else {
                     $table->unsignedBigInteger('producto_id')->nullable();
                     $table->decimal('precio_base', 8, 2)->nullable();
@@ -282,7 +286,7 @@ class ProductoController extends Controller
         ]);
     }
 
-    public function subirPlantilla($letrasIdentificacion, Request $request)
+    public function subirPlantilla($id, Request $request)
     {
         if ($request->hasFile('plantilla')) {
 
@@ -300,7 +304,7 @@ class ProductoController extends Controller
 
             // Añadir la ruta de la plantilla a la tabla tipo_producto
             DB::table('tipo_producto')
-                ->where('letras_identificacion', (Config::get('app.prefijo_tipo_producto') . $letrasIdentificacion))
+                ->where('id', $id)
                 ->update(['plantilla_path' => $rutaArchivo]);
 
             return response()->json(['message' => 'Plantilla subida correctamente'], 200);
@@ -400,6 +404,8 @@ class ProductoController extends Controller
         //Añadir a los datos la plantilla_path que tenga el seguro en ese momento:
         $datos['plantilla_path'] = $plantilla_path;
 
+        $datos['logo_sociedad_path'] = DB::table('sociedad')->where('id', $datos['sociedad_id'])->value('logo');
+
         // Formatear los campos datetime al formato deseado
         foreach ($camposRelacionados as $campo) {
             $nombreCampo = strtolower(str_replace(' ', '_', $campo->nombre));
@@ -448,8 +454,22 @@ class ProductoController extends Controller
 
 
     public function editarProducto($letrasIdentificacion, Request $request){
+
+        // Obtener el id del tipo_producto basado en las letras_identificacion
+        $tipoProducto = DB::table('tipo_producto')
+                        ->where('letras_identificacion', $letrasIdentificacion)
+                        ->first();
+
+
+        // Si el tipoProducto tiene padre, coger el tipoProducto padre para meter los datos en la tabla correspondiente
+        if($tipoProducto->padre_id != null){
+            $tipoProducto = DB::table('tipo_producto')
+                        ->where('id', $tipoProducto->padre_id)
+                        ->first();
+        }
+
         // Convertir letras de identificación a nombre de tabla
-        $nombreTabla = strtolower($letrasIdentificacion);
+        $nombreTabla = strtolower($tipoProducto->letras_identificacion);
         
         // Coger el resto de datos de la request excepto el id:
         $datos = $request->input('productoEditado');
