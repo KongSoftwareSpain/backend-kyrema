@@ -17,8 +17,10 @@ class TarifasProducto extends Model
         'id',
         'tipo_producto_id',
         'id_sociedad',
-        'prima_seguro',
-        'cuota_asociacion',
+        'precio_base',
+        'extra_1',
+        'extra_2',
+        'extra_3',
         'precio_total',
     ];
 

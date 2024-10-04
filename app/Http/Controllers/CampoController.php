@@ -27,9 +27,9 @@ class CampoController extends Controller
     public function getByTipoProducto(Request $request)
     {
         $id_tipo_producto = $request->input('id_tipo_producto');
-        // Obtener todos los campos que tengan el id_tipo_producto pasado por parámetro
+
         $campos = Campos::where('tipo_producto_id', $id_tipo_producto)->get();
-        
+
         // Devolver los resultados en formato JSON
         return response()->json($campos);
     }
@@ -92,6 +92,8 @@ class CampoController extends Controller
             // Obtener el id y eliminarlo del array de atributos
             $id = $campo['id'];
             unset($campo['id']);
+
+            $campo['opciones'] = null;
 
             // Asegurarse de que updated_at esté en el formato correcto
             $campo['updated_at'] = Carbon::now()->format('Y-m-d\TH:i:s');

@@ -18,6 +18,9 @@ class TipoProducto extends Model
     protected $fillable = [
         'id',
         'nombre',
+        'padre_id',
+        'casilla_logo_sociedad',
+        'tipo_producto_asociado',
     ];
 
     public function tarifas()

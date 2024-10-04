@@ -8,7 +8,7 @@ use Illuminate\Http\Request;
 
 class ComercialController extends Controller
 {
-    public function index()
+    public function getAllUsers()
     {
         $comerciales = Comercial::all();
         return response()->json($comerciales);

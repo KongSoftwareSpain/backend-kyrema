@@ -16,7 +16,7 @@ class NavController extends Controller
         $tipoProductoIds = TipoProductoSociedad::where('id_sociedad', $id_sociedad)->pluck('id_tipo_producto');
 
         // Coger los tipos de producto basados en los IDs obtenidos
-        $tiposProducto = TipoProducto::whereIn('id', $tipoProductoIds)->whereNull('padre_id')->get();
+        $tiposProducto = TipoProducto::whereIn('id', $tipoProductoIds)->whereNull('padre_id')->whereNull('tipo_producto_asociado')->get();
 
         //Devolver la navegación con el siguiente formato:
         
@@ -107,11 +107,7 @@ class NavController extends Controller
             [
                 "label" => "Productos",
                 "link" => "/gestion-productos"
-            ],
-            [
-                "label" => "Anexos",
-                "link" => "/anexos"
-            ]
+            ]   
         ];
         $navegacion[2]["children"] = $tiposProducto->map(function($tipoProducto){
             return [

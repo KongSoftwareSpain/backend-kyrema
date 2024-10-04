@@ -55,14 +55,6 @@ class TarifaProductoController extends Controller
     }
 
 
-    //return {
-    //     id: tipoProducto.id,
-    //     nombre: tipoProducto.nombre,
-    //     prima_seguro: tarifa.prima_seguro,
-    //     cuota_asociacion: tarifa.cuota_asociacion,
-    //     precio_total: tarifa.precio_total,
-    //     tarifa_sociedad: tarifa.id_sociedad
-    // };
     public function updateTarifaPorSociedad($sociedad_id, Request $request)
     {
 
@@ -70,14 +62,18 @@ class TarifaProductoController extends Controller
         // Coger id y meterlo en $id_tipo_producto
         $id_tipo_producto = $tarifa['id'];
         // Coger los precios
-        $prima_seguro = $tarifa['prima_seguro'];
-        $cuota_asociacion = $tarifa['cuota_asociacion'];
+        $precio_base = $tarifa['precio_base'];
+        $extra_1 = $tarifa['extra_1'];
+        $extra_2 = $tarifa['extra_2'];
+        $extra_3 = $tarifa['extra_3'];
         $precio_total = $tarifa['precio_total'];
 
         // Actualizar los datos:
         TarifasProducto::where('id_sociedad', $sociedad_id)->where('tipo_producto_id', $id_tipo_producto)->update([
-            'prima_seguro' => $prima_seguro,
-            'cuota_asociacion' => $cuota_asociacion,
+            'precio_base' => $precio_base,
+            'extra_1' => $extra_1,
+            'extra_2' => $extra_2,
+            'extra_3' => $extra_3,
             'precio_total' => $precio_total
         ]);
 
@@ -91,16 +87,20 @@ class TarifaProductoController extends Controller
         // Coger id y meterlo en $id_tipo_producto
         $id_tipo_producto = $tarifa['id'];
         // Coger los precios
-        $prima_seguro = $tarifa['prima_seguro'];
-        $cuota_asociacion = $tarifa['cuota_asociacion'];
+        $precio_base = $tarifa['precio_base'];
+        $extra_1 = $tarifa['extra_1'];
+        $extra_2 = $tarifa['extra_2'];
+        $extra_3 = $tarifa['extra_3'];
         $precio_total = $tarifa['precio_total'];
 
         // Meter los datos en la tabla
         TarifasProducto::create([
             'id_sociedad' => $sociedad_id,
             'tipo_producto_id' => $id_tipo_producto,
-            'prima_seguro' => $prima_seguro,
-            'cuota_asociacion' => $cuota_asociacion,
+            'precio_base' => $precio_base,
+            'extra_1' => $extra_1,
+            'extra_2' => $extra_2,
+            'extra_3' => $extra_3,
             'precio_total' => $precio_total
         ]);
 
@@ -121,8 +121,10 @@ class TarifaProductoController extends Controller
         $request->validate([
             'tipo_producto_id' => 'required|numeric',
             'id_sociedad' => 'required|numeric',
-            'prima_seguro' => 'required|numeric',
-            'cuota_asociacion' => 'required|numeric',
+            'precio_base' => 'required|numeric',
+            'extra_1' => 'required|numeric',
+            'extra_2' => 'required|numeric',
+            'extra_3' => 'required|numeric',
             'precio_total' => 'required|numeric',
         ]);
 
@@ -130,8 +132,10 @@ class TarifaProductoController extends Controller
         $tarifaProducto = TarifasProducto::create([
             'tipo_producto_id' => $request->input('tipo_producto_id'),
             'id_sociedad' => $request->input('id_sociedad'),
-            'prima_seguro' => $request->input('prima_seguro'),
-            'cuota_asociacion' => $request->input('cuota_asociacion'),
+            'precio_base' => $request->input('precio_base'),
+            'extra_1' => $request->input('extra_1'),
+            'extra_2' => $request->input('extra_2'),
+            'extra_3' => $request->input('extra_3'),
             'precio_total' => $request->input('precio_total'),
         ]);
 
@@ -149,8 +153,10 @@ class TarifaProductoController extends Controller
         $request->validate([
             'tipo_producto_id' => 'numeric|exists:tipo_producto,id',
             'id_sociedad' => 'numeric|exists:sociedad,id',
-            'prima_seguro' => 'numeric',
-            'cuota_asociacion' => 'numeric',
+            'precio_base' => 'numeric',
+            'extra_1' => 'numeric',
+            'extra_2' => 'numeric',
+            'extra_3' => 'numeric',
             'precio_total' => 'numeric',
         ]);
 

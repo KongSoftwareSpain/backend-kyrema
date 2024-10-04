@@ -4,13 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Models\CampoAnexo;
 use Illuminate\Http\Request;
+use App\Models\Campos;
 
 class CampoAnexoController extends Controller
 {
 
     public function getCamposPorTipoAnexo($id)
     {
-        $campos = CampoAnexo::where('tipo_anexo', $id)->get();
+        $campos = Campos::where('tipo_producto_id', $id)->get();
         return response()->json($campos);
     }
     

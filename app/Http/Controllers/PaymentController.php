@@ -52,9 +52,21 @@ class PaymentController extends Controller
 
     private function generateSignature($params, $secretKey)
     {
+        // Codifica los parámetros en base64
         $payload = base64_encode(json_encode($params));
+
+        // Decodifica la clave secreta
         $key = base64_decode($secretKey);
+
+        // Genera la firma utilizando HMAC con SHA-256
         $signature = hash_hmac('sha256', $payload, $key, true);
-        return base64_encode($signature);
+
+        // Codifica la firma en base64
+        $base64Signature = base64_encode($signature);
+
+        // Reemplaza los signos "+" por "%2B"
+        $urlEncodedSignature = str_replace('+', '%2B', $base64Signature);
+
+        return $urlEncodedSignature;
     }
 }

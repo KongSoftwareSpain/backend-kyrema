@@ -25,7 +25,9 @@ class ProductoController extends Controller
         $request->validate([
             'nombreProducto' => 'required|string',
             'letrasIdentificacion' => 'required|string',
+            'casilla_logo_sociedad' => 'nullable|string',
             'padre_id' => 'nullable|integer',
+            'tipo_producto_asociado' => 'nullable|integer',
             'campos' => 'nullable|array',
             'campos.*.nombre' => 'required|string',
             'campos.*.tipo_dato' => 'required|string|in:text,number,date,decimal,selector',
@@ -36,12 +38,14 @@ class ProductoController extends Controller
             'camposConOpciones.*.opciones.*.precio' => 'nullable|string',
             'duracion' => 'required|array',
             'duracion.*.nombre' => 'required|string',
-            'duracion.*.tipo_dato' => 'required|string|in:anual,diario,dias_delimitados,selector_dias,fecha_exacta,heredada',
+            'duracion.*.tipo_dato' => 'required|string|in:anual,mensual,diario,dias_delimitados,selector_dias,fecha_exacta,heredada',
         ]);
 
         $nombreProducto = $request->input('nombreProducto');
         $letrasIdentificacion = $request->input('letrasIdentificacion');
+        $casilla_logo_sociedad = $request->input('casilla_logo_sociedad');
         $padre_id = $request->input('padre_id');
+        $tipo_producto_asociado = $request->input('tipo_producto_asociado');
         $campos = $request->input('campos');
         $camposConOpciones = $request->input('camposConOpciones') ?? [];
         $duracion = $request->input('duracion')[0];
@@ -70,14 +74,22 @@ class ProductoController extends Controller
             Schema::create($valorDuracion, function (Blueprint $table) {
                 $table->id();
                 $table->string('duracion');
-                $table->decimal('precio', 8, 2)->nullable();
+                $table->decimal('precio_base', 8, 2)->nullable();
+                $table->decimal('extra_1', 8, 2)->nullable();
+                $table->decimal('extra_2', 8, 2)->nullable();
+                $table->decimal('extra_3', 8, 2)->nullable();
+                $table->decimal('precio_total', 8, 2)->nullable();
                 $table->timestamps();
             });
             if (!empty($duracion['opciones'])) {
                 foreach ($duracion['opciones'] as $opcion) {
                     DB::table($valorDuracion)->insert([
                         'duracion' => $opcion['nombre'],
-                        'precio' => $opcion['precio'] ?? null,
+                        'precio_base' => $opcion['precio_base'] ?? null,
+                        'extra_1' => $opcion['extra_1'] ?? null,
+                        'extra_2' => $opcion['extra_2'] ?? null,
+                        'extra_3' => $opcion['extra_3'] ?? null,
+                        'precio_total' => $opcion['precio_total'] ?? null,
                         'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
                         'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
                     ]);
@@ -89,7 +101,9 @@ class ProductoController extends Controller
         $tipoProductoId = DB::table('tipo_producto')->insertGetId([
             'letras_identificacion' => $letrasIdentificacion,
             'nombre' => $nombreProducto,
+            'casilla_logo_sociedad' => $casilla_logo_sociedad,
             'padre_id' => $padre_id,
+            'tipo_producto_asociado' => $tipo_producto_asociado,
             'tipo_duracion' => $tipoDuracion,
             'duracion' => $valorDuracion,
             'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
@@ -127,6 +141,21 @@ class ProductoController extends Controller
         // Definir el nombre de la nueva tabla usando las letras de identificación
         $nombreTabla = strtolower($letrasIdentificacion);
 
+
+        // Si es un anexo (Es decir tiene tipo_producto_asociado) se crea la tabla solo con los campos
+        // con grupo datos_anexo:
+        if($tipo_producto_asociado){
+            $campos = array_filter($campos, function($campo) {
+                return $campo['grupo'] === 'datos_anexo' || $campo['grupo'] === 'datos_fecha';
+            });
+            
+            $camposConOpciones = array_filter($camposConOpciones, function($campo) {
+                return $campo['grupo'] === 'datos_anexo' || $campo['grupo'] === 'datos_fecha';
+            });
+        }
+        
+
+
         if ($padre_id) {
             // Obtén el nombre de la tabla del padre
             $nombreTablaPadre = DB::table('tipo_producto')->where('id', $padre_id)->value('letras_identificacion');
@@ -135,10 +164,10 @@ class ProductoController extends Controller
             if (Schema::hasTable($nombreTablaPadre)) {
                 Schema::table($nombreTablaPadre, function (Blueprint $table) use ($campos, $camposConOpciones) {
                     if(!Schema::hasColumn($table->getTable(), 'subproducto')){
-                        $table->string('duracion')->nullable();
+                        $table->string('subproducto')->nullable();
                     }
                     if(!Schema::hasColumn($table->getTable(), 'subproducto_codigo')){
-                        $table->string('plantilla_path')->nullable();
+                        $table->string('subproducto_codigo')->nullable();
                     }
                     // Añadir los campos dinámicos desde $campos
                     foreach ($campos as $campo) {
@@ -176,19 +205,29 @@ class ProductoController extends Controller
             }
         } else {
             // Crear la tabla en la base de datos
-            Schema::create($nombreTabla, function (Blueprint $table) use ($campos, $camposConOpciones) {
+            Schema::create($nombreTabla, function (Blueprint $table) use ($campos, $camposConOpciones, $tipo_producto_asociado) {
                 $table->id();
 
-                // Agregar campos adicionales
-                $table->unsignedBigInteger('sociedad_id')->nullable();
-                $table->unsignedBigInteger('tipo_de_pago_id')->nullable();
-                $table->unsignedBigInteger('comercial_id')->nullable();
+                // Estos campos solo se añaden al producto, no al anexo.
+                if($tipo_producto_asociado == null){
+                    // Agregar campos adicionales
+                    $table->unsignedBigInteger('sociedad_id')->nullable();
+                    $table->unsignedBigInteger('tipo_de_pago_id')->nullable();
+                    $table->unsignedBigInteger('comercial_id')->nullable();
+                    // Campo para saber si que comercial crea el producto en nombre de otro
+                    $table->unsignedBigInteger('comercial_creador_id')->nullable();
+                    $table->string('logo_sociedad_path')->nullable();
+                } else {
+                    $table->unsignedBigInteger('producto_id')->nullable();
+                    $table->decimal('precio_base', 8, 2)->nullable();
+                    $table->decimal('extra_1', 8, 2)->nullable();
+                    $table->decimal('extra_2', 8, 2)->nullable();
+                    $table->decimal('extra_3', 8, 2)->nullable();
+                    $table->decimal('precio_total', 8, 2)->nullable();
+                }
+
                 $table->string('plantilla_path')->nullable();
                 $table->string('duracion')->nullable();
-
-                // Campo para saber si que comercial crea el producto en nombre de otro
-                $table->unsignedBigInteger('comercial_creador_id')->nullable();
-                
                 // Booleano de si está anulado o no
                 $table->boolean('anulado')->default(false);
                 
@@ -247,7 +286,7 @@ class ProductoController extends Controller
         ]);
     }
 
-    public function subirPlantilla($letrasIdentificacion, Request $request)
+    public function subirPlantilla($id, Request $request)
     {
         if ($request->hasFile('plantilla')) {
 
@@ -265,7 +304,7 @@ class ProductoController extends Controller
 
             // Añadir la ruta de la plantilla a la tabla tipo_producto
             DB::table('tipo_producto')
-                ->where('letras_identificacion', (Config::get('app.prefijo_tipo_producto') . $letrasIdentificacion))
+                ->where('id', $id)
                 ->update(['plantilla_path' => $rutaArchivo]);
 
             return response()->json(['message' => 'Plantilla subida correctamente'], 200);
@@ -365,6 +404,8 @@ class ProductoController extends Controller
         //Añadir a los datos la plantilla_path que tenga el seguro en ese momento:
         $datos['plantilla_path'] = $plantilla_path;
 
+        $datos['logo_sociedad_path'] = DB::table('sociedad')->where('id', $datos['sociedad_id'])->value('logo');
+
         // Formatear los campos datetime al formato deseado
         foreach ($camposRelacionados as $campo) {
             $nombreCampo = strtolower(str_replace(' ', '_', $campo->nombre));
@@ -384,10 +425,10 @@ class ProductoController extends Controller
         $newNumber = str_pad($lastNumber + 1, 6, '0', STR_PAD_LEFT);
 
         // Obtén el prefijo desde la configuración
-        $prefijo = Config::get('app.prefijo_tipo_producto');
+        $prefijo = strtolower(Config::get('app.prefijo_tipo_producto'));
     
         // Elimina el prefijo del código
-        $codigoPorTipoProducto = str_replace($prefijo, '', $letrasIdentificacion);
+        $codigoPorTipoProducto = str_replace($prefijo, '', strtolower($letrasIdentificacion));
 
         $newCodigoProducto = $tableDatePrefix . strtoupper($codigoPorTipoProducto) . $newNumber;
 
@@ -413,8 +454,22 @@ class ProductoController extends Controller
 
 
     public function editarProducto($letrasIdentificacion, Request $request){
+
+        // Obtener el id del tipo_producto basado en las letras_identificacion
+        $tipoProducto = DB::table('tipo_producto')
+                        ->where('letras_identificacion', $letrasIdentificacion)
+                        ->first();
+
+
+        // Si el tipoProducto tiene padre, coger el tipoProducto padre para meter los datos en la tabla correspondiente
+        if($tipoProducto->padre_id != null){
+            $tipoProducto = DB::table('tipo_producto')
+                        ->where('id', $tipoProducto->padre_id)
+                        ->first();
+        }
+
         // Convertir letras de identificación a nombre de tabla
-        $nombreTabla = strtolower($letrasIdentificacion);
+        $nombreTabla = strtolower($tipoProducto->letras_identificacion);
         
         // Coger el resto de datos de la request excepto el id:
         $datos = $request->input('productoEditado');

@@ -6,6 +6,7 @@ use App\Models\TarifasAnexos;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use App\Models\TarifasProducto;
 
 class TarifaAnexoController extends Controller
 {
@@ -14,8 +15,10 @@ class TarifaAnexoController extends Controller
         $request->validate([
             'id_tipo_anexo' => 'required|numeric',
             'id_sociedad' => 'required|numeric',
-            'prima_seguro' => 'required|numeric',
-            'cuota_asociacion' => 'required|numeric',
+            'precio_base' => 'required|numeric',
+            'extra_1' => 'required|numeric',
+            'extra_2' => 'required|numeric',
+            'extra_3' => 'required|numeric',
             'precio_total' => 'required|numeric',
         ]);
     
@@ -23,8 +26,10 @@ class TarifaAnexoController extends Controller
         $id = DB::table('tarifas_anexos')->insertGetId([
             'id_tipo_anexo' => $request->input('id_tipo_anexo'),
             'id_sociedad' => $request->input('id_sociedad'),
-            'prima_seguro' => $request->input('prima_seguro'),
-            'cuota_asociacion' => $request->input('cuota_asociacion'),
+            'precio_base' => $request->input('precio_base'),
+            'extra_1' => $request->input('extra_1'),
+            'extra_2' => $request->input('extra_2'),
+            'extra_3' => $request->input('extra_3'),
             'precio_total' => $request->input('precio_total'),
             'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
             'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
@@ -35,8 +40,8 @@ class TarifaAnexoController extends Controller
     }
 
     public function getTarifaPorSociedadAndTipoAnexo($id_sociedad, $id_tipo_anexo){
-        $tarifaAnexo = TarifasAnexos::where('id_sociedad', $id_sociedad)
-            ->where('id_tipo_anexo', $id_tipo_anexo)
+        $tarifaAnexo = TarifasProducto::where('id_sociedad', $id_sociedad)
+            ->where('tipo_producto_id', $id_tipo_anexo)
             ->first();
 
         return response()->json($tarifaAnexo);
@@ -55,20 +60,6 @@ class TarifaAnexoController extends Controller
         return response()->json($tarifaAnexo);
     }
 
-    public function update(Request $request, $id)
-    {
-        $request->validate([
-            'anexo' => 'string|max:255|exists:tipo_anexos,id',
-            'tiene_escala' => 'boolean',
-            'id_tipo_producto' => 'numeric|exists:tarifa_productos,id',
-            'precio' => 'numeric',
-        ]);
-
-        $tarifaAnexo = TarifaAnexo::findOrFail($id);
-        $tarifaAnexo->update($request->all());
-
-        return response()->json($tarifaAnexo);
-    }
 
     public function destroy($id)
     {

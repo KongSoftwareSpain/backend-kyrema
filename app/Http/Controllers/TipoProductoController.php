@@ -77,10 +77,11 @@ class TipoProductoController extends Controller
         return response()->json($tipoProducto);
     }
 
-    public function updateNombre(Request $request, $id)
+    public function updateTipoProducto(Request $request, $id)
     {
         $request->validate([
             'nombre' => 'required|string|max:255',
+            'casilla_logo_sociedad' => 'nullable|string|max:255',
         ]);
 
         $tipoProducto = TipoProducto::findOrFail($id);
