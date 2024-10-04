@@ -93,6 +93,8 @@ class CampoController extends Controller
             $id = $campo['id'];
             unset($campo['id']);
 
+            $campo['opciones'] = null;
+
             // Asegurarse de que updated_at esté en el formato correcto
             $campo['updated_at'] = Carbon::now()->format('Y-m-d\TH:i:s');
 

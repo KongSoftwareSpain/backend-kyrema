@@ -43,27 +43,10 @@ class ExportController extends Controller
                return response()->json(['error' => 'Plantilla no encontrada'. $plantillaPath], 404);
            }
 
-           // Obtener la ruta del logo
-            //    $logoPath = storage_path('app/public/' . 'img/Logo_CANAMA__003.png');
-            
-            //    if (!file_exists($logoPath)) {
-            //        // $logoPath = storage_path('app/public/' . 'img/Logo_CANAMA__003.png');
-            //        return response()->json(['error' => 'Logo no encontrado'], 404);
-            //    }
+            // Cargar el archivo Excel
+            $spreadsheet = IOFactory::load($plantillaPath);
+            $sheet = $spreadsheet->getActiveSheet();
 
-           // Cargar el archivo Excel
-           $spreadsheet = IOFactory::load($plantillaPath);
-           $sheet = $spreadsheet->getActiveSheet();
-
-            // Insertar el logo en la celda A1
-            // Crear una nueva instancia de Drawing
-            //    $drawing = new Drawing();
-            //    $drawing->setName('Logo');
-            //    $drawing->setDescription('Logo de la empresa');
-            //    $drawing->setPath($logoPath); // Ruta de la imagen
-            //    $drawing->setHeight(90); // Altura de la imagen (puedes ajustarlo según sea necesario)
-            //    $drawing->setCoordinates('A1'); // Celda en la que deseas insertar la imagen
-            //    $drawing->setWorksheet($sheet); // Asignar la hoja donde se insertará la imagen
 
             // Obtener los campos del tipo de producto con columna y fila no nulos
             $campos = DB::table('campos')
@@ -94,6 +77,28 @@ class ExportController extends Controller
                 $sheet->setCellValue($celda, $nuevoContenido);
             }
 
+
+            if($valores->sociedad_id == env('SOCIEDAD_ADMIN_ID')){
+                $logo = 'logos/Logo_CANAMA__003.png';
+            } else {
+                $logo = $valores->logo_sociedad_path;
+            }
+            
+
+            // Obtener la ruta del logo
+            $logoPath = storage_path('app/public/' . $logo);
+        
+            if (file_exists($logoPath) && $tipoProducto->casilla_logo_sociedad) {
+                // Insertar el logo en la celda A1
+                // Crear una nueva instancia de Drawing
+                $drawing = new Drawing();
+                $drawing->setName('Logo');
+                $drawing->setDescription('Logo de la empresa');
+                $drawing->setPath($logoPath); // Ruta de la imagen
+                $drawing->setHeight(90); // Altura de la imagen (puedes ajustarlo según sea necesario)
+                $drawing->setCoordinates(strtoupper($tipoProducto->casilla_logo_sociedad)); // Celda en la que deseas insertar la imagen
+                $drawing->setWorksheet($sheet); // Asignar la hoja donde se insertará la imagen
+            }
             
 
             // Guardar el archivo Excel con los nuevos datos
@@ -252,8 +257,6 @@ class ExportController extends Controller
             $drawing->setHeight(90); // Altura de la imagen (puedes ajustarlo según sea necesario)
             $drawing->setCoordinates(strtoupper($tipoAnexo->casilla_logo_sociedad)); // Celda en la que deseas insertar la imagen
             $drawing->setWorksheet($sheet); // Asignar la hoja donde se insertará la imagen
-        } else {
-            return response()->json(['error' => 'Logo no encontrado o casillas no seteadas'], 404);
         }
 
         // Guardar el archivo Excel con los nuevos datos
