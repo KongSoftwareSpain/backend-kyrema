@@ -83,7 +83,10 @@ class ExportController extends Controller
             } else {
                 $logo = $valores->logo_sociedad_path;
             }
-            
+
+            if (is_dir($logo)) {
+                return response()->json(['error' => 'El logo proporcionado es un directorio, no una imagen'], 400);
+            }
 
             // Obtener la ruta del logo
             $logoPath = storage_path('app/public/' . $logo);
