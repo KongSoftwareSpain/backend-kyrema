@@ -313,8 +313,124 @@ class ProductoController extends Controller
         }
     }
 
-
     public function getProductosByTipoAndSociedades($letrasIdentificacion, Request $request)
+    {
+        // Obtener las sociedades del request
+        $sociedades = $request->query('sociedades');
+        
+        if ($sociedades) {
+            $sociedades = explode(',', $sociedades);
+        } else {
+            $sociedades = [];
+        }
+
+        // Convertir letras de identificación a nombre de tabla
+        $nombreTabla = strtolower($letrasIdentificacion);
+        
+        // Obtener la fecha y hora actual
+        $fechaActual = now();
+
+        // Obtener el tipo de producto por las letras de identificación
+        $tipoProducto = DB::table('tipo_producto')
+                        ->where('letras_identificacion', $letrasIdentificacion)
+                        ->first();
+
+        // Obtener todas las tablas de anexos asociados al tipo de producto
+        $anexos = DB::table('tipo_producto')
+                    ->where('tipo_producto_asociado', $tipoProducto->id)
+                    ->pluck('letras_identificacion'); // Solo letras de identificación para las tablas de anexos
+
+        // 1. Consulta principal: Obtener productos vigentes por fecha y sociedades
+        $productosVigentes = DB::table($nombreTabla)
+            ->when(count($sociedades) > 0, function ($query) use ($sociedades) {
+                $query->whereIn('sociedad_id', $sociedades);
+            })
+            ->where('fecha_de_fin', '>', $fechaActual) // Filtrar productos con fecha_de_fin mayor que la fecha actual
+            ->orderBy('updated_at', 'desc')
+            ->get();
+
+        // 2. Consulta de productos con anexos vigentes en las tablas asociadas
+        $productosConAnexosVigentes = collect(); // Inicializar colección vacía para productos con anexos
+
+        foreach ($anexos as $letraAnexo) {
+            // Convertir letra del anexo en nombre de tabla
+            $nombreTablaAnexo = strtolower($letraAnexo);
+
+            // Consultar productos que tienen anexos vigentes en cada tabla de anexos
+            $productosAnexoVigentes = DB::table($nombreTablaAnexo)
+                ->join($nombreTabla, "$nombreTablaAnexo.producto_id", '=', "$nombreTabla.id")
+                ->when(count($sociedades) > 0, function ($query) use ($sociedades, $nombreTabla) {
+                    $query->whereIn("$nombreTabla.sociedad_id", $sociedades);
+                })
+                ->where("$nombreTablaAnexo.fecha_de_fin", '>=', $fechaActual) // Anexo vigente
+                ->select("$nombreTabla.*") // Seleccionar solo los productos
+                ->orderBy("$nombreTabla.updated_at", 'desc')
+                ->get();
+
+            // Combinar productos con anexos vigentes en la colección
+            $productosConAnexosVigentes = $productosConAnexosVigentes->merge($productosAnexoVigentes);
+        }
+
+        // 3. Combinar los productos vigentes directamente con los productos que tienen anexos vigentes
+        $productosFinales = $productosVigentes->merge($productosConAnexosVigentes);
+
+        // 4. Eliminar duplicados por ID de producto
+        return response()->json($productosFinales->unique('id'));
+    }
+
+    public function getProductosByTipoAndComercial($letrasIdentificacion, $comercial_id)
+    {
+        // Obtener el tipo de producto por las letras de identificación
+        $tipoProducto = DB::table('tipo_producto')
+                        ->where('letras_identificacion', $letrasIdentificacion)
+                        ->first();
+
+        // Obtener todas las tablas de anexos asociados
+        $anexos = DB::table('tipo_producto')
+                    ->where('tipo_producto_asociado', $tipoProducto->id)
+                    ->pluck('letras_identificacion'); // Obtener letras identificativas de las tablas de anexos
+
+        // Convertir letras de identificación a nombre de tabla
+        $nombreTabla = strtolower($letrasIdentificacion);
+        
+        // Obtener la fecha y hora actual
+        $fechaActual = now();
+        
+        // Obtener los productos que están vigentes (fecha de fin >= fecha actual)
+        $productosVigentes = DB::table($nombreTabla)
+            ->where('comercial_id', $comercial_id)
+            ->where('fecha_de_fin', '>=', $fechaActual)
+            ->orderBy('updated_at', 'desc')
+            ->get();
+
+        // Ahora procesamos los productos que tienen anexos
+        $productosConAnexosVigentes = collect(); // Inicializar una colección vacía
+
+        foreach ($anexos as $letraAnexo) {
+            // Convertir letra del anexo en nombre de tabla
+            $nombreTablaAnexo = strtolower($letraAnexo);
+
+            // Consultar los productos con anexos vigentes en cada tabla de anexos
+            $productosAnexoVigentes = DB::table($nombreTablaAnexo)
+                ->join($nombreTabla, "$nombreTablaAnexo.producto_id", '=', "$nombreTabla.id")
+                ->where("$nombreTabla.comercial_id", $comercial_id)
+                ->where("$nombreTablaAnexo.fecha_de_fin", '>=', $fechaActual)
+                ->select("$nombreTabla.*") // Seleccionar solo los productos
+                ->orderBy("$nombreTabla.updated_at", 'desc')
+                ->get();
+
+            // Añadir los productos con anexos vigentes a la colección
+            $productosConAnexosVigentes = $productosConAnexosVigentes->merge($productosAnexoVigentes);
+        }
+
+        // Combinar productos vigentes y productos con anexos vigentes
+        $productosFinales = $productosVigentes->merge($productosConAnexosVigentes);
+
+        // Devolver los productos como respuesta JSON
+        return response()->json($productosFinales->unique('id')); // Eliminar duplicados por ID
+    }
+
+    public function getHistorialProductosByTipoAndSociedades($letrasIdentificacion, Request $request)
     {
         $sociedades = $request->query('sociedades');
 
@@ -335,25 +451,25 @@ class ProductoController extends Controller
             ->when(count($sociedades) > 0, function ($query) use ($sociedades) {
                 $query->whereIn('sociedad_id', $sociedades);
             })
-            ->where('fecha_de_fin', '>', $fechaActual) // Filtrar productos con fecha_de_fin mayor que la fecha actual
+            ->where('fecha_de_fin', '<', $fechaActual) // Filtrar productos con fecha_de_fin mayor que la fecha actual
             ->orderBy('updated_at', 'desc') // Ordenar por fecha de actualización de forma descendente
             ->get();
         
         return response()->json($productos);
     }
 
-    public function getProductosByTipoAndComercial($letrasIdentificacion, $comercial_id){
+
+    public function getHistorialProductosByTipoAndComercial($letrasIdentificacion, $comercial_id){
         
         // Convertir letras de identificación a nombre de tabla
         $nombreTabla = strtolower($letrasIdentificacion);
-        
-        // Obtener la fecha y hora actual
+
         $fechaActual = now();
         
         // Realizar consulta dinámica usando el nombre de la tabla
         $productos = DB::table($nombreTabla)
             ->where('comercial_id', $comercial_id)
-            ->where('fecha_de_fin', '>', $fechaActual) // Filtrar productos con fecha_de_fin mayor que la fecha actual
+            ->where('fecha_de_fin', '<', $fechaActual)
             ->orderBy('updated_at', 'desc') // Ordenar por fecha de actualización de forma descendente
             ->get();
         

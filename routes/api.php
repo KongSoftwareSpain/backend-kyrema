@@ -37,7 +37,9 @@ Route::post('password/reset', [ResetPasswordController::class, 'reset']);
 
 
 Route::get('/productos/{letrasIdentificacion}', [ProductoController::class, 'getProductosByTipoAndSociedades']);
+Route::get('/historial/{letrasIdentificacion}', [ProductoController::class, 'getHistorialProductosByTipoAndSociedades']);
 Route::get('/productos/{letrasIdentificacion}/comercial/{comercial_id}', [ProductoController::class, 'getProductosByTipoAndComercial']);
+Route::get('/historial/{letrasIdentificacion}/comercial/{comercial_id}', [ProductoController::class, 'getHistorialProductosByTipoAndComercial']);
 
 // ANULADOS
 Route::get('anulados/{letrasIdentificacion}', [AnuladosController::class, 'getAnulados']);

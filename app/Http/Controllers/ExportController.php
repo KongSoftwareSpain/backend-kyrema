@@ -12,6 +12,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
+use Illuminate\Support\Facades\Log;
 
 class ExportController extends Controller
 {
@@ -84,25 +85,23 @@ class ExportController extends Controller
                 $logo = $valores->logo_sociedad_path;
             }
 
-            if (is_dir($logo)) {
-                return response()->json(['error' => 'El logo proporcionado es un directorio, no una imagen'], 400);
-            }
-
-            // Obtener la ruta del logo
-            $logoPath = storage_path('app/public/' . $logo);
-        
-            if (file_exists($logoPath) && $tipoProducto->casilla_logo_sociedad) {
-                // Insertar el logo en la celda A1
-                // Crear una nueva instancia de Drawing
-                $drawing = new Drawing();
-                $drawing->setName('Logo');
-                $drawing->setDescription('Logo de la empresa');
-                $drawing->setPath($logoPath); // Ruta de la imagen
-                $drawing->setHeight(90); // Altura de la imagen (puedes ajustarlo según sea necesario)
-                $drawing->setCoordinates(strtoupper($tipoProducto->casilla_logo_sociedad)); // Celda en la que deseas insertar la imagen
-                $drawing->setWorksheet($sheet); // Asignar la hoja donde se insertará la imagen
-            }
+            if($logo){
+                // Obtener la ruta del logo
+                $logoPath = storage_path('app/public/' . $logo);
             
+                if (file_exists($logoPath) && $tipoProducto->casilla_logo_sociedad) {
+                    // Insertar el logo en la celda A1
+                    // Crear una nueva instancia de Drawing
+                    $drawing = new Drawing();
+                    $drawing->setName('Logo');
+                    $drawing->setDescription('Logo de la empresa');
+                    $drawing->setPath($logoPath); // Ruta de la imagen
+                    $drawing->setHeight(90); // Altura de la imagen (puedes ajustarlo según sea necesario)
+                    $drawing->setCoordinates(strtoupper($tipoProducto->casilla_logo_sociedad)); // Celda en la que deseas insertar la imagen
+                    $drawing->setWorksheet($sheet); // Asignar la hoja donde se insertará la imagen
+                }
+            
+            }
 
             // Guardar el archivo Excel con los nuevos datos
             $tempExcelPath = storage_path('app/public/temp/plantilla_' . time() . '.xlsx');
