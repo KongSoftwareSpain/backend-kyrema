@@ -27,7 +27,9 @@ use App\Http\Controllers\TipoPagoProductoSociedadController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\ResetPasswordController;
+use App\Http\Controllers\CompaniaController;
 use Illuminate\Support\Facades\Mail;
+
 
 
 
@@ -160,6 +162,10 @@ Route::post('tipo_pago_producto_sociedad', [TipoPagoProductoSociedadController::
 Route::get('tipo_pago_producto_sociedad/sociedad/{id_sociedad}', [TipoPagoProductoSociedadController::class, 'getTiposPagoPorSociedad']);
 Route::get('/tipo_pago_producto_sociedad/sociedad/{sociedad_id}/tipo-producto/{tipo_producto_id}', [TipoPagoProductoSociedadController::class, 'getTiposPagoPorSociedadYTipoProducto']);
 Route::post('sociedad/{sociedad_padre_id}/hija/{sociedad_hija_id}/tipos-pago', [TipoPagoProductoSociedadController::class, 'transferirTiposPago']);
+
+// COMPAÑIAS:
+
+Route::get('companies', [CompaniaController::class, 'getAll']);
 
 
 Route::apiResource('escalado-anexos', EscaladoAnexoController::class);

@@ -107,7 +107,11 @@ class NavController extends Controller
             [
                 "label" => "Productos",
                 "link" => "/gestion-productos"
-            ]   
+            ],
+            [
+                "label" => "Compañias",
+                "link" => "/companias"
+            ] 
         ];
         $navegacion[2]["children"] = $tiposProducto->map(function($tipoProducto){
             return [
