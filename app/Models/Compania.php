@@ -16,6 +16,7 @@ class Compania extends Model
     protected $fillable = [
         'nombre',
         'CIF',
+        'logo',
         'IBAN',
         'nombre_contacto_1', 'cargo_contacto_1', 'email_contacto_1', 'telefono_contacto_1',
         'nombre_contacto_2', 'cargo_contacto_2', 'email_contacto_2', 'telefono_contacto_2',

@@ -28,6 +28,7 @@ use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\CompaniaController;
+use App\Http\Controllers\PolizaController;
 use Illuminate\Support\Facades\Mail;
 
 
@@ -166,6 +167,16 @@ Route::post('sociedad/{sociedad_padre_id}/hija/{sociedad_hija_id}/tipos-pago', [
 // COMPAÑIAS:
 
 Route::get('companies', [CompaniaController::class, 'getAll']);
+Route::get('companies/{id}', [CompaniaController::class, 'getCompanyById']);
+Route::post('companies', [CompaniaController::class, 'createCompany']);
+Route::put('companies/{id}', [CompaniaController::class, 'updateCompany']);
+
+// POLIZAS:
+
+Route::get('company/{id}/polizas', [PolizaController::class, 'getPolizasByCompany']);
+Route::get('poliza/{id}', [PolizaController::class, 'getPolizaById']);
+Route::post('poliza', [PolizaController::class, 'store']);
+Route::put('poliza/{id}', [PolizaController::class, 'update']);
 
 
 Route::apiResource('escalado-anexos', EscaladoAnexoController::class);
