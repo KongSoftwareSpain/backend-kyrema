@@ -25,6 +25,7 @@ class ProductoController extends Controller
         $request->validate([
             'nombreProducto' => 'required|string',
             'letrasIdentificacion' => 'required|string',
+            'acuerdo_kyrema' => 'nullable|boolean',
             'casilla_logo_sociedad' => 'nullable|string',
             'padre_id' => 'nullable|integer',
             'tipo_producto_asociado' => 'nullable|integer',
@@ -43,6 +44,7 @@ class ProductoController extends Controller
 
         $nombreProducto = $request->input('nombreProducto');
         $letrasIdentificacion = $request->input('letrasIdentificacion');
+        $acuerdo_kyrema = $request->input('acuerdo_kyrema');
         $casilla_logo_sociedad = $request->input('casilla_logo_sociedad');
         $padre_id = $request->input('padre_id');
         $tipo_producto_asociado = $request->input('tipo_producto_asociado');
@@ -100,6 +102,7 @@ class ProductoController extends Controller
         // Insertar información del tipo de producto en la tabla correspondiente y obtener el ID
         $tipoProductoId = DB::table('tipo_producto')->insertGetId([
             'letras_identificacion' => $letrasIdentificacion,
+            'acuerdo_kyrema' => $acuerdo_kyrema,
             'nombre' => $nombreProducto,
             'casilla_logo_sociedad' => $casilla_logo_sociedad,
             'padre_id' => $padre_id,
