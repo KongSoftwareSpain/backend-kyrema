@@ -29,6 +29,7 @@ use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\CompaniaController;
 use App\Http\Controllers\PolizaController;
+use App\Http\Controllers\SocioController;
 use Illuminate\Support\Facades\Mail;
 
 
@@ -186,3 +187,8 @@ Route::get('/nav/{id_sociedad}', [NavController::class, 'getNavegacion']);
 //Pagos:
 Route::post('/payment/create', [PaymentController::class, 'createPayment']);
 
+
+// SOCIOS:
+Route::get('/socios', [SocioController::class, 'index']);
+Route::get('/socio/{dni}', [SocioController::class, 'getAsegurado']);
+Route::post('/socio', [SocioController::class, 'store']);
