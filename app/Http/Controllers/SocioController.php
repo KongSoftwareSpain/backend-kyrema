@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Socio;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class SocioController extends Controller
 {
@@ -43,7 +44,13 @@ class SocioController extends Controller
             'codigo_postal' => 'nullable|string'
         ]);
 
-        $socio = Socio::create($request->all());
+        if ($request->fecha_nacimiento) {
+            $request->merge([
+                'fecha_nacimiento' => date('Y-m-d\TH:i:s', strtotime($request->fecha_nacimiento))
+            ]);
+        }
+
+        $socio = DB::table('socios')->insertGetId($request->all());
         return response()->json($socio, 201);
     }
 

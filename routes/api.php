@@ -182,7 +182,7 @@ Route::put('poliza/{id}', [PolizaController::class, 'update']);
 
 Route::apiResource('escalado-anexos', EscaladoAnexoController::class);
 
-Route::get('/nav/{id_sociedad}', [NavController::class, 'getNavegacion']);
+Route::get('/nav/{id_sociedad}/{responsable}', [NavController::class, 'getNavegacion']);
 
 //Pagos:
 Route::post('/payment/create', [PaymentController::class, 'createPayment']);

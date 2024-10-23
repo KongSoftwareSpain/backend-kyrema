@@ -82,6 +82,7 @@ class TipoProductoController extends Controller
         $request->validate([
             'nombre' => 'required|string|max:255',
             'casilla_logo_sociedad' => 'nullable|string|max:255',
+            'esAcuerdoKyrema' => 'nullable|boolean',
         ]);
 
         $tipoProducto = TipoProducto::findOrFail($id);

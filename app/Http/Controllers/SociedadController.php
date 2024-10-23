@@ -51,7 +51,7 @@ class SociedadController extends Controller
             'swift' => 'nullable|string|max:11',
             'dominio' => 'nullable|string|max:255',
             'observaciones' => 'nullable|string|max:255',
-            'logo' => 'nullable|file|mimes:jpeg,png,jpg,gif|max:2048',  // Validación del archivo logo
+            'logo' => 'nullable|file|mimes:jpeg,png,jpg,gif|max:4096',  // Validación del archivo logo
             'sociedad_padre_id' => 'nullable|numeric|exists:sociedad,id',
         ]);
 
@@ -61,7 +61,7 @@ class SociedadController extends Controller
         // Si se ha subido un logo, guardarlo
         if ($request->hasFile('logo')) {
             $logo = $request->file('logo');
-            $logoPath = $logo->storeAs('public/logos', 'logo_' . $sociedad->id . '.' . $logo->extension());
+            $logoPath = $logo->storeAs('public/logos', 'logo_' . $logo->getClientOriginalName() . '_' . $sociedad->id . '.' . $logo->extension());
             $sociedad->logo = str_replace('public/', '', $logoPath); // Guardar la ruta del logo
             $sociedad->save();
         }
