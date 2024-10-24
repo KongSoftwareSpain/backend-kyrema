@@ -111,7 +111,11 @@ class NavController extends Controller
             [
                 "label" => "Compañias",
                 "link" => "/companias"
-            ] 
+            ],
+            [
+                "label" => "Socios",
+                "link" => "/socios"
+            ]
         ];
         $navegacion[2]["children"] = $tiposProducto->map(function($tipoProducto){
             return [
@@ -135,7 +139,7 @@ class NavController extends Controller
         // }
 
         // Condición para filtrar las opciones en el array de navegación
-        if ($sociedadPadreId == self::SOCIEDAD_ADMIN_ID && isset($navegacion[2])) {
+        if ($sociedadPadreId == env('SOCIEDAD_ADMIN_ID') && isset($navegacion[2])) {
             $navegacion[1]["children"] = array_values(array_filter($navegacion[1]["children"], function($child) {
                 return in_array($child["label"], ["Sociedades", "Comisiones"]);
             }));

@@ -20,12 +20,6 @@ class SocioController extends Controller
         return response()->json($socio);
     }
 
-    // Mostrar el formulario para crear un nuevo socio
-    public function create()
-    {
-        //
-    }
-
     // Almacenar un nuevo socio
     public function store(Request $request)
     {
@@ -53,18 +47,11 @@ class SocioController extends Controller
         $socio = DB::table('socios')->insertGetId($request->all());
         return response()->json($socio, 201);
     }
-
     // Mostrar un socio específico
     public function show($id)
     {
         $socio = Socio::find($id);
         return response()->json($socio);
-    }
-
-    // Mostrar el formulario para editar un socio específico
-    public function edit($id)
-    {
-        //
     }
 
     // Actualizar un socio específico

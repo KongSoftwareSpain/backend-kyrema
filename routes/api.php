@@ -192,3 +192,4 @@ Route::post('/payment/create', [PaymentController::class, 'createPayment']);
 Route::get('/socios', [SocioController::class, 'index']);
 Route::get('/socio/{dni}', [SocioController::class, 'getAsegurado']);
 Route::post('/socio', [SocioController::class, 'store']);
+Route::delete('/socio/{id}', [SocioController::class, 'destroy']);
