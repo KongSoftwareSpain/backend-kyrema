@@ -20,33 +20,38 @@ class SocioController extends Controller
         return response()->json($socio);
     }
 
-    // Almacenar un nuevo socio
     public function store(Request $request)
-    {
-        $request->validate([
-            'dni' => 'required|string',
-            'nombre_socio' => 'required|string',
-            'apellido_1' => 'nullable|string',
-            'apellido_2' => 'nullable|string',
-            'email' => 'required|email',
-            'telefono' => 'nullable|string',
-            'fecha_de_nacimiento' => 'required|date',
-            'sexo' => 'nullable|string',
-            'direccion' => 'nullable|string',
-            'poblacion' => 'nullable|string',
-            'provincia' => 'nullable|string',
-            'codigo_postal' => 'nullable|string'
-        ]);
+{
+    $request->validate([
+        'dni' => 'required|string',
+        'nombre_socio' => 'required|string',
+        'apellido_1' => 'nullable|string',
+        'apellido_2' => 'nullable|string',
+        'email' => 'required|email',
+        'telefono' => 'nullable|string',
+        'fecha_de_nacimiento' => 'required|date',
+        'sexo' => 'nullable|string',
+        'direccion' => 'nullable|string',
+        'poblacion' => 'nullable|string',
+        'provincia' => 'nullable|string',
+        'codigo_postal' => 'nullable|string'
+    ]);
 
-        if ($request->fecha_nacimiento) {
-            $request->merge([
-                'fecha_nacimiento' => date('Y-m-d\TH:i:s', strtotime($request->fecha_nacimiento))
-            ]);
-        }
-
-        $socio = DB::table('socios')->insertGetId($request->all());
-        return response()->json($socio, 201);
+    // Validar si el DNI ya existe
+    if (DB::table('socios')->where('dni', $request->dni)->exists()) {
+        return response()->json(['message' => 'El DNI ya está en uso.'], 409);
     }
+
+    if ($request->fecha_nacimiento) {
+        $request->merge([
+            'fecha_nacimiento' => date('Y-m-d\TH:i:s', strtotime($request->fecha_nacimiento))
+        ]);
+    }
+
+    $socio = DB::table('socios')->insertGetId($request->all());
+    return response()->json($socio, 201);
+}
+
     // Mostrar un socio específico
     public function show($id)
     {

@@ -103,6 +103,11 @@ class ExportController extends Controller
             
             }
 
+            // $sheet->getPageMargins()->setTop(0);
+            // $sheet->getPageMargins()->setRight(0);
+            // $sheet->getPageMargins()->setLeft(0);
+            // $sheet->getPageMargins()->setBottom(0);
+
             // Guardar el archivo Excel con los nuevos datos
             $tempExcelPath = storage_path('app/public/temp/plantilla_' . time() . '.xlsx');
             $writer = new Xlsx($spreadsheet);
@@ -260,6 +265,11 @@ class ExportController extends Controller
             $drawing->setCoordinates(strtoupper($tipoAnexo->casilla_logo_sociedad)); // Celda en la que deseas insertar la imagen
             $drawing->setWorksheet($sheet); // Asignar la hoja donde se insertará la imagen
         }
+
+        $sheet->getPageMargins()->setTop(0);
+        $sheet->getPageMargins()->setRight(0);
+        $sheet->getPageMargins()->setLeft(0);
+        $sheet->getPageMargins()->setBottom(0);
 
         // Guardar el archivo Excel con los nuevos datos
         $tempExcelPath = storage_path('app/public/temp/plantilla_' . time() . '.xlsx');
