@@ -48,6 +48,9 @@ class PolizaController extends Controller
 
         // Crear una nueva póliza sin los documentos primero
         $polizaData = $request->except(['doc_adjuntos_1', 'doc_adjuntos_2', 'doc_adjuntos_3', 'doc_adjuntos_4', 'doc_adjuntos_5', 'doc_adjuntos_6']);
+        $polizaData['estado'] = $polizaData['estado'] ?? '';
+        $polizaData['descripcion'] = $polizaData['descripcion'] ?? '';
+        $polizaData['observaciones'] = $polizaData['observaciones'] ?? '';
         $poliza = Poliza::create($polizaData);
 
         // Guardar cada archivo adjunto si está presente
@@ -65,6 +68,9 @@ class PolizaController extends Controller
 
                 // Guardar la plantilla Excel en el sistema de archivos
                 Storage::disk('public')->putFileAs('docs', $doc, $nombreArchivo);
+
+                // Guardar el nombre del archivo en la base de datos
+                $poliza->$docField = $nombreArchivo;
             } else {
                 Log::info("No se encontró el archivo $docField");
             }
@@ -75,46 +81,80 @@ class PolizaController extends Controller
         return response()->json($poliza);
     }
 
-public function update(Request $request, $id)
-{
-    // Validación de los campos
-    $request->validate([
-        'compania_id' => 'required',
-        'numero' => 'required',
-        'ramo' => 'required',
-        'descripcion' => 'nullable',
-        'fecha_inicio' => 'nullable',
-        'fecha_fin_venta' => 'nullable',
-        'fecha_fin_servicio' => 'nullable',
-        'prima_neta' => 'nullable',
-        'comision' => 'nullable',
-        'estado' => 'nullable',
-        'observaciones' => 'nullable',
-        'doc_adjuntos_1' => 'nullable|file|mimes:pdf,doc,docx',
-        'doc_adjuntos_2' => 'nullable|file|mimes:pdf,doc,docx',
-        'doc_adjuntos_3' => 'nullable|file|mimes:pdf,doc,docx',
-        'doc_adjuntos_4' => 'nullable|file|mimes:pdf,doc,docx',
-        'doc_adjuntos_5' => 'nullable|file|mimes:pdf,doc,docx',
-        'doc_adjuntos_6' => 'nullable|file|mimes:pdf,doc,docx',
-    ]);
+    public function update(Request $request, $id)
+    {
+        // Validación de los campos
+        $request->validate([
+            'compania_id' => 'required',
+            'numero' => 'required',
+            'ramo' => 'required',
+            'descripcion' => 'nullable',
+            'fecha_inicio' => 'nullable',
+            'fecha_fin_venta' => 'nullable',
+            'fecha_fin_servicio' => 'nullable',
+            'prima_neta' => 'nullable',
+            'comision' => 'nullable',
+            'estado' => 'nullable',
+            'observaciones' => 'nullable',
+            'doc_adjuntos_1' => 'nullable',
+            'doc_adjuntos_2' => 'nullable',
+            'doc_adjuntos_3' => 'nullable',
+            'doc_adjuntos_4' => 'nullable',
+            'doc_adjuntos_5' => 'nullable',
+            'doc_adjuntos_6' => 'nullable',
+        ]);
 
-    // Buscar la póliza existente
-    $poliza = Poliza::findOrFail($id);
-    $poliza->update($request->except(['doc_adjuntos_1', 'doc_adjuntos_2', 'doc_adjuntos_3', 'doc_adjuntos_4', 'doc_adjuntos_5', 'doc_adjuntos_6']));
+        Log::info($request->all());
 
-    // Actualizar o agregar nuevos archivos adjuntos
-    for ($i = 1; $i <= 6; $i++) {
-        $docField = "doc_adjuntos_$i";
-        if ($request->hasFile($docField)) {
-            // Almacenar el nuevo archivo
-            $filePath = $request->file($docField)->store('public/docs');
-            $poliza->$docField = basename($filePath); // Almacena el nombre del archivo
+        // Buscar la póliza existente
+        $poliza = Poliza::findOrFail($id);
+        $poliza->update($request->except(['doc_adjuntos_1', 'doc_adjuntos_2', 'doc_adjuntos_3', 'doc_adjuntos_4', 'doc_adjuntos_5', 'doc_adjuntos_6']));
+
+        // Guardar cada archivo adjunto si está presente
+        for ($i = 1; $i <= 6; $i++) {
+            $docField = "doc_adjuntos_$i";
+            if ($request->hasFile($docField)) {
+                $doc = $request->file($docField);
+                $nombreArchivo = $doc->getClientOriginalName();
+                $rutaArchivo = 'docs/' . $nombreArchivo;
+
+                // Comprobar si ya existe un archivo con el mismo nombre
+                if (Storage::disk('public')->exists($rutaArchivo)) {
+                    return response()->json(['error' => 'Ya existe un document con el nombre '. $nombreArchivo], 400);
+                }
+
+                // Guardar la plantilla Excel en el sistema de archivos
+                Storage::disk('public')->putFileAs('docs', $doc, $nombreArchivo);
+
+                // Guardar el nombre del archivo en la base de datos
+                $poliza->$docField = $nombreArchivo;
+            } else {
+                Log::info("No se encontró el archivo $docField");
+            }
         }
+
+        $poliza->save();
+
+        return response()->json($poliza);
     }
 
-    $poliza->save();
+    public function downloadPoliza(Request $request, $id){
+        $poliza = Poliza::findOrFail($id);
 
-    return response()->json($poliza);
-}
+        $docField = $request->doc_adjunto;
+        $doc = $poliza->$docField;
+
+        if (!$doc) {
+            return response()->json(['error' => 'No se encontró el documento adjunto'], 404);
+        }
+
+        $rutaArchivo = 'docs/' . $doc;
+
+        if (!Storage::disk('public')->exists($rutaArchivo)) {
+            return response()->json(['error' => 'No se encontró el documento adjunto'], 404);
+        }
+
+        return Storage::disk('public')->download($rutaArchivo);
+    }
 
 }

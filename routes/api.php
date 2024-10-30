@@ -177,7 +177,8 @@ Route::put('companies/{id}', [CompaniaController::class, 'updateCompany']);
 Route::get('company/{id}/polizas', [PolizaController::class, 'getPolizasByCompany']);
 Route::get('poliza/{id}', [PolizaController::class, 'getPolizaById']);
 Route::post('poliza', [PolizaController::class, 'store']);
-Route::put('poliza/{id}', [PolizaController::class, 'update']);
+Route::post('poliza/{id}', [PolizaController::class, 'update']);
+Route::get('descargar-poliza/{id}', [PolizaController::class, 'downloadPoliza']);
 
 
 Route::apiResource('escalado-anexos', EscaladoAnexoController::class);
