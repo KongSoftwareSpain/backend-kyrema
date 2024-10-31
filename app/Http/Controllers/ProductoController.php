@@ -29,6 +29,7 @@ class ProductoController extends Controller
             'casilla_logo_sociedad' => 'nullable|string',
             'padre_id' => 'nullable|integer',
             'tipo_producto_asociado' => 'nullable|integer',
+            'polizas' => 'nullable|array',
             'campos' => 'nullable|array',
             'campos.*.nombre' => 'required|string',
             'campos.*.tipo_dato' => 'required|string|in:text,number,date,decimal,selector',
@@ -48,6 +49,7 @@ class ProductoController extends Controller
         $casilla_logo_sociedad = $request->input('casilla_logo_sociedad');
         $padre_id = $request->input('padre_id');
         $tipo_producto_asociado = $request->input('tipo_producto_asociado');
+        $polizas = $request->input('polizas');
         $campos = $request->input('campos');
         $camposConOpciones = $request->input('camposConOpciones') ?? [];
         $duracion = $request->input('duracion')[0];
@@ -112,6 +114,11 @@ class ProductoController extends Controller
             'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
             'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
         ]);
+
+        if(count($polizas) > 0){
+            // Conectar las polizas con el tipo_producto
+            self::insertPolizas($polizas, $tipoProductoId);
+        }
 
         // Insertar información de los campos en la tabla 'campos'
         foreach ($campos as $campo) {
@@ -270,7 +277,23 @@ class ProductoController extends Controller
         return response()->json([
             'message' => 'Producto creado con éxito',
             'id' => $tipoProductoId
-        ], 200);
+        ], 200);    
+    }
+
+    private function insertPolizas($polizas, $tipoProductoId){
+        foreach ($polizas as $poliza) {
+            DB::table('tipo_producto_polizas')->insert([
+                'compania_id' => $poliza['compania'],
+                'poliza_id' => $poliza['poliza'],
+                'tipo_producto_id' => $tipoProductoId,
+                'fila' => $poliza['fila'] ?? null,
+                'columna' => $poliza['columna'] ?? null,
+                'fila_logo' => $poliza['fila_logo'] ?? null,
+                'columna_logo' => $poliza['columna_logo'] ?? null,
+                'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
+                'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
+            ]);
+        }
     }
 
     private function insertDuracionEnCampos($duracion, $tipoProductoId){
