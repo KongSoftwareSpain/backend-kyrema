@@ -109,6 +109,9 @@ class PolizaController extends Controller
         // Buscar la póliza existente
         $poliza = Poliza::findOrFail($id);
         $poliza->update($request->except(['doc_adjuntos_1', 'doc_adjuntos_2', 'doc_adjuntos_3', 'doc_adjuntos_4', 'doc_adjuntos_5', 'doc_adjuntos_6']));
+        $polizaData['estado'] = $polizaData['estado'] ?? '';
+        $polizaData['descripcion'] = $polizaData['descripcion'] ?? '';
+        $polizaData['observaciones'] = $polizaData['observaciones'] ?? '';
 
         // Guardar cada archivo adjunto si está presente
         for ($i = 1; $i <= 6; $i++) {
