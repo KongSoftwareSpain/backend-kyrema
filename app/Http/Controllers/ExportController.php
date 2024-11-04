@@ -103,6 +103,50 @@ class ExportController extends Controller
             
             }
 
+            // Obtener y colocar los datos de tipo_producto_polizas y las pólizas relacionadas
+            $polizasTipoProducto = DB::table('tipo_producto_polizas')
+            ->where('tipo_producto_id', $tipoProducto->id)
+            ->get();
+
+            $polizas = DB::table('polizas')
+            ->whereIn('id', $polizasTipoProducto->pluck('poliza_id'))
+            ->get();
+
+            // Obtener las compañías asociadas a cada póliza
+            $companiasIds = $polizas->pluck('compania_id')->unique();
+            $companias = DB::table('companias')
+            ->whereIn('id', $companiasIds)
+            ->get();
+
+            // Agregar el logo y número de póliza de cada compañía en las celdas correspondientes
+            foreach ($polizasTipoProducto as $tipoPoliza) {
+                $poliza = $polizas->firstWhere('id', $tipoPoliza->poliza_id);
+                $compania = $companias->firstWhere('id', $poliza->compania_id);
+
+                $numeroPoliza = $poliza ? $poliza->numero : 'N/A';
+
+                // Insertar número de póliza en la celda correspondiente
+                $celdaPoliza = strtoupper($tipoPoliza->columna) . $tipoPoliza->fila;
+                $sheet->setCellValue($celdaPoliza, $numeroPoliza);
+
+                // Insertar logo de la compañía en la celda correspondiente
+                if ($compania && !empty($tipoPoliza->columna_logo) && !empty($tipoPoliza->fila_logo) && $compania->logo_path) {
+                    $logoPath = storage_path('app/public/' . $compania->logo_path);
+                    if (file_exists($logoPath)) {
+                        $celdaLogo = strtoupper($tipoPoliza->columna_logo) . $tipoPoliza->fila_logo;
+
+                        $drawing = new Drawing();
+                        $drawing->setName('Logo Compañía');
+                        $drawing->setDescription('Logo de la compañía');
+                        $drawing->setPath($logoPath);
+                        $drawing->setHeight(50);
+                        $drawing->setCoordinates($celdaLogo);
+                        $drawing->setWorksheet($sheet);
+                    }
+                }
+            }
+
+
             // $sheet->getPageMargins()->setTop(0);
             // $sheet->getPageMargins()->setRight(0);
             // $sheet->getPageMargins()->setLeft(0);

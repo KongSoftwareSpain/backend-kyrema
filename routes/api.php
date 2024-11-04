@@ -178,6 +178,7 @@ Route::get('company/{id}/polizas', [PolizaController::class, 'getPolizasByCompan
 Route::get('poliza/{id}', [PolizaController::class, 'getPolizaById']);
 Route::post('poliza', [PolizaController::class, 'store']);
 Route::post('poliza/{id}', [PolizaController::class, 'update']);
+Route::get('polizas/tipo-producto/{id}', [PolizaController::class, 'getPolizasByTipoProducto']);
 Route::get('descargar-poliza/{id}', [PolizaController::class, 'downloadPoliza']);
 
 

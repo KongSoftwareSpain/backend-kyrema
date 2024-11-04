@@ -289,9 +289,7 @@ class ProductoController extends Controller
                 'fila' => $poliza['fila'] ?? null,
                 'columna' => $poliza['columna'] ?? null,
                 'fila_logo' => $poliza['fila_logo'] ?? null,
-                'columna_logo' => $poliza['columna_logo'] ?? null,
-                'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
-                'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
+                'columna_logo' => $poliza['columna_logo'] ?? null
             ]);
         }
     }

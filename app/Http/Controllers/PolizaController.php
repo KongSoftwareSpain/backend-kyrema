@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\Poliza;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 class PolizaController extends Controller
 {
@@ -158,6 +159,22 @@ class PolizaController extends Controller
         }
 
         return Storage::disk('public')->download($rutaArchivo);
+    }
+
+    public function getPolizasByTipoProducto($id){
+
+        $polizas = DB::table('tipo_producto_polizas')
+            ->select('id',
+            'poliza_id',
+            'compania_id',
+            'fila',
+            'columna',
+            'fila_logo',
+            'columna_logo') // Especifica aquí los campos que quieres seleccionar, excluyendo 'tipo_producto_id'
+            ->where('tipo_producto_id', $id)
+            ->get();
+
+        return response()->json($polizas);
     }
 
 }
