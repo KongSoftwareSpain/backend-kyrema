@@ -177,4 +177,26 @@ class PolizaController extends Controller
         return response()->json($polizas);
     }
 
+    public function updatePolizas(Request $request, $id){
+        $polizas = $request->all();
+
+        //Borrar todas las plizas conectadas anteriormente:
+        DB::table('tipo_producto_polizas')
+            ->where('tipo_producto_id', $id)
+            ->delete();
+
+        foreach ($polizas as $poliza) {
+            DB::table('tipo_producto_polizas')
+                ->where('id', $poliza['id'])
+                ->update([
+                    'fila' => $poliza['fila'],
+                    'columna' => $poliza['columna'],
+                    'fila_logo' => $poliza['fila_logo'],
+                    'columna_logo' => $poliza['columna_logo']
+                ]);
+        }
+
+        return response()->json($polizas);
+    }
+
 }
