@@ -311,7 +311,19 @@ class ProductoController extends Controller
     }
 
     public function subirPlantilla($id, Request $request)
-    {
+    {   
+
+        //Borrar la plantilla anterior
+        $tipoProducto = DB::table('tipo_producto')
+                        ->where('id', $id)
+                        ->first();
+
+        $plantilla_path = $tipoProducto->plantilla_path;
+
+        if($plantilla_path){
+            Storage::disk('public')->delete($plantilla_path);
+        }
+
         if ($request->hasFile('plantilla')) {
 
             $archivoPlantilla = $request->file('plantilla');
@@ -320,6 +332,7 @@ class ProductoController extends Controller
 
             // Comprobar si ya existe un archivo con el mismo nombre
             if (Storage::disk('public')->exists($rutaArchivo)) {
+                
                 return response()->json(['error' => 'Ya existe una plantilla con ese nombre'], 400);
             }
 

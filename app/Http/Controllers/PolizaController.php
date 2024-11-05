@@ -180,6 +180,8 @@ class PolizaController extends Controller
     public function updatePolizas(Request $request, $id){
         $polizas = $request->all();
 
+        Log::info($polizas);
+
         //Borrar todas las plizas conectadas anteriormente:
         DB::table('tipo_producto_polizas')
             ->where('tipo_producto_id', $id)
@@ -187,8 +189,10 @@ class PolizaController extends Controller
 
         foreach ($polizas as $poliza) {
             DB::table('tipo_producto_polizas')
-                ->where('id', $poliza['id'])
-                ->update([
+                ->insert([
+                    'tipo_producto_id' => $id,
+                    'poliza_id' => $poliza['poliza_id'],
+                    'compania_id' => $poliza['compania_id'],
                     'fila' => $poliza['fila'],
                     'columna' => $poliza['columna'],
                     'fila_logo' => $poliza['fila_logo'],

@@ -118,6 +118,10 @@ class ExportController extends Controller
             ->whereIn('id', $companiasIds)
             ->get();
 
+            Log::info($polizasTipoProducto);
+            Log::info($polizas);
+            Log::info($companias);
+
             // Agregar el logo y número de póliza de cada compañía en las celdas correspondientes
             foreach ($polizasTipoProducto as $tipoPoliza) {
                 $poliza = $polizas->firstWhere('id', $tipoPoliza->poliza_id);
@@ -127,30 +131,32 @@ class ExportController extends Controller
 
                 // Insertar número de póliza en la celda correspondiente
                 $celdaPoliza = strtoupper($tipoPoliza->columna) . $tipoPoliza->fila;
-                $sheet->setCellValue($celdaPoliza, $numeroPoliza);
+                if($celdaPoliza != ''){
+                    $sheet->setCellValue($celdaPoliza, $numeroPoliza);
 
-                // Insertar logo de la compañía en la celda correspondiente
-                if ($compania && !empty($tipoPoliza->columna_logo) && !empty($tipoPoliza->fila_logo) && $compania->logo_path) {
-                    $logoPath = storage_path('app/public/' . $compania->logo_path);
-                    if (file_exists($logoPath)) {
-                        $celdaLogo = strtoupper($tipoPoliza->columna_logo) . $tipoPoliza->fila_logo;
+                    // Insertar logo de la compañía en la celda correspondiente
+                    if ($compania && !empty($tipoPoliza->columna_logo) && !empty($tipoPoliza->fila_logo) && $compania->logo_path) {
+                        $logoPath = storage_path('app/public/' . $compania->logo_path);
+                        if (file_exists($logoPath)) {
+                            $celdaLogo = strtoupper($tipoPoliza->columna_logo) . $tipoPoliza->fila_logo;
 
-                        $drawing = new Drawing();
-                        $drawing->setName('Logo Compañía');
-                        $drawing->setDescription('Logo de la compañía');
-                        $drawing->setPath($logoPath);
-                        $drawing->setHeight(50);
-                        $drawing->setCoordinates($celdaLogo);
-                        $drawing->setWorksheet($sheet);
+                            $drawing = new Drawing();
+                            $drawing->setName('Logo Compañía');
+                            $drawing->setDescription('Logo de la compañía');
+                            $drawing->setPath($logoPath);
+                            $drawing->setHeight(50);
+                            $drawing->setCoordinates($celdaLogo);
+                            $drawing->setWorksheet($sheet);
+                        }
                     }
                 }
             }
 
 
-            // $sheet->getPageMargins()->setTop(0);
-            // $sheet->getPageMargins()->setRight(0);
-            // $sheet->getPageMargins()->setLeft(0);
-            // $sheet->getPageMargins()->setBottom(0);
+            $sheet->getPageMargins()->setTop(0);
+            $sheet->getPageMargins()->setRight(0);
+            $sheet->getPageMargins()->setLeft(0);
+            $sheet->getPageMargins()->setBottom(0);
 
             // Guardar el archivo Excel con los nuevos datos
             $tempExcelPath = storage_path('app/public/temp/plantilla_' . time() . '.xlsx');
@@ -177,16 +183,27 @@ class ExportController extends Controller
 
             } catch (\PhpOffice\PhpSpreadsheet\Writer\Exception $e) {
                 // Limpieza del directorio temporal
-                $tempDir = sys_get_temp_dir() . '/phpsppdf/mpdf/ttfontdata/';
-                if (is_dir($tempDir)) {
-                    array_map('unlink', glob("$tempDir/*"));
-                }
+                
                 return response()->json(['error' => 'El servicio de generación de PDF está temporalmente fuera de servicio. Vuelve a intentarlo más tarde'], 503);
             }
 
             return $response;
 
-        } catch (\Exception $e) {
+        } catch (\ErrorException $e) {
+
+            Log::error("Error de variable indefinida: " . $e->getMessage());
+
+            $tempDir = sys_get_temp_dir() . '/phpsppdf/mpdf/mpdf/ttfontdata/';
+            if (is_dir($tempDir)) {
+                array_map('unlink', glob("$tempDir/*"));
+            }
+
+            Log::info($tempDir);
+
+            return response()->json(['error' => 'Error en el procesamiento de PDF. Verifique la configuración.'], 500);
+
+        }catch (\Exception $e) {
+            Log::info($e);
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
