@@ -48,6 +48,21 @@ class ExportController extends Controller
             $spreadsheet = IOFactory::load($plantillaPath);
             $sheet = $spreadsheet->getActiveSheet();
 
+           // Configuración de impresión para ajustar el contenido a una página
+            // $sheet->getPageSetup()
+            // ->setOrientation(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_PORTRAIT);
+            // ->setPaperSize(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::PAPERSIZE_A4);
+            // ->setFitToWidth(1)  // Ajustar al ancho de una página
+            // ->setFitToHeight(1); // Ajustar al alto de una página
+
+            // Configura márgenes (ajústalos según sea necesario)
+            $sheet->getPageMargins()->setTop(0.5);
+            $sheet->getPageMargins()->setRight(0.5);
+            $sheet->getPageMargins()->setLeft(0.5);
+            $sheet->getPageMargins()->setBottom(0.5);
+
+            $sheet->getPageSetup()->setPrintArea('A1:I68');
+
 
             // Obtener los campos del tipo de producto con columna y fila no nulos
             $campos = DB::table('campos')
@@ -153,10 +168,6 @@ class ExportController extends Controller
             }
 
 
-            $sheet->getPageMargins()->setTop(0);
-            $sheet->getPageMargins()->setRight(0);
-            $sheet->getPageMargins()->setLeft(0);
-            $sheet->getPageMargins()->setBottom(0);
 
             // Guardar el archivo Excel con los nuevos datos
             $tempExcelPath = storage_path('app/public/temp/plantilla_' . time() . '.xlsx');
@@ -169,6 +180,7 @@ class ExportController extends Controller
             
                 $pdfWriter = IOFactory::createWriter($spreadsheet, 'Pdf');
                 
+                
                 // Guardar el archivo PDF temporalmente
                 $tempPdfPath = storage_path('app/public/temp/plantilla_' . time() . '.pdf');
                 $pdfWriter->save($tempPdfPath);
@@ -178,8 +190,8 @@ class ExportController extends Controller
                 $response = response($fileContent, 200)->header('Content-Type', 'application/pdf');
 
                 // Eliminar los archivos temporales
-                unlink($tempExcelPath);
-                unlink($tempPdfPath);
+                // unlink($tempExcelPath);
+                // unlink($tempPdfPath);
 
             } catch (\PhpOffice\PhpSpreadsheet\Writer\Exception $e) {
                 // Limpieza del directorio temporal
@@ -188,6 +200,7 @@ class ExportController extends Controller
             }
 
             return $response;
+
 
         } catch (\ErrorException $e) {
 
