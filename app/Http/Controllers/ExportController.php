@@ -17,209 +17,209 @@ use Illuminate\Support\Facades\Log;
 class ExportController extends Controller
 {
 
-    public function exportExcelToPdf($letrasIdentificacion, Request $request)
-    {
-        
-        try {
-
-            // Obtener el id del request
-            $id = $request->input('id');
+        public function exportExcelToPdf($letrasIdentificacion, Request $request)
+        {
             
-            // Obtener los valores de los campos de la tabla que se llama igual que las letrasIdentificacion
-            $valores = DB::table($letrasIdentificacion)->where('id', $id)->first();
+            try {
 
-            
+                // Obtener el id del request
+                $id = $request->input('id');
+                
+                // Obtener los valores de los campos de la tabla que se llama igual que las letrasIdentificacion
+                $valores = DB::table($letrasIdentificacion)->where('id', $id)->first();
 
-            // Obtener el tipo de producto basado en las letras de identificación
-            $tipoProducto = DB::table('tipo_producto')->where('letras_identificacion', $letrasIdentificacion)->first();
-            
-            if (!$tipoProducto) {
-                return response()->json(['error' => 'Tipo de producto no encontrado'], 404);
+                
+
+                // Obtener el tipo de producto basado en las letras de identificación
+                $tipoProducto = DB::table('tipo_producto')->where('letras_identificacion', $letrasIdentificacion)->first();
+                
+                if (!$tipoProducto) {
+                    return response()->json(['error' => 'Tipo de producto no encontrado'], 404);
+                }
+
+            // Obtener la ruta de la plantilla
+            $plantillaPath = storage_path('app/public/' . $valores->plantilla_path);
+
+            if (!file_exists($plantillaPath)) {
+                return response()->json(['error' => 'Plantilla no encontrada'. $plantillaPath], 404);
             }
 
-           // Obtener la ruta de la plantilla
-           $plantillaPath = storage_path('app/public/' . $valores->plantilla_path);
+                // Cargar el archivo Excel
+                $spreadsheet = IOFactory::load($plantillaPath);
+                $sheet = $spreadsheet->getActiveSheet();
 
-           if (!file_exists($plantillaPath)) {
-               return response()->json(['error' => 'Plantilla no encontrada'. $plantillaPath], 404);
-           }
+            // Configuración de impresión para ajustar el contenido a una página
+                // $sheet->getPageSetup()
+                // ->setOrientation(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_PORTRAIT)
+                // ->setPaperSize(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::PAPERSIZE_A4)
+                // ->setFitToWidth(1)  // Ajustar al ancho de una página
+                // ->setFitToHeight(1); // Ajustar al alto de una página
 
-            // Cargar el archivo Excel
-            $spreadsheet = IOFactory::load($plantillaPath);
-            $sheet = $spreadsheet->getActiveSheet();
+                // Configura márgenes (ajústalos según sea necesario)
+                $sheet->getPageMargins()->setTop(0.5);
+                $sheet->getPageMargins()->setRight(0.5);
+                $sheet->getPageMargins()->setLeft(0.5);
+                $sheet->getPageMargins()->setBottom(0.5);
 
-           // Configuración de impresión para ajustar el contenido a una página
-            // $sheet->getPageSetup()
-            // ->setOrientation(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_PORTRAIT);
-            // ->setPaperSize(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::PAPERSIZE_A4);
-            // ->setFitToWidth(1)  // Ajustar al ancho de una página
-            // ->setFitToHeight(1); // Ajustar al alto de una página
-
-            // Configura márgenes (ajústalos según sea necesario)
-            $sheet->getPageMargins()->setTop(0.5);
-            $sheet->getPageMargins()->setRight(0.5);
-            $sheet->getPageMargins()->setLeft(0.5);
-            $sheet->getPageMargins()->setBottom(0.5);
-
-            $sheet->getPageSetup()->setPrintArea('A1:I68');
+                // $sheet->getPageSetup()->setPrintArea('A1:I68');
 
 
-            // Obtener los campos del tipo de producto con columna y fila no nulos
-            $campos = DB::table('campos')
+                // Obtener los campos del tipo de producto con columna y fila no nulos
+                $campos = DB::table('campos')
+                    ->where('tipo_producto_id', $tipoProducto->id)
+                    ->whereNotNull('columna')
+                    ->whereNotNull('fila')
+                    ->get();
+
+
+                if (!$valores) {
+                    return response()->json(['error' => 'Valores no encontrados'], 404);
+                }
+
+                // Rellenar el archivo Excel con los valores obtenidos
+                foreach ($campos as $campo) {
+                    $celda = $campo->columna . $campo->fila;
+                    // Convertir el nombre del campo a minúsculas y reemplazar espacios por guiones bajos
+                    $nombreCampo = strtolower(str_replace(' ', '_', $campo->nombre));
+                    $valor = $valores->{$nombreCampo}; 
+                    
+                    // Obtener el contenido existente de la celda
+                    $contenidoExistente = $sheet->getCell($celda)->getValue();
+                    
+                    // Concatenar el contenido existente con el nuevo valor
+                    $nuevoContenido = $contenidoExistente . ' ' . $valor;
+                    
+                    // Establecer el nuevo contenido en la celda
+                    $sheet->setCellValue($celda, $nuevoContenido);
+                }
+
+
+                if($valores->sociedad_id == env('SOCIEDAD_ADMIN_ID')){
+                    $logo = 'logos/Logo_CANAMA__003.png';
+                } else {
+                    $logo = $valores->logo_sociedad_path;
+                }
+
+                if($logo){
+                    // Obtener la ruta del logo
+                    $logoPath = storage_path('app/public/' . $logo);
+                
+                    if (file_exists($logoPath) && $tipoProducto->casilla_logo_sociedad) {
+                        // Insertar el logo en la celda A1
+                        // Crear una nueva instancia de Drawing
+                        $drawing = new Drawing();
+                        $drawing->setName('Logo');
+                        $drawing->setDescription('Logo de la empresa');
+                        $drawing->setPath($logoPath); // Ruta de la imagen
+                        $drawing->setHeight(90); // Altura de la imagen (puedes ajustarlo según sea necesario)
+                        $drawing->setCoordinates(strtoupper($tipoProducto->casilla_logo_sociedad)); // Celda en la que deseas insertar la imagen
+                        $drawing->setWorksheet($sheet); // Asignar la hoja donde se insertará la imagen
+                    }
+                
+                }
+
+                // Obtener y colocar los datos de tipo_producto_polizas y las pólizas relacionadas
+                $polizasTipoProducto = DB::table('tipo_producto_polizas')
                 ->where('tipo_producto_id', $tipoProducto->id)
-                ->whereNotNull('columna')
-                ->whereNotNull('fila')
                 ->get();
 
+                $polizas = DB::table('polizas')
+                ->whereIn('id', $polizasTipoProducto->pluck('poliza_id'))
+                ->get();
 
-            if (!$valores) {
-                return response()->json(['error' => 'Valores no encontrados'], 404);
-            }
+                // Obtener las compañías asociadas a cada póliza
+                $companiasIds = $polizas->pluck('compania_id')->unique();
+                $companias = DB::table('companias')
+                ->whereIn('id', $companiasIds)
+                ->get();
 
-            // Rellenar el archivo Excel con los valores obtenidos
-            foreach ($campos as $campo) {
-                $celda = $campo->columna . $campo->fila;
-                // Convertir el nombre del campo a minúsculas y reemplazar espacios por guiones bajos
-                $nombreCampo = strtolower(str_replace(' ', '_', $campo->nombre));
-                $valor = $valores->{$nombreCampo}; 
-                
-                // Obtener el contenido existente de la celda
-                $contenidoExistente = $sheet->getCell($celda)->getValue();
-                
-                // Concatenar el contenido existente con el nuevo valor
-                $nuevoContenido = $contenidoExistente . ' ' . $valor;
-                
-                // Establecer el nuevo contenido en la celda
-                $sheet->setCellValue($celda, $nuevoContenido);
-            }
+                Log::info($polizasTipoProducto);
+                Log::info($polizas);
+                Log::info($companias);
 
+                // Agregar el logo y número de póliza de cada compañía en las celdas correspondientes
+                foreach ($polizasTipoProducto as $tipoPoliza) {
+                    $poliza = $polizas->firstWhere('id', $tipoPoliza->poliza_id);
+                    $compania = $companias->firstWhere('id', $poliza->compania_id);
 
-            if($valores->sociedad_id == env('SOCIEDAD_ADMIN_ID')){
-                $logo = 'logos/Logo_CANAMA__003.png';
-            } else {
-                $logo = $valores->logo_sociedad_path;
-            }
+                    $numeroPoliza = $poliza ? $poliza->numero : 'N/A';
 
-            if($logo){
-                // Obtener la ruta del logo
-                $logoPath = storage_path('app/public/' . $logo);
-            
-                if (file_exists($logoPath) && $tipoProducto->casilla_logo_sociedad) {
-                    // Insertar el logo en la celda A1
-                    // Crear una nueva instancia de Drawing
-                    $drawing = new Drawing();
-                    $drawing->setName('Logo');
-                    $drawing->setDescription('Logo de la empresa');
-                    $drawing->setPath($logoPath); // Ruta de la imagen
-                    $drawing->setHeight(90); // Altura de la imagen (puedes ajustarlo según sea necesario)
-                    $drawing->setCoordinates(strtoupper($tipoProducto->casilla_logo_sociedad)); // Celda en la que deseas insertar la imagen
-                    $drawing->setWorksheet($sheet); // Asignar la hoja donde se insertará la imagen
-                }
-            
-            }
+                    // Insertar número de póliza en la celda correspondiente
+                    $celdaPoliza = strtoupper($tipoPoliza->columna) . $tipoPoliza->fila;
+                    if($celdaPoliza != ''){
+                        $sheet->setCellValue($celdaPoliza, $numeroPoliza);
 
-            // Obtener y colocar los datos de tipo_producto_polizas y las pólizas relacionadas
-            $polizasTipoProducto = DB::table('tipo_producto_polizas')
-            ->where('tipo_producto_id', $tipoProducto->id)
-            ->get();
+                        // Insertar logo de la compañía en la celda correspondiente
+                        if ($compania && !empty($tipoPoliza->columna_logo) && !empty($tipoPoliza->fila_logo) && $compania->logo_path) {
+                            $logoPath = storage_path('app/public/' . $compania->logo_path);
+                            if (file_exists($logoPath)) {
+                                $celdaLogo = strtoupper($tipoPoliza->columna_logo) . $tipoPoliza->fila_logo;
 
-            $polizas = DB::table('polizas')
-            ->whereIn('id', $polizasTipoProducto->pluck('poliza_id'))
-            ->get();
-
-            // Obtener las compañías asociadas a cada póliza
-            $companiasIds = $polizas->pluck('compania_id')->unique();
-            $companias = DB::table('companias')
-            ->whereIn('id', $companiasIds)
-            ->get();
-
-            Log::info($polizasTipoProducto);
-            Log::info($polizas);
-            Log::info($companias);
-
-            // Agregar el logo y número de póliza de cada compañía en las celdas correspondientes
-            foreach ($polizasTipoProducto as $tipoPoliza) {
-                $poliza = $polizas->firstWhere('id', $tipoPoliza->poliza_id);
-                $compania = $companias->firstWhere('id', $poliza->compania_id);
-
-                $numeroPoliza = $poliza ? $poliza->numero : 'N/A';
-
-                // Insertar número de póliza en la celda correspondiente
-                $celdaPoliza = strtoupper($tipoPoliza->columna) . $tipoPoliza->fila;
-                if($celdaPoliza != ''){
-                    $sheet->setCellValue($celdaPoliza, $numeroPoliza);
-
-                    // Insertar logo de la compañía en la celda correspondiente
-                    if ($compania && !empty($tipoPoliza->columna_logo) && !empty($tipoPoliza->fila_logo) && $compania->logo_path) {
-                        $logoPath = storage_path('app/public/' . $compania->logo_path);
-                        if (file_exists($logoPath)) {
-                            $celdaLogo = strtoupper($tipoPoliza->columna_logo) . $tipoPoliza->fila_logo;
-
-                            $drawing = new Drawing();
-                            $drawing->setName('Logo Compañía');
-                            $drawing->setDescription('Logo de la compañía');
-                            $drawing->setPath($logoPath);
-                            $drawing->setHeight(50);
-                            $drawing->setCoordinates($celdaLogo);
-                            $drawing->setWorksheet($sheet);
+                                $drawing = new Drawing();
+                                $drawing->setName('Logo Compañía');
+                                $drawing->setDescription('Logo de la compañía');
+                                $drawing->setPath($logoPath);
+                                $drawing->setHeight(50);
+                                $drawing->setCoordinates($celdaLogo);
+                                $drawing->setWorksheet($sheet);
+                            }
                         }
                     }
                 }
-            }
 
 
 
-            // Guardar el archivo Excel con los nuevos datos
-            $tempExcelPath = storage_path('app/public/temp/plantilla_' . time() . '.xlsx');
-            $writer = new Xlsx($spreadsheet);
-            $writer->save($tempExcelPath);
-            
-            // Convertir el archivo Excel a PDF usando mPDF
-            try{
-                IOFactory::registerWriter('Pdf', PdfMpdf::class);
-            
-                $pdfWriter = IOFactory::createWriter($spreadsheet, 'Pdf');
+                // Guardar el archivo Excel con los nuevos datos
+                $tempExcelPath = storage_path('app/public/temp/plantilla_' . time() . '.xlsx');
+                $writer = new Xlsx($spreadsheet);
+                $writer->save($tempExcelPath);
                 
+                // Convertir el archivo Excel a PDF usando mPDF
+                try{
+                    IOFactory::registerWriter('Pdf', PdfMpdf::class);
                 
-                // Guardar el archivo PDF temporalmente
-                $tempPdfPath = storage_path('app/public/temp/plantilla_' . time() . '.pdf');
-                $pdfWriter->save($tempPdfPath);
+                    $pdfWriter = IOFactory::createWriter($spreadsheet, 'Pdf');
+                    
+                    
+                    // Guardar el archivo PDF temporalmente
+                    $tempPdfPath = storage_path('app/public/temp/plantilla_' . time() . '.pdf');
+                    $pdfWriter->save($tempPdfPath);
 
-                // Devolver el archivo PDF como respuesta HTTP con el tipo de contenido adecuado
-                $fileContent = file_get_contents($tempPdfPath);
-                $response = response($fileContent, 200)->header('Content-Type', 'application/pdf');
+                    // Devolver el archivo PDF como respuesta HTTP con el tipo de contenido adecuado
+                    $fileContent = file_get_contents($tempPdfPath);
+                    $response = response($fileContent, 200)->header('Content-Type', 'application/pdf');
 
-                // Eliminar los archivos temporales
-                // unlink($tempExcelPath);
-                // unlink($tempPdfPath);
+                    // Eliminar los archivos temporales
+                    // unlink($tempExcelPath);
+                    // unlink($tempPdfPath);
 
-            } catch (\PhpOffice\PhpSpreadsheet\Writer\Exception $e) {
-                // Limpieza del directorio temporal
-                
-                return response()->json(['error' => 'El servicio de generación de PDF está temporalmente fuera de servicio. Vuelve a intentarlo más tarde'], 503);
+                } catch (\PhpOffice\PhpSpreadsheet\Writer\Exception $e) {
+                    // Limpieza del directorio temporal
+                    
+                    return response()->json(['error' => 'El servicio de generación de PDF está temporalmente fuera de servicio. Vuelve a intentarlo más tarde'], 503);
+                }
+
+                return $response;
+
+
+            } catch (\ErrorException $e) {
+
+                Log::error("Error de variable indefinida: " . $e->getMessage());
+
+                $tempDir = sys_get_temp_dir() . '/phpsppdf/mpdf/mpdf/ttfontdata/';
+                if (is_dir($tempDir)) {
+                    array_map('unlink', glob("$tempDir/*"));
+                }
+
+                Log::info($tempDir);
+
+                return response()->json(['error' => 'Error en el procesamiento de PDF. Verifique la configuración.'], 500);
+
+            }catch (\Exception $e) {
+                Log::info($e);
+                return response()->json(['error' => $e->getMessage()], 500);
             }
-
-            return $response;
-
-
-        } catch (\ErrorException $e) {
-
-            Log::error("Error de variable indefinida: " . $e->getMessage());
-
-            $tempDir = sys_get_temp_dir() . '/phpsppdf/mpdf/mpdf/ttfontdata/';
-            if (is_dir($tempDir)) {
-                array_map('unlink', glob("$tempDir/*"));
-            }
-
-            Log::info($tempDir);
-
-            return response()->json(['error' => 'Error en el procesamiento de PDF. Verifique la configuración.'], 500);
-
-        }catch (\Exception $e) {
-            Log::info($e);
-            return response()->json(['error' => $e->getMessage()], 500);
         }
-    }
 
     public function exportAnexoExcelToPdf($tipoAnexoId , Request $request){
         // Obtener el id del request

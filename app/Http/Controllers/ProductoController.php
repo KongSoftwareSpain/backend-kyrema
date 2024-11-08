@@ -307,7 +307,7 @@ class ProductoController extends Controller
             'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
             'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
             'grupo' => $duracion['grupo'] ?? null,
-        ]);
+        ]); 
     }
 
     public function subirPlantilla($id, Request $request)
