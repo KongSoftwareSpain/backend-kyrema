@@ -62,6 +62,7 @@ Route::post('/subir-plantilla/{letrasIdentificacion}', [ProductoController::clas
 
 
 Route::get('/descargar-plantilla/{letrasIdentificacion}', [ExportController::class, 'exportExcelToPdf']);
+Route::get('/plantilla-base64' , [ExportController::class, 'getPlantillaBase64']);
 
 
 Route::apiResource('campos', CampoController::class);
@@ -71,7 +72,7 @@ Route::post('/add-campos/{id_tipo_producto}', [CampoController::class, 'addCampo
 Route::post('create-campo-opciones/{id_tipo_producto}', [CampoController::class, 'createCampoConOpciones']);
 Route::put('/update-campo-opciones/{id}', [CampoController::class, 'updateCampoConOpciones']);
 Route::get('/opciones/{id_campo}', [CampoController::class, 'getOpcionesPorCampo']);
-
+Route::get('/campos-certificado/{id}', [CampoController::class, 'getCamposCertificado']);
 
 
 Route::get('tipos-producto/sociedad/{id_sociedad}', [TipoProductoController::class, 'getTiposProductoPorSociedad']);

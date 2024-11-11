@@ -126,8 +126,8 @@ class ProductoController extends Controller
                 'nombre' => $campo['nombre'],
                 'nombre_codigo' => strtolower(str_replace(' ', '_', $campo['nombre'])),
                 'tipo_producto_id' => $tipoProductoId,
-                'columna' => $campo['columna'] ?? null,
-                'fila' => $campo['fila'] ?? null,
+                'columna' => isset($campo['columna']) ? $campo['columna'] * 1.09 : null,
+                'fila' => isset($campo['fila']) ? $campo['fila'] * 1.09 : null,
                 'tipo_dato' => $campo['tipo_dato'],
                 'visible' => $campo['visible'] ?? false,
                 'obligatorio' => $campo['obligatorio'] ?? false,
@@ -136,6 +136,7 @@ class ProductoController extends Controller
                 'grupo' => $campo['grupo'] ?? null,
             ]);
         }
+        
 
         self::insertDuracionEnCampos($duracion, $tipoProductoId);
 
@@ -280,27 +281,28 @@ class ProductoController extends Controller
         ], 200);    
     }
 
-    private function insertPolizas($polizas, $tipoProductoId){
+    private function insertPolizas($polizas, $tipoProductoId) {
         foreach ($polizas as $poliza) {
             DB::table('tipo_producto_polizas')->insert([
-                'compania_id' => $poliza['compania'],
-                'poliza_id' => $poliza['poliza'],
+                'compania_id' => $poliza['compania_id'],
+                'poliza_id' => $poliza['poliza_id'],
                 'tipo_producto_id' => $tipoProductoId,
-                'fila' => $poliza['fila'] ?? null,
-                'columna' => $poliza['columna'] ?? null,
-                'fila_logo' => $poliza['fila_logo'] ?? null,
-                'columna_logo' => $poliza['columna_logo'] ?? null
+                'fila' => isset($poliza['fila']) ? $poliza['fila'] * 1.09 : null,
+                'columna' => isset($poliza['columna']) ? $poliza['columna'] * 1.09 : null,
+                'fila_logo' => isset($poliza['fila_logo']) ? $poliza['fila_logo'] * 1.09 : null,
+                'columna_logo' => isset($poliza['columna_logo']) ? $poliza['columna_logo'] * 1.09 : null,
             ]);
         }
     }
+    
 
-    private function insertDuracionEnCampos($duracion, $tipoProductoId){
+    private function insertDuracionEnCampos($duracion, $tipoProductoId) {
         DB::table('campos')->insert([
             'nombre' => 'Duración',
             'nombre_codigo' => 'duracion',
             'tipo_producto_id' => $tipoProductoId,
-            'columna' => $duracion['columna'] ?? null,
-            'fila' => $duracion['fila'] ?? null,
+            'columna' => isset($duracion['columna']) ? $duracion['columna'] * 1.09 : null,
+            'fila' => isset($duracion['fila']) ? $duracion['fila'] * 1.09 : null,
             'tipo_dato' => $duracion['tipo_dato'],
             'visible' => $duracion['visible'] ?? false,
             'obligatorio' => $duracion['obligatorio'] ?? false,
@@ -309,6 +311,7 @@ class ProductoController extends Controller
             'grupo' => $duracion['grupo'] ?? null,
         ]); 
     }
+    
 
     public function subirPlantilla($id, Request $request)
     {   
@@ -691,5 +694,6 @@ class ProductoController extends Controller
 
     }
 
+   
     
 }
