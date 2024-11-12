@@ -288,12 +288,9 @@ class CampoController extends Controller
         DB::table('campos')->where('id', $id)->update([
             'nombre' => $request->input('nombre'),
             'visible' => $request->input('visible'),
-            'columna' => $request->has('columna') ? $request->input('columna') * 1.09 : null,
-            'fila' => $request->has('fila') ? $request->input('fila') * 1.09 : null,
             'obligatorio' => $request->input('obligatorio'),
             'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
         ]);
-        
 
         // Vaciar la tabla de opciones
         DB::table($nombreTablaOpciones)->truncate();

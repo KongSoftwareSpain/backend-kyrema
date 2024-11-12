@@ -58,7 +58,7 @@ Route::get('/duraciones/{nombreTabla}', [ProductoController::class, 'getDuracion
 
 
 Route::post('/crear-tipo-producto', [ProductoController::class, 'crearTipoProducto']);
-Route::post('/subir-plantilla/{letrasIdentificacion}', [ProductoController::class, 'subirPlantilla']);
+Route::post('/subir-plantilla/{id_tipo_producto}/{page}', [ProductoController::class, 'subirPlantilla']);
 
 
 Route::get('/descargar-plantilla/{letrasIdentificacion}', [ExportController::class, 'exportExcelToPdf']);

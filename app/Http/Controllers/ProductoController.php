@@ -126,8 +126,8 @@ class ProductoController extends Controller
                 'nombre' => $campo['nombre'],
                 'nombre_codigo' => strtolower(str_replace(' ', '_', $campo['nombre'])),
                 'tipo_producto_id' => $tipoProductoId,
-                'columna' => isset($campo['columna']) ? $campo['columna'] * 1.09 : null,
-                'fila' => isset($campo['fila']) ? $campo['fila'] * 1.09 : null,
+                'columna' => $campo['columna'] ?? null,
+                'fila' => $campo['fila'] ?? null,
                 'tipo_dato' => $campo['tipo_dato'],
                 'visible' => $campo['visible'] ?? false,
                 'obligatorio' => $campo['obligatorio'] ?? false,
@@ -136,7 +136,6 @@ class ProductoController extends Controller
                 'grupo' => $campo['grupo'] ?? null,
             ]);
         }
-        
 
         self::insertDuracionEnCampos($duracion, $tipoProductoId);
 
@@ -237,7 +236,10 @@ class ProductoController extends Controller
                     $table->decimal('precio_total', 8, 2)->nullable();
                 }
 
-                $table->string('plantilla_path')->nullable();
+                $table->string('plantilla_path_1')->nullable();
+                $table->string('plantilla_path_2')->nullable();
+                $table->string('plantilla_path_3')->nullable();
+                $table->string('plantilla_path_4')->nullable();
                 $table->string('duracion')->nullable();
                 // Booleano de si está anulado o no
                 $table->boolean('anulado')->default(false);
@@ -281,28 +283,27 @@ class ProductoController extends Controller
         ], 200);    
     }
 
-    private function insertPolizas($polizas, $tipoProductoId) {
+    private function insertPolizas($polizas, $tipoProductoId){
         foreach ($polizas as $poliza) {
             DB::table('tipo_producto_polizas')->insert([
                 'compania_id' => $poliza['compania_id'],
                 'poliza_id' => $poliza['poliza_id'],
                 'tipo_producto_id' => $tipoProductoId,
-                'fila' => isset($poliza['fila']) ? $poliza['fila'] * 1.09 : null,
-                'columna' => isset($poliza['columna']) ? $poliza['columna'] * 1.09 : null,
-                'fila_logo' => isset($poliza['fila_logo']) ? $poliza['fila_logo'] * 1.09 : null,
-                'columna_logo' => isset($poliza['columna_logo']) ? $poliza['columna_logo'] * 1.09 : null,
+                'fila' => $poliza['fila'] ?? null,
+                'columna' => $poliza['columna'] ?? null,
+                'fila_logo' => $poliza['fila_logo'] ?? null,
+                'columna_logo' => $poliza['columna_logo'] ?? null
             ]);
         }
     }
-    
 
-    private function insertDuracionEnCampos($duracion, $tipoProductoId) {
+    private function insertDuracionEnCampos($duracion, $tipoProductoId){
         DB::table('campos')->insert([
             'nombre' => 'Duración',
             'nombre_codigo' => 'duracion',
             'tipo_producto_id' => $tipoProductoId,
-            'columna' => isset($duracion['columna']) ? $duracion['columna'] * 1.09 : null,
-            'fila' => isset($duracion['fila']) ? $duracion['fila'] * 1.09 : null,
+            'columna' => $duracion['columna'] ?? null,
+            'fila' => $duracion['fila'] ?? null,
             'tipo_dato' => $duracion['tipo_dato'],
             'visible' => $duracion['visible'] ?? false,
             'obligatorio' => $duracion['obligatorio'] ?? false,
@@ -311,21 +312,14 @@ class ProductoController extends Controller
             'grupo' => $duracion['grupo'] ?? null,
         ]); 
     }
-    
 
-    public function subirPlantilla($id, Request $request)
+    public function subirPlantilla($id_tipo_producto, $page, Request $request)
     {   
 
         //Borrar la plantilla anterior
         $tipoProducto = DB::table('tipo_producto')
-                        ->where('id', $id)
+                        ->where('id', $id_tipo_producto)
                         ->first();
-
-        $plantilla_path = $tipoProducto->plantilla_path;
-
-        if($plantilla_path){
-            Storage::disk('public')->delete($plantilla_path);
-        }
 
         if ($request->hasFile('plantilla')) {
 
@@ -342,10 +336,11 @@ class ProductoController extends Controller
             // Guardar la plantilla Excel en el sistema de archivos
             Storage::disk('public')->putFileAs('plantillas', $archivoPlantilla, $nombreArchivo);
 
+            $plantilla_path_name = 'plantilla_path_' . $page;
             // Añadir la ruta de la plantilla a la tabla tipo_producto
             DB::table('tipo_producto')
-                ->where('id', $id)
-                ->update(['plantilla_path' => $rutaArchivo]);
+                ->where('id', $id_tipo_producto)
+                ->update([$plantilla_path_name => $rutaArchivo]);
 
             return response()->json(['message' => 'Plantilla subida correctamente'], 200);
         } else {
@@ -385,7 +380,7 @@ class ProductoController extends Controller
             ->when(count($sociedades) > 0, function ($query) use ($sociedades) {
                 $query->whereIn('sociedad_id', $sociedades);
             })
-            ->where('fecha_de_fin', '>', $fechaActual) // Filtrar productos con fecha_de_fin mayor que la fecha actual
+            ->where('fecha_de_fin', '>=', $fechaActual) // Filtrar productos con fecha_de_fin mayor que la fecha actual
             ->orderBy('updated_at', 'desc')
             ->get();
 
@@ -485,6 +480,8 @@ class ProductoController extends Controller
         
         // Obtener la fecha y hora actual
         $fechaActual = now();
+
+        Log::info('Fecha actual: ' . $fechaActual);
         
         // Realizar consulta dinámica usando el nombre de la tabla
         $productos = DB::table($nombreTabla)
@@ -530,7 +527,7 @@ class ProductoController extends Controller
         }
 
         // Obtener la plantilla antes de gestionar el tipoProducto padre
-        $plantilla_path = $tipoProducto->plantilla_path ?? null;
+        $plantillas_paths = [$tipoProducto->plantilla_path ?? null, $tipoProducto->plantilla_path_2 ?? null, $tipoProducto->plantilla_path_3 ?? null, $tipoProducto->plantilla_path_4 ?? null];
 
         // Si el tipoProducto tiene padre, coger el tipoProducto padre para meter los datos en la tabla correspondiente
         if($tipoProducto->padre_id != null){
@@ -558,7 +555,10 @@ class ProductoController extends Controller
         $datos = $request->input('nuevoProducto');
 
         //Añadir a los datos la plantilla_path que tenga el seguro en ese momento:
-        $datos['plantilla_path'] = $plantilla_path;
+        $datos['plantilla_path_1'] = $plantillas_paths[0];
+        $datos['plantilla_path_2'] = $plantillas_paths[1];
+        $datos['plantilla_path_3'] = $plantillas_paths[2];
+        $datos['plantilla_path_4'] = $plantillas_paths[3];
 
         $datos['logo_sociedad_path'] = DB::table('sociedad')->where('id', $datos['sociedad_id'])->value('logo');
 
@@ -694,6 +694,10 @@ class ProductoController extends Controller
 
     }
 
-   
+    public function getPlantillaBase64(String $path){
+        $file = Storage::disk('public')->get($path);
+        $base64 = base64_encode($file);
+        return response()->json(['base64' => $base64]);
+    }
     
 }

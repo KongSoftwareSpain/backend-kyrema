@@ -39,20 +39,28 @@ class ExportController extends Controller
                     return response()->json(['error' => 'Tipo de producto no encontrado'], 404);
                 }
 
-                // PLANTILLA DEL CERTIFICADO
-                $plantillaPath = storage_path('app/public/' . $valores->plantilla_path);
+                $plantillasBase64 = [];
 
-                if (file_exists($plantillaPath)) {
-                    // Leer el contenido del archivo y codificarlo en base64
-                    $imageData = base64_encode(file_get_contents($plantillaPath));
+                // Lista de posibles plantillas
+                $plantillaPaths = [
+                    $valores->plantilla_path_1,
+                    $valores->plantilla_path_2,
+                    $valores->plantilla_path_3,
+                    $valores->plantilla_path_4
+                ];
 
-                    // Obtener el tipo MIME del archivo (útil si estás enviando el base64 como una imagen completa con MIME type)
-                    $mimeType = mime_content_type($plantillaPath);
-
-                    // Formatear el base64 en una URL de datos completa, útil si quieres usarlo directamente en una etiqueta img o en otros contextos
-                    $base64Plantilla = "data:{$mimeType};base64,{$imageData}";
-                } else {
-                    return response()->json(['error' => 'Plantilla no encontrada'. $plantillaPath], 404);
+                foreach ($plantillaPaths as $path) {
+                    if ($path !== null) { // Verifica si no es nulo
+                        $fullPath = storage_path('app/public/' . $path); // Ruta completa
+                        
+                        if (file_exists($fullPath)) { // Verifica si el archivo existe
+                            $imageData = base64_encode(file_get_contents($fullPath));
+                            $mimeType = mime_content_type($fullPath);
+                            $plantillasBase64[] = "data:{$mimeType};base64,{$imageData}"; // Agrega la plantilla en base64
+                        } else {
+                            return response()->json(['error' => 'Plantilla no encontrada: ' . $fullPath], 404);
+                        }
+                    }
                 }
 
                 // Obtener los campos del tipo de producto con columna y fila no nulos
@@ -113,7 +121,7 @@ class ExportController extends Controller
                     'polizas_tipo_producto' => $polizasTipoProducto,
                     'polizas' => $polizas,
                     'companias' => $companias,
-                    'base64Plantilla' => $base64Plantilla,
+                    'base64Plantillas' => $plantillasBase64,
                     'base64Logo' => $base64Logo
                 ];
 
@@ -142,29 +150,40 @@ class ExportController extends Controller
 
         $letrasIdentificacionAnexo = $tipoAnexo->letras_identificacion;
 
-        // Obtener la ruta de la plantilla
-        $plantillaPath = storage_path('app/public/' . $tipoAnexo->plantilla_path);
-        
-        if (!file_exists($plantillaPath)) {
-            return response()->json(['error' => 'Plantilla no encontrada'. $plantillaPath], 404);
+        $plantillasBase64 = [];
+
+        // Lista de posibles plantillas
+        $plantillaPaths = [
+            $valores->plantilla_path_1,
+            $valores->plantilla_path_2,
+            $valores->plantilla_path_3,
+            $valores->plantilla_path_4
+        ];
+
+        foreach ($plantillaPaths as $path) {
+            if ($path !== null) { // Verifica si no es nulo
+                $fullPath = storage_path('app/public/' . $path); // Ruta completa
+                
+                if (file_exists($fullPath)) { // Verifica si el archivo existe
+                    $imageData = base64_encode(file_get_contents($fullPath));
+                    $mimeType = mime_content_type($fullPath);
+                    $plantillasBase64[] = "data:{$mimeType};base64,{$imageData}"; // Agrega la plantilla en base64
+                } else {
+                    return response()->json(['error' => 'Plantilla no encontrada: ' . $fullPath], 404);
+                }
+            }
         }
 
-
-        // Cargar el archivo Excel
-        $spreadsheet = IOFactory::load($plantillaPath);
-        $sheet = $spreadsheet->getActiveSheet();
                 
         // Coger los anexos relacionados con el id del producto de la tabla con el nombre $letrasIdentificacionAnexo
         $anexos = DB::table($letrasIdentificacionAnexo)->where('producto_id', $id)->get();
-
 
         // NECESITAMOS TAMBIEN LOS DATOS DEL PRODUCTO PARA RELLENAR LOS CAMPOS DE LA PLANTILLA
         $tipoProducto = DB::table('tipo_producto')
         ->where('id', $tipoAnexo->tipo_producto_asociado)
         ->first();
 
-
-        $producto = DB::table($tipoProducto->letras_identificacion)->where('id', $id)->first();
+        $valores = DB::table($tipoProducto->letras_identificacion)->where('id', $id)->first();
 
         $campos = DB::table('campos')
             ->where('tipo_producto_id', $tipoAnexoId)
@@ -173,109 +192,74 @@ class ExportController extends Controller
             ->whereNotIn('grupo', ['datos_anexo', 'datos_precio'])
             ->get();
 
-
-        // Rellenar el archivo Excel con los valores obtenidos
-        foreach ($campos as $campo) {
-            $celda = $campo->columna . $campo->fila;
-            // Convertir el nombre del campo a minúsculas y reemplazar espacios por guiones bajos
-            $nombreCampo = strtolower(str_replace(' ', '_', $campo->nombre));
-            $valor = $producto->{$nombreCampo}; 
-            
-            // Obtener el contenido existente de la celda
-            $contenidoExistente = $sheet->getCell($celda)->getValue();
-            
-            // Concatenar el contenido existente con el nuevo valor
-            $nuevoContenido = $contenidoExistente . ' ' . $valor;
-            
-            // Establecer el nuevo contenido en la celda
-            $sheet->setCellValue($celda, $nuevoContenido);
-        }
-
-        if ($anexos->isNotEmpty()) {
-            // Obtener los campos de la tabla 'campos' que están asociados con el tipo de producto
-            $camposAnexo = DB::table('campos')
-                ->where('tipo_producto_id', $tipoAnexo->id)
-                ->whereNotNull('columna')
-                ->whereNotNull('fila')
-                ->whereIn('grupo', ['datos_anexo', 'datos_precio'])
-                ->get();
-
-            // Recorrer cada anexo
-            foreach ($anexos as $index => $anexo) {
-                // Recorrer cada campo del anexo
-                foreach ($camposAnexo as $campoAnexo) {
-                    // Determinar la celda en la hoja de cálculo
-                    $celda = $campoAnexo->columna . ($campoAnexo->fila + $index);
-
-                    // Obtener el valor correspondiente al campo en el anexo
-                    $valorAnexo = $anexo->{$campoAnexo->nombre_codigo};
-
-                    // Obtener el valor existente en la celda
-                    $valorExistente = $sheet->getCell($celda)->getValue();
+        $camposAnexo = DB::table('campos')
+            ->where('tipo_producto_id', $tipoAnexo->id)
+            ->whereNotNull('columna')
+            ->whereNotNull('fila')
+            ->whereIn('grupo', ['datos_anexo', 'datos_precio'])
+            ->get();    
 
 
-                    // Concatenar el valor existente con el nuevo valor solo si tenia un valor previo
-                    if($valorExistente != ''){
-                        $nuevoValor = $valorExistente . ' ' . $valorAnexo;
-                    }else{
-                        $nuevoValor = $valorAnexo;
-                    }
-
-                    // Escribir el nuevo valor en la celda
-                    $sheet->setCellValue($celda, $nuevoValor);
-                }
-            }
-        }
-
-        if($producto->sociedad_id == env('SOCIEDAD_ADMIN_ID')){
+        // LOGO DE LA SOCIEDAD
+        if($valores->sociedad_id == env('SOCIEDAD_ADMIN_ID')){
             $logo = 'logos/Logo_CANAMA__003.png';
         } else {
-            $logo = $producto->logo_sociedad_path;
+            $logo = $valores->logo_sociedad_path;
         }
-        
 
-        // Obtener la ruta del logo
         $logoPath = storage_path('app/public/' . $logo);
-    
-        if (file_exists($logoPath) && $tipoAnexo->casilla_logo_sociedad) {
-            // Insertar el logo en la celda A1
-            // Crear una nueva instancia de Drawing
-            $drawing = new Drawing();
-            $drawing->setName('Logo');
-            $drawing->setDescription('Logo de la empresa');
-            $drawing->setPath($logoPath); // Ruta de la imagen
-            $drawing->setHeight(90); // Altura de la imagen (puedes ajustarlo según sea necesario)
-            $drawing->setCoordinates(strtoupper($tipoAnexo->casilla_logo_sociedad)); // Celda en la que deseas insertar la imagen
-            $drawing->setWorksheet($sheet); // Asignar la hoja donde se insertará la imagen
+
+        if(file_exists($logoPath)){
+            $logoData = base64_encode(file_get_contents($logoPath));
+            $logoMimeType = mime_content_type($logoPath);
+            $base64Logo = "data:{$logoMimeType};base64,{$logoData}";
+        } else {
+            $base64Logo = '';
         }
 
-        $sheet->getPageMargins()->setTop(0);
-        $sheet->getPageMargins()->setRight(0);
-        $sheet->getPageMargins()->setLeft(0);
-        $sheet->getPageMargins()->setBottom(0);
+        // Obtener y colocar los datos de tipo_producto_polizas y las pólizas relacionadas
+        $polizasTipoProducto = DB::table('tipo_producto_polizas')
+        ->where('tipo_producto_id', $tipoAnexoId)
+        ->get();
 
-        // Guardar el archivo Excel con los nuevos datos
-        $tempExcelPath = storage_path('app/public/temp/plantilla_' . time() . '.xlsx');
-        $writer = new Xlsx($spreadsheet);
-        $writer->save($tempExcelPath);
+        $polizas = DB::table('polizas')
+        ->whereIn('id', $polizasTipoProducto->pluck('poliza_id'))
+        ->get();
 
-        // Convertir el archivo Excel a PDF usando mPDF
-        IOFactory::registerWriter('Pdf', PdfMpdf::class);
-        $pdfWriter = IOFactory::createWriter($spreadsheet, 'Pdf');
-        
-        // Guardar el archivo PDF temporalmente
-        $tempPdfPath = storage_path('app/public/temp/plantilla_' . time() . '.pdf');
-        $pdfWriter->save($tempPdfPath);
+        // Obtener las compañías asociadas a cada póliza
+        $companiasIds = $polizas->pluck('compania_id')->unique();
+        $companias = DB::table('companias')
+        ->whereIn('id', $companiasIds)
+        ->get();
 
-        // Devolver el archivo PDF como respuesta HTTP con el tipo de contenido adecuado
-        $fileContent = file_get_contents($tempPdfPath);
-        $response = response($fileContent, 200)->header('Content-Type', 'application/pdf');
+        foreach($companias as $compania){
+            $compania->logo_path = storage_path('app/public/' . $compania->logo_path);
+            $compania->logo = base64_encode(file_get_contents($compania->logo_path));
+        }
 
-        // Eliminar los archivos temporales
-        unlink($tempExcelPath);
-        unlink($tempPdfPath);
+        // Agregar el logo y número de póliza de cada compañía en las celdas correspondientes
+        foreach ($polizasTipoProducto as $tipoPoliza) {
+            $poliza = $polizas->firstWhere('id', $tipoPoliza->poliza_id);
+            $compania = $companias->firstWhere('id', $poliza->compania_id);
 
-        return $response;
+            $numeroPoliza = $poliza ? $poliza->numero : 'N/A';
+
+        }
+
+        $data = [
+            'tipoProducto' => $tipoProducto,
+            'valores' => $valores,
+            'campos' => $campos,
+            'anexos' => $anexos,
+            'camposAnexo' => $camposAnexo,
+            'polizas_tipo_producto' => $polizasTipoProducto,
+            'polizas' => $polizas,
+            'companias' => $companias,
+            'base64Plantillas' => $plantillasBase64,
+            'base64Logo' => $base64Logo
+        ];
+
+        return response()->json($data);
     }
 
 

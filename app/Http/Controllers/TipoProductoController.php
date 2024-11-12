@@ -144,7 +144,10 @@ class TipoProductoController extends Controller
                 'id' => $subproducto->id,
                 'nombre' => $subproducto->nombre,
                 'letras_identificacion' => $subproducto->letras_identificacion,
-                'plantilla_path' => $subproducto->plantilla_path,
+                'plantilla_path_1' => $subproducto->plantilla_path_1,
+                'plantilla_path_2' => $subproducto->plantilla_path_2,
+                'plantilla_path_3' => $subproducto->plantilla_path_3,
+                'plantilla_path_4' => $subproducto->plantilla_path_4,
                 'padre_id' => $subproducto->padre_id,
                 // Utilizando relaciones para obtener tarifas y campos
                 'tarifas' => $subproducto->tarifas,
