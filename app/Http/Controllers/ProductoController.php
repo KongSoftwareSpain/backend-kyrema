@@ -314,23 +314,26 @@ class ProductoController extends Controller
     }
 
     public function subirPlantilla($id_tipo_producto, $page, Request $request)
-    {   
-
-        //Borrar la plantilla anterior
+    {
+        // Borrar la plantilla anterior
         $tipoProducto = DB::table('tipo_producto')
-                        ->where('id', $id_tipo_producto)
-                        ->first();
+                            ->where('id', $id_tipo_producto)
+                            ->first();
 
         if ($request->hasFile('plantilla')) {
-
             $archivoPlantilla = $request->file('plantilla');
             $nombreArchivo = $archivoPlantilla->getClientOriginalName();
             $rutaArchivo = 'plantillas/' . $nombreArchivo;
 
-            // Comprobar si ya existe un archivo con el mismo nombre
-            if (Storage::disk('public')->exists($rutaArchivo)) {
-                
-                return response()->json(['error' => 'Ya existe una plantilla con ese nombre'], 400);
+            // Renombrar el archivo si ya existe con "- copia"
+            $contador = 1;
+            while (Storage::disk('public')->exists($rutaArchivo)) {
+                // Generar un nuevo nombre con "- copia" y un número si es necesario
+                $nombreArchivoSinExtension = pathinfo($archivoPlantilla->getClientOriginalName(), PATHINFO_FILENAME);
+                $extension = $archivoPlantilla->getClientOriginalExtension();
+                $nombreArchivo = $nombreArchivoSinExtension . ' - copia' . ($contador > 1 ? " {$contador}" : '') . '.' . $extension;
+                $rutaArchivo = 'plantillas/' . $nombreArchivo;
+                $contador++;
             }
 
             // Guardar la plantilla Excel en el sistema de archivos
@@ -342,7 +345,7 @@ class ProductoController extends Controller
                 ->where('id', $id_tipo_producto)
                 ->update([$plantilla_path_name => $rutaArchivo]);
 
-            return response()->json(['message' => 'Plantilla subida correctamente'], 200);
+            return response()->json(['message' => 'Plantilla:'. $page .'subida correctamente'], 200);
         } else {
             return response()->json(['error' => 'No se recibió ninguna plantilla'], 400);
         }
@@ -527,7 +530,7 @@ class ProductoController extends Controller
         }
 
         // Obtener la plantilla antes de gestionar el tipoProducto padre
-        $plantillas_paths = [$tipoProducto->plantilla_path ?? null, $tipoProducto->plantilla_path_2 ?? null, $tipoProducto->plantilla_path_3 ?? null, $tipoProducto->plantilla_path_4 ?? null];
+        $plantillas_paths = [$tipoProducto->plantilla_path_1 ?? null, $tipoProducto->plantilla_path_2 ?? null, $tipoProducto->plantilla_path_3 ?? null, $tipoProducto->plantilla_path_4 ?? null];
 
         // Si el tipoProducto tiene padre, coger el tipoProducto padre para meter los datos en la tabla correspondiente
         if($tipoProducto->padre_id != null){

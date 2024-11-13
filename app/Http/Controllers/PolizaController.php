@@ -169,8 +169,10 @@ class PolizaController extends Controller
             'compania_id',
             'fila',
             'columna',
+            'page',
             'fila_logo',
-            'columna_logo') // Especifica aquí los campos que quieres seleccionar, excluyendo 'tipo_producto_id'
+            'columna_logo',
+            'page_logo') // Especifica aquí los campos que quieres seleccionar, excluyendo 'tipo_producto_id'
             ->where('tipo_producto_id', $id)
             ->get();
 
@@ -195,8 +197,10 @@ class PolizaController extends Controller
                     'compania_id' => $poliza['compania_id'],
                     'fila' => $poliza['fila'],
                     'columna' => $poliza['columna'],
+                    'page' => $poliza['page'],
                     'fila_logo' => $poliza['fila_logo'],
-                    'columna_logo' => $poliza['columna_logo']
+                    'columna_logo' => $poliza['columna_logo'],
+                    'page_logo' => $poliza['page_logo'],
                 ]);
         }
 

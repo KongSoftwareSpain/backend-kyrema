@@ -17,7 +17,9 @@ class TipoProductoPoliza extends Model
         'poliza_id',
         'fila',
         'columna',
+        'page',
         'fila_logo',
         'columna_logo',
+        'page_logo'
     ];
 }

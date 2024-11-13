@@ -18,7 +18,7 @@ use App\Http\Controllers\CampoController;
 class ExportController extends Controller
 {
 
-        public function exportExcelToPdf($letrasIdentificacion, Request $request)
+    public function exportExcelToPdf($letrasIdentificacion, Request $request)
         {
             
             try {
@@ -48,6 +48,8 @@ class ExportController extends Controller
                     $valores->plantilla_path_3,
                     $valores->plantilla_path_4
                 ];
+
+                Log::info($plantillaPaths);
 
                 foreach ($plantillaPaths as $path) {
                     if ($path !== null) { // Verifica si no es nulo
@@ -99,8 +101,10 @@ class ExportController extends Controller
                 ->get();
 
                 foreach($companias as $compania){
-                    $compania->logo_path = storage_path('app/public/' . $compania->logo_path);
-                    $compania->logo = base64_encode(file_get_contents($compania->logo_path));
+                    if($compania->logo){
+                        $compania->logo = storage_path('app/public/' . $compania->logo);
+                        $compania->logo = base64_encode(file_get_contents($compania->logo));
+                    }
                 }
 
                 // Agregar el logo y número de póliza de cada compañía en las celdas correspondientes
@@ -233,8 +237,8 @@ class ExportController extends Controller
         ->get();
 
         foreach($companias as $compania){
-            $compania->logo_path = storage_path('app/public/' . $compania->logo_path);
-            $compania->logo = base64_encode(file_get_contents($compania->logo_path));
+            $compania->logo = storage_path('app/public/' . $compania->logo);
+            $compania->logo = base64_encode(file_get_contents($compania->logo));
         }
 
         // Agregar el logo y número de póliza de cada compañía en las celdas correspondientes
@@ -266,7 +270,6 @@ class ExportController extends Controller
     public function getPlantillaBase64(Request $request){
         //Coger la ruta
         $path = $request->input('path');
-
         $file = Storage::disk('public')->get($path);
         $base64 = base64_encode($file);
         return response()->json(['base64' => $base64]);

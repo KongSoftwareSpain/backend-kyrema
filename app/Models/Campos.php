@@ -28,6 +28,7 @@ class Campos extends Model
         'tipo_producto_id',
         'columna',
         'fila',
+        'page',
         'tipo_dato',
         'visible',
         'obligatorio',
