@@ -31,6 +31,7 @@ class ProductoController extends Controller
             'page_logo_sociedad' => 'nullable|string',
             'padre_id' => 'nullable|integer',
             'tipo_producto_asociado' => 'nullable|integer',
+            'separacion_anexos' => 'nullable|string',
             'polizas' => 'nullable|array',
             'campos' => 'nullable|array',
             'campos.*.nombre' => 'required|string',
@@ -51,6 +52,7 @@ class ProductoController extends Controller
         $casilla_logo_sociedad = $request->input('casilla_logo_sociedad');
         $padre_id = $request->input('padre_id');
         $tipo_producto_asociado = $request->input('tipo_producto_asociado');
+        $separacion_anexos = $request->input('separacion_anexos');
         $polizas = $request->input('polizas');
         $campos = $request->input('campos');
         $camposConOpciones = $request->input('camposConOpciones') ?? [];
@@ -111,6 +113,7 @@ class ProductoController extends Controller
             'casilla_logo_sociedad' => $casilla_logo_sociedad,
             'padre_id' => $padre_id,
             'tipo_producto_asociado' => $tipo_producto_asociado,
+            'separacion_anexos' => $separacion_anexos,
             'tipo_duracion' => $tipoDuracion,
             'duracion' => $valorDuracion,
             'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),

@@ -251,7 +251,7 @@ class ExportController extends Controller
         }
 
         $data = [
-            'tipoProducto' => $tipoProducto,
+            'tipoProducto' => $tipoAnexo,
             'valores' => $valores,
             'campos' => $campos,
             'anexos' => $anexos,
