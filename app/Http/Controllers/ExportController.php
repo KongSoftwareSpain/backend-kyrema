@@ -154,14 +154,21 @@ class ExportController extends Controller
 
         $letrasIdentificacionAnexo = $tipoAnexo->letras_identificacion;
 
+        // NECESITAMOS TAMBIEN LOS DATOS DEL PRODUCTO PARA RELLENAR LOS CAMPOS DE LA PLANTILLA
+        $tipoProducto = DB::table('tipo_producto')
+        ->where('id', $tipoAnexo->tipo_producto_asociado)
+        ->first();
+
+        $valores = DB::table($tipoProducto->letras_identificacion)->where('id', $id)->first();
+
         $plantillasBase64 = [];
 
         // Lista de posibles plantillas
         $plantillaPaths = [
-            $valores->plantilla_path_1,
-            $valores->plantilla_path_2,
-            $valores->plantilla_path_3,
-            $valores->plantilla_path_4
+            $tipoAnexo->plantilla_path_1,
+            $tipoAnexo->plantilla_path_2,
+            $tipoAnexo->plantilla_path_3,
+            $tipoAnexo->plantilla_path_4
         ];
 
         foreach ($plantillaPaths as $path) {
@@ -181,13 +188,6 @@ class ExportController extends Controller
                 
         // Coger los anexos relacionados con el id del producto de la tabla con el nombre $letrasIdentificacionAnexo
         $anexos = DB::table($letrasIdentificacionAnexo)->where('producto_id', $id)->get();
-
-        // NECESITAMOS TAMBIEN LOS DATOS DEL PRODUCTO PARA RELLENAR LOS CAMPOS DE LA PLANTILLA
-        $tipoProducto = DB::table('tipo_producto')
-        ->where('id', $tipoAnexo->tipo_producto_asociado)
-        ->first();
-
-        $valores = DB::table($tipoProducto->letras_identificacion)->where('id', $id)->first();
 
         $campos = DB::table('campos')
             ->where('tipo_producto_id', $tipoAnexoId)

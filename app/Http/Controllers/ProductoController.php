@@ -26,7 +26,9 @@ class ProductoController extends Controller
             'nombreProducto' => 'required|string',
             'letrasIdentificacion' => 'required|string',
             'acuerdo_kyrema' => 'nullable|boolean',
-            'casilla_logo_sociedad' => 'nullable|string',
+            'columna_logo_sociedad' => 'nullable|string',
+            'fila_logo_sociedad' => 'nullable|string',
+            'page_logo_sociedad' => 'nullable|string',
             'padre_id' => 'nullable|integer',
             'tipo_producto_asociado' => 'nullable|integer',
             'polizas' => 'nullable|array',
@@ -128,6 +130,7 @@ class ProductoController extends Controller
                 'tipo_producto_id' => $tipoProductoId,
                 'columna' => $campo['columna'] ?? null,
                 'fila' => $campo['fila'] ?? null,
+                'page' => $campo['page'] ?? null,
                 'tipo_dato' => $campo['tipo_dato'],
                 'visible' => $campo['visible'] ?? false,
                 'obligatorio' => $campo['obligatorio'] ?? false,
@@ -290,9 +293,11 @@ class ProductoController extends Controller
                 'poliza_id' => $poliza['poliza_id'],
                 'tipo_producto_id' => $tipoProductoId,
                 'fila' => $poliza['fila'] ?? null,
+                'page' => $campo['page'] ?? null,
                 'columna' => $poliza['columna'] ?? null,
                 'fila_logo' => $poliza['fila_logo'] ?? null,
-                'columna_logo' => $poliza['columna_logo'] ?? null
+                'columna_logo' => $poliza['columna_logo'] ?? null,
+                'page_logo' => $campo['page_logo'] ?? null,
             ]);
         }
     }
@@ -304,6 +309,7 @@ class ProductoController extends Controller
             'tipo_producto_id' => $tipoProductoId,
             'columna' => $duracion['columna'] ?? null,
             'fila' => $duracion['fila'] ?? null,
+            'page' => $campo['page'] ?? null,
             'tipo_dato' => $duracion['tipo_dato'],
             'visible' => $duracion['visible'] ?? false,
             'obligatorio' => $duracion['obligatorio'] ?? false,
