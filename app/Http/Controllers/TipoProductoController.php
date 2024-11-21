@@ -81,12 +81,30 @@ class TipoProductoController extends Controller
     {
         $request->validate([
             'nombre' => 'required|string|max:255',
-            'casilla_logo_sociedad' => 'nullable|string|max:255',
+            'campos_logos' => 'nullable|array',
             'esAcuerdoKyrema' => 'nullable|boolean',
         ]);
 
+        // Editar todo menos los campos_logos:
         $tipoProducto = TipoProducto::findOrFail($id);
-        $tipoProducto->update($request->all());
+        $tipoProducto->update($request->except('campos_logos'));
+
+        // Eliminar todos los campos_logos que haya conectado con el tipo_producto
+        DB::table('campos_logos')->where('tipo_producto_id', $id)->delete();
+
+        // Insertar los nuevos campos_logos
+        foreach ($campos_logos as $campo_logo) {
+            DB::table('campos_logos')->insert([
+                'tipo_logo' => $campo_logo['tipo_logo'],
+                'entidad_id' => $campo_logo['entidad_id'],
+                'tipo_producto_id' => $tipoProductoId,
+                'columna' => $campo_logo['columna'] ?? null,
+                'fila' => $campo_logo['fila'] ?? null,
+                'page' => $campo_logo['page'] ?? null,
+                'altura' => $campo_logo['altura'] ?? null,
+                'ancho' => $campo_logo['ancho'] ?? null,
+            ]);
+        }
 
         return response()->json($tipoProducto);
     }
@@ -148,6 +166,10 @@ class TipoProductoController extends Controller
                 'plantilla_path_2' => $subproducto->plantilla_path_2,
                 'plantilla_path_3' => $subproducto->plantilla_path_3,
                 'plantilla_path_4' => $subproducto->plantilla_path_4,
+                'plantilla_path_5' => $subproducto->plantilla_path_5,
+                'plantilla_path_6' => $subproducto->plantilla_path_6,
+                'plantilla_path_7' => $subproducto->plantilla_path_7,
+                'plantilla_path_8' => $subproducto->plantilla_path_8,
                 'padre_id' => $subproducto->padre_id,
                 // Utilizando relaciones para obtener tarifas y campos
                 'tarifas' => $subproducto->tarifas,

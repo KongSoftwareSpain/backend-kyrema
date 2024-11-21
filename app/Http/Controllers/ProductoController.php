@@ -49,7 +49,7 @@ class ProductoController extends Controller
         $nombreProducto = $request->input('nombreProducto');
         $letrasIdentificacion = $request->input('letrasIdentificacion');
         $acuerdo_kyrema = $request->input('acuerdo_kyrema');
-        $casilla_logo_sociedad = $request->input('casilla_logo_sociedad');
+        $campos_logos = $request->input('campos_logos');
         $padre_id = $request->input('padre_id');
         $tipo_producto_asociado = $request->input('tipo_producto_asociado');
         $separacion_anexos = $request->input('separacion_anexos');
@@ -110,7 +110,6 @@ class ProductoController extends Controller
             'letras_identificacion' => $letrasIdentificacion,
             'acuerdo_kyrema' => $acuerdo_kyrema,
             'nombre' => $nombreProducto,
-            'casilla_logo_sociedad' => $casilla_logo_sociedad,
             'padre_id' => $padre_id,
             'tipo_producto_asociado' => $tipo_producto_asociado,
             'separacion_anexos' => $separacion_anexos,
@@ -123,6 +122,11 @@ class ProductoController extends Controller
         if(count($polizas) > 0){
             // Conectar las polizas con el tipo_producto
             self::insertPolizas($polizas, $tipoProductoId);
+        }
+
+        if(count($campos_logos) > 0){
+            // Conectar las polizas con el tipo_producto
+            self::insertLogos($campos_logos, $tipoProductoId);
         }
 
         // Insertar información de los campos en la tabla 'campos'
@@ -246,6 +250,10 @@ class ProductoController extends Controller
                 $table->string('plantilla_path_2')->nullable();
                 $table->string('plantilla_path_3')->nullable();
                 $table->string('plantilla_path_4')->nullable();
+                $table->string('plantilla_path_5')->nullable();
+                $table->string('plantilla_path_6')->nullable();
+                $table->string('plantilla_path_7')->nullable();
+                $table->string('plantilla_path_8')->nullable();
                 $table->string('duracion')->nullable();
                 // Booleano de si está anulado o no
                 $table->boolean('anulado')->default(false);
@@ -287,6 +295,21 @@ class ProductoController extends Controller
             'message' => 'Producto creado con éxito',
             'id' => $tipoProductoId
         ], 200);    
+    }
+
+    private function insertLogos($campos_logos, $tipoProductoId){
+        foreach ($campos_logos as $campo_logo) {
+            DB::table('campos_logos')->insert([
+                'tipo_logo' => $campo_logo['tipo_logo'],
+                'entidad_id' => $campo_logo['entidad_id'],
+                'tipo_producto_id' => $tipoProductoId,
+                'columna' => $campo_logo['columna'] ?? null,
+                'fila' => $campo_logo['fila'] ?? null,
+                'page' => $campo_logo['page'] ?? null,
+                'altura' => $campo_logo['altura'] ?? null,
+                'ancho' => $campo_logo['ancho'] ?? null,
+            ]);
+        }
     }
 
     private function insertPolizas($polizas, $tipoProductoId){
@@ -539,7 +562,10 @@ class ProductoController extends Controller
         }
 
         // Obtener la plantilla antes de gestionar el tipoProducto padre
-        $plantillas_paths = [$tipoProducto->plantilla_path_1 ?? null, $tipoProducto->plantilla_path_2 ?? null, $tipoProducto->plantilla_path_3 ?? null, $tipoProducto->plantilla_path_4 ?? null];
+        $plantillas_paths = [
+            $tipoProducto->plantilla_path_1 ?? null, $tipoProducto->plantilla_path_2 ?? null, $tipoProducto->plantilla_path_3 ?? null, $tipoProducto->plantilla_path_4 ?? null,
+            $tipoProducto->plantilla_path_5 ?? null, $tipoProducto->plantilla_path_6 ?? null, $tipoProducto->plantilla_path_7 ?? null, $tipoProducto->plantilla_path_8 ?? null
+        ];
 
         // Si el tipoProducto tiene padre, coger el tipoProducto padre para meter los datos en la tabla correspondiente
         if($tipoProducto->padre_id != null){
@@ -571,6 +597,10 @@ class ProductoController extends Controller
         $datos['plantilla_path_2'] = $plantillas_paths[1];
         $datos['plantilla_path_3'] = $plantillas_paths[2];
         $datos['plantilla_path_4'] = $plantillas_paths[3];
+        $datos['plantilla_path_5'] = $plantillas_paths[4];
+        $datos['plantilla_path_6'] = $plantillas_paths[5];
+        $datos['plantilla_path_7'] = $plantillas_paths[6];
+        $datos['plantilla_path_8'] = $plantillas_paths[7];
 
         $datos['logo_sociedad_path'] = DB::table('sociedad')->where('id', $datos['sociedad_id'])->value('logo');
 

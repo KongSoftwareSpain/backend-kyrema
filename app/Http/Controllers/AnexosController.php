@@ -33,7 +33,10 @@ class AnexosController extends Controller
             $tipoAnexo = $anexo['tipo_anexo']; // Tipo de anexo
             $letrasIdentificacion = strtolower($tipoAnexo['letras_identificacion']); // Nombre de la tabla
             $duracion = $tipoAnexo['duracion']; // Duración del anexo
-            $plantillasPaths = [$tipoAnexo['plantilla_path_1'], $tipoAnexo['plantilla_path_2'], $tipoAnexo['plantilla_path_3'], $tipoAnexo['plantilla_path_4']]; // Plantillas asociadas al anexo
+            $plantillasPaths = [
+                $tipoAnexo['plantilla_path_1'], $tipoAnexo['plantilla_path_2'], $tipoAnexo['plantilla_path_3'], $tipoAnexo['plantilla_path_4'],
+                $tipoAnexo['plantilla_path_5'], $tipoAnexo['plantilla_path_6'], $tipoAnexo['plantilla_path_7'], $tipoAnexo['plantilla_path_8'],
+            ]; // Plantillas asociadas al anexo
             $anexoId = $anexo['id']; // ID del anexo (si existe)
             $formato = $anexo['formato']; // Campos dinámicos del anexo
             $tarifas = $anexo['tarifas']; // Tarifas del anexo
@@ -65,6 +68,10 @@ class AnexosController extends Controller
                 $data['plantilla_path_2'] = $plantillasPaths[1];
                 $data['plantilla_path_3'] = $plantillasPaths[2];
                 $data['plantilla_path_4'] = $plantillasPaths[3];
+                $data['plantilla_path_5'] = $plantillasPaths[4];
+                $data['plantilla_path_6'] = $plantillasPaths[5];
+                $data['plantilla_path_7'] = $plantillasPaths[6];
+                $data['plantilla_path_8'] = $plantillasPaths[7];
 
                 if ($anexoId) {
                     // Si el anexo tiene un ID, se actualiza el registro existente

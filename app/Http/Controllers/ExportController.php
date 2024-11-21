@@ -46,7 +46,11 @@ class ExportController extends Controller
                     $valores->plantilla_path_1,
                     $valores->plantilla_path_2,
                     $valores->plantilla_path_3,
-                    $valores->plantilla_path_4
+                    $valores->plantilla_path_4,
+                    $valores->plantilla_path_5,
+                    $valores->plantilla_path_6,
+                    $valores->plantilla_path_7,
+                    $valores->plantilla_path_8,
                 ];
 
                 Log::info($plantillaPaths);
@@ -168,7 +172,11 @@ class ExportController extends Controller
             $tipoAnexo->plantilla_path_1,
             $tipoAnexo->plantilla_path_2,
             $tipoAnexo->plantilla_path_3,
-            $tipoAnexo->plantilla_path_4
+            $tipoAnexo->plantilla_path_4,
+            $tipoAnexo->plantilla_path_5,
+            $tipoAnexo->plantilla_path_6,
+            $tipoAnexo->plantilla_path_7,
+            $tipoAnexo->plantilla_path_8,
         ];
 
         foreach ($plantillaPaths as $path) {

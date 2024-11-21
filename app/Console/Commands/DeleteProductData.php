@@ -25,7 +25,10 @@ class DeleteProductData extends Command
             // Obtener letrasIdentificacion y plantilla_path antes de eliminar la tabla tipo_producto
             $product = DB::table('tipo_producto')->where('id', $productId)->first();
             $letrasIdentificacion = $product->letras_identificacion ?? null;
-            $plantillasPaths = [$product->plantilla_path_1 ?? null, $product->plantilla_path_2 ?? null, $product->plantilla_path_3 ?? null, $product->plantilla_path_4 ?? null];
+            $plantillasPaths = [
+                $product->plantilla_path_1 ?? null, $product->plantilla_path_2 ?? null, $product->plantilla_path_3 ?? null, $product->plantilla_path_4 ?? null,
+                $product->plantilla_path_5 ?? null, $product->plantilla_path_6 ?? null, $product->plantilla_path_7 ?? null, $product->plantilla_path_8 ?? null,
+            ];
 
             // Obtener los campos con opciones (opciones != null)
             $camposConOpciones = DB::table('campos')->where('tipo_producto_id', $productId)->whereNotNull('opciones')->get();
@@ -87,7 +90,10 @@ class DeleteProductData extends Command
 
                     DB::table('campos_anexos')->where('tipo_anexo', $anexo->id)->delete();
 
-                    $plantillasPathsAnexo = [$anexo->plantilla_path_1 ?? null, $anexo->plantilla_path_2 ?? null, $anexo->plantilla_path_3 ?? null, $anexo->plantilla_path_4 ?? null];
+                    $plantillasPathsAnexo = [
+                        $anexo->plantilla_path_1 ?? null, $anexo->plantilla_path_2 ?? null, $anexo->plantilla_path_3 ?? null, $anexo->plantilla_path_4 ?? null,
+                        $anexo->plantilla_path_5 ?? null, $anexo->plantilla_path_6 ?? null, $anexo->plantilla_path_7 ?? null, $anexo->plantilla_path_8 ?? null,
+                    ];
 
                     foreach ($plantillasPathsAnexo as $plantillaPathAnexo) {
                         // Eliminar la plantilla si existe

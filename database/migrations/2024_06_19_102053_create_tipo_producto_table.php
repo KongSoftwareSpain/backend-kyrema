@@ -17,6 +17,10 @@ return new class extends Migration
             $table->string('plantilla_path_2')->nullable(); // Ruta del archivo en lugar de los datos binarios
             $table->string('plantilla_path_3')->nullable(); // Ruta del archivo en lugar de los datos binarios
             $table->string('plantilla_path_4')->nullable(); // Ruta del archivo en lugar de los datos binarios
+            $table->string('plantilla_path_5')->nullable(); // Ruta del archivo en lugar de los datos binarios
+            $table->string('plantilla_path_6')->nullable(); // Ruta del archivo en lugar de los datos binarios
+            $table->string('plantilla_path_7')->nullable(); // Ruta del archivo en lugar de los datos binarios
+            $table->string('plantilla_path_8')->nullable(); // Ruta del archivo en lugar de los datos binarios
             $table->unsignedBigInteger('padre_id')->nullable();
             $table->timestamps();
 
