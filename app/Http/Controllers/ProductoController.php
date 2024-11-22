@@ -49,6 +49,7 @@ class ProductoController extends Controller
         $nombreProducto = $request->input('nombreProducto');
         $letrasIdentificacion = $request->input('letrasIdentificacion');
         $acuerdo_kyrema = $request->input('acuerdo_kyrema');
+        $nombre_unificado = $request->input('nombre_unificado');
         $campos_logos = $request->input('campos_logos');
         $padre_id = $request->input('padre_id');
         $tipo_producto_asociado = $request->input('tipo_producto_asociado');
@@ -109,6 +110,7 @@ class ProductoController extends Controller
         $tipoProductoId = DB::table('tipo_producto')->insertGetId([
             'letras_identificacion' => $letrasIdentificacion,
             'acuerdo_kyrema' => $acuerdo_kyrema,
+            'nombre_unificado' => $nombre_unificado,
             'nombre' => $nombreProducto,
             'padre_id' => $padre_id,
             'tipo_producto_asociado' => $tipo_producto_asociado,
