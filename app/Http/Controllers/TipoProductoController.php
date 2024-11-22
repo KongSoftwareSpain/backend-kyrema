@@ -64,6 +64,27 @@ class TipoProductoController extends Controller
         return response()->json($tipoProducto);
     }
 
+    public function getLogosPorTipoProducto($id) 
+    {
+        $camposLogos = DB::table('campos_logos')
+            ->where('tipo_producto_id', $id)
+            ->get()
+            ->map(function ($campo) {
+                return [
+                    'id' => (string) $campo->id,
+                    'tipo_logo' => $campo->tipo_logo,
+                    'entidad_id' => (string) $campo->entidad_id,
+                    'fila' => $campo->fila,
+                    'columna' => $campo->columna,
+                    'page' => $campo->page,
+                    'altura' => $campo->altura,
+                    'ancho' => $campo->ancho,
+                ];
+            });
+
+        return response()->json($camposLogos);
+    }
+
     public function update(Request $request, $id)
     {
         $request->validate([
