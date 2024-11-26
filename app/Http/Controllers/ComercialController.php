@@ -39,9 +39,11 @@ class ComercialController extends Controller
             'path_dni' => 'nullable|string|max:255',
             'path_justificante_iban' => 'nullable|string|max:255',
             'path_otros' => 'nullable|string|max:255',
-            'path_foto' => 'nullable|string|max:255',
+            'path_foto' => 'nullable|file|mimes:jpeg,png,jpg,gif|max:4096',
         ]);
-    
+        
+
+
         // Cambiar el formato de las fechas 'Y-m-d\TH:i:s'
         if ($request->fecha_nacimiento) {
             $request->merge([
@@ -62,7 +64,15 @@ class ComercialController extends Controller
         $data['dni'] == null ? $data['dni'] = '' : $data['dni']; 
     
         // Crear el comercial usando los datos modificados
-        $comercial = Comercial::create($data);
+        $comercial = Comercial::create($data->except('path_foto'));
+
+        // Si se ha subido una foto, guardarla
+        if ($request->hasFile('path_foto')) {
+            $foto = $request->file('path_foto');
+            $fotoPath = $foto->storeAs('public/profile-pics', 'foto_' . $foto->getClientOriginalName() . '_' . $comercial->id . '.' . $foto->extension());
+            $comercial->path_foto = str_replace('public/', '', $fotoPath); // Guardar la ruta de la foto
+            $comercial->save();
+        }
     
         return response()->json($comercial, 201);
     }
@@ -104,7 +114,7 @@ class ComercialController extends Controller
             'path_dni' => 'nullable|string|max:255',
             'path_justificante_iban' => 'nullable|string|max:255',
             'path_otros' => 'nullable|string|max:255',
-            'path_foto' => 'nullable|string|max:255',
+            'path_foto' => 'nullable|file|mimes:jpeg,png,jpg,gif|max:4096',
         ]);
 
         // Cambiar el formato de las fechas 'Y-m-d\TH:i:s'
@@ -115,9 +125,19 @@ class ComercialController extends Controller
             $request->fecha_alta = date('Y-m-d\TH:i:s', strtotime($request->fecha_alta));
         }   
         
+        $request['dni'] == null ? $request['dni'] = '' : $request['dni']; 
 
         $comercial = Comercial::findOrFail($id);
-        $comercial->update($request->all());
+
+        $comercial->update($request->except('path_foto'));
+
+        // Si se ha subido una foto, guardarla
+        if ($request->hasFile('path_foto')) {
+            $foto = $request->file('path_foto');
+            $fotoPath = $foto->storeAs('public/profile-pics', 'foto_' . $foto->getClientOriginalName() . '_' . $comercial->id . '.' . $foto->extension());
+            $comercial->path_foto = str_replace('public/', '', $fotoPath); // Guardar la ruta de la foto
+            $comercial->save();
+        }
 
         return response()->json($comercial);
     }

@@ -166,10 +166,12 @@ class CampoController extends Controller
             'tipo_dato' => $data['tipo_dato'],
             'columna' => $data['columna'],
             'fila' => $data['fila'],
+            'page' => $data['page'],
             'visible' => $data['visible'],
             'obligatorio' => $data['obligatorio'],
             'grupo' => $data['grupo'] ?? null,
             'opciones' => $nombreTabla,
+            'copias' => $data['copias'] ?? null,
             'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
             'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
         ]);
@@ -224,10 +226,12 @@ class CampoController extends Controller
             'tipo_dato' => $data['tipo_dato'],
             'columna' => $data['columna'],
             'fila' => $data['fila'],
+            'page' => $data['page'],
             'visible' => $data['visible'],
             'obligatorio' => $data['obligatorio'],
             'grupo' => $data['grupo'] ?? null,
             'opciones' => $nombreTabla,
+            'copias' => $data['copias'] ?? null,
             'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
             'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
         ]);
@@ -254,6 +258,7 @@ class CampoController extends Controller
             'tipo_dato' => 'required|string|max:255',
             'columna' => 'nullable|string|max:255',
             'fila' => 'nullable|string|max:255',
+            'page' => 'nullable|string|max:255',
             'obligatorio' => 'required|boolean',
             'grupo' => 'nullable|string|max:255',
             'opciones' => 'nullable|array',
@@ -270,6 +275,7 @@ class CampoController extends Controller
             'tipo_dato' => 'required|string|max:255',
             'columna' => 'nullable|string|max:255',
             'fila' => 'nullable|string|max:255',
+            'page' => 'nullable|string|max:255',
             'visible' => 'boolean',
             'obligatorio' => 'boolean',
             'grupo' => 'nullable|string|max:255',
@@ -346,6 +352,37 @@ class CampoController extends Controller
         });
 
         return response()->json(['message' => 'Campos añadidos con éxito'], 200);
+    }
+
+    public function getCamposCertificado($id)
+    {
+        $campos = CampoController::fetchCamposCertificado($id);
+        return response()->json($campos);
+    }
+
+    public static function fetchCamposCertificado($id)
+    {
+        return DB::table('campos')
+                ->where('tipo_producto_id', $id)
+                ->whereNotNull('columna')
+                ->whereNotNull('fila')
+                ->get();
+    }
+
+    public function getCamposLogos($id)
+    {
+        $campos = CampoController::fetchCamposLogos($id);
+        return response()->json($campos);
+    }
+
+    public static function fetchCamposLogos($id)
+    {
+        return DB::table('campos_logos')
+                ->where('tipo_producto_id', $id)
+                ->whereNotNull('page')
+                ->whereNotNull('altura')
+                ->whereNotNull('ancho')
+                ->get();
     }
 }
 

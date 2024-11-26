@@ -27,7 +27,11 @@ use App\Http\Controllers\TipoPagoProductoSociedadController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\ResetPasswordController;
+use App\Http\Controllers\CompaniaController;
+use App\Http\Controllers\PolizaController;
+use App\Http\Controllers\SocioController;
 use Illuminate\Support\Facades\Mail;
+
 
 
 
@@ -37,7 +41,9 @@ Route::post('password/reset', [ResetPasswordController::class, 'reset']);
 
 
 Route::get('/productos/{letrasIdentificacion}', [ProductoController::class, 'getProductosByTipoAndSociedades']);
+Route::get('/historial/{letrasIdentificacion}', [ProductoController::class, 'getHistorialProductosByTipoAndSociedades']);
 Route::get('/productos/{letrasIdentificacion}/comercial/{comercial_id}', [ProductoController::class, 'getProductosByTipoAndComercial']);
+Route::get('/historial/{letrasIdentificacion}/comercial/{comercial_id}', [ProductoController::class, 'getHistorialProductosByTipoAndComercial']);
 
 // ANULADOS
 Route::get('anulados/{letrasIdentificacion}', [AnuladosController::class, 'getAnulados']);
@@ -52,10 +58,11 @@ Route::get('/duraciones/{nombreTabla}', [ProductoController::class, 'getDuracion
 
 
 Route::post('/crear-tipo-producto', [ProductoController::class, 'crearTipoProducto']);
-Route::post('/subir-plantilla/{letrasIdentificacion}', [ProductoController::class, 'subirPlantilla']);
+Route::post('/subir-plantilla/{id_tipo_producto}/{page}', [ProductoController::class, 'subirPlantilla']);
 
 
-Route::get('/descargar-plantilla/{letrasIdentificacion}', [ExportController::class, 'exportExcelToPdf']);
+Route::get('/descargar-plantilla/{letrasIdentificacion}', [ExportController::class, 'exportToPdf']);
+Route::get('/plantilla-base64' , [ExportController::class, 'getPlantillaBase64']);
 
 
 Route::apiResource('campos', CampoController::class);
@@ -65,8 +72,8 @@ Route::post('/add-campos/{id_tipo_producto}', [CampoController::class, 'addCampo
 Route::post('create-campo-opciones/{id_tipo_producto}', [CampoController::class, 'createCampoConOpciones']);
 Route::put('/update-campo-opciones/{id}', [CampoController::class, 'updateCampoConOpciones']);
 Route::get('/opciones/{id_campo}', [CampoController::class, 'getOpcionesPorCampo']);
-
-
+Route::get('/campos-certificado/{id}', [CampoController::class, 'getCamposCertificado']);
+Route::get('/logos/tipo-producto/{id}', [CampoController::class, 'getCamposLogos']);
 
 Route::get('tipos-producto/sociedad/{id_sociedad}', [TipoProductoController::class, 'getTiposProductoPorSociedad']);
 Route::get('tipos-producto/all', [TipoProductoController::class, 'index']);
@@ -74,6 +81,7 @@ Route::get('tipo-producto/{letras}', [TipoProductoController::class, 'getByLetra
 Route::get('tipo-producto/show/{id}', [TipoProductoController::class, 'show']);
 Route::put('tipo-producto/{id}', [TipoProductoController::class, 'update']);
 Route::put('tipo-producto/edit/{id}', [TipoProductoController::class, 'updateTipoProducto']);
+Route::get('logos/tipo-producto/{id_tipo_producto}', [TipoProductoController::class, 'getLogosPorTipoProducto']);
 Route::delete('tipo-producto/delete/{id}', [TipoProductoController::class, 'deleteTipoProducto']);
 Route::get('subproductos/padre/{id}', [TipoProductoController::class, 'getSubproductosPorPadreId']);
 
@@ -159,11 +167,34 @@ Route::get('tipo_pago_producto_sociedad/sociedad/{id_sociedad}', [TipoPagoProduc
 Route::get('/tipo_pago_producto_sociedad/sociedad/{sociedad_id}/tipo-producto/{tipo_producto_id}', [TipoPagoProductoSociedadController::class, 'getTiposPagoPorSociedadYTipoProducto']);
 Route::post('sociedad/{sociedad_padre_id}/hija/{sociedad_hija_id}/tipos-pago', [TipoPagoProductoSociedadController::class, 'transferirTiposPago']);
 
+// COMPAÑIAS:
+
+Route::get('companies', [CompaniaController::class, 'getAll']);
+Route::get('companies/{id}', [CompaniaController::class, 'getCompanyById']);
+Route::post('companies', [CompaniaController::class, 'createCompany']);
+Route::put('companies/{id}', [CompaniaController::class, 'updateCompany']);
+
+// POLIZAS:
+
+Route::get('company/{id}/polizas', [PolizaController::class, 'getPolizasByCompany']);
+Route::get('poliza/{id}', [PolizaController::class, 'getPolizaById']);
+Route::post('poliza', [PolizaController::class, 'store']);
+Route::post('poliza/{id}', [PolizaController::class, 'update']);
+Route::get('polizas/tipo-producto/{id}', [PolizaController::class, 'getPolizasByTipoProducto']);
+Route::put('polizas/tipo-producto/{id}', [PolizaController::class, 'updatePolizas']);
+Route::get('descargar-poliza/{id}', [PolizaController::class, 'downloadPoliza']);
+
 
 Route::apiResource('escalado-anexos', EscaladoAnexoController::class);
 
-Route::get('/nav/{id_sociedad}', [NavController::class, 'getNavegacion']);
+Route::get('/nav/{id_sociedad}/{responsable}', [NavController::class, 'getNavegacion']);
 
 //Pagos:
 Route::post('/payment/create', [PaymentController::class, 'createPayment']);
 
+
+// SOCIOS:
+Route::get('/socios', [SocioController::class, 'index']);
+Route::get('/socio/{dni}', [SocioController::class, 'getAsegurado']);
+Route::post('/socio', [SocioController::class, 'store']);
+Route::delete('/socio/{id}', [SocioController::class, 'destroy']);

@@ -11,7 +11,7 @@ class NavController extends Controller
 {   
     const SOCIEDAD_ADMIN_ID = 1;
     // Para coger las distintas rutas de la aplicación
-    public function getNavegacion($id_sociedad){
+    public function getNavegacion($id_sociedad, $responsable){
         // Coger los tipos de producto asociados con la sociedad
         $tipoProductoIds = TipoProductoSociedad::where('id_sociedad', $id_sociedad)->pluck('id_tipo_producto');
 
@@ -107,7 +107,15 @@ class NavController extends Controller
             [
                 "label" => "Productos",
                 "link" => "/gestion-productos"
-            ]   
+            ],
+            [
+                "label" => "Compañias",
+                "link" => "/companias"
+            ],
+            [
+                "label" => "Socios",
+                "link" => "/socios"
+            ]
         ];
         $navegacion[2]["children"] = $tiposProducto->map(function($tipoProducto){
             return [
@@ -131,10 +139,16 @@ class NavController extends Controller
         // }
 
         // Condición para filtrar las opciones en el array de navegación
-        if ($sociedadPadreId == self::SOCIEDAD_ADMIN_ID && isset($navegacion[2])) {
+        if ($sociedadPadreId == env('SOCIEDAD_ADMIN_ID') && isset($navegacion[2])) {
             $navegacion[1]["children"] = array_values(array_filter($navegacion[1]["children"], function($child) {
                 return in_array($child["label"], ["Sociedades", "Comisiones"]);
             }));
+        }
+
+        // Si no es responsable
+        if($responsable != 1){
+            // Quitar el navegación [1]
+            unset($navegacion[1]);
         }
 
         return response()->json($navegacion);

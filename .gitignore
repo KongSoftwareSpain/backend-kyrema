@@ -11,6 +11,7 @@ storage/app/public/temp/*
 # Excluir README.txt de ser ignorado
 !storage/app/public/temp/README.txt
 .env
+env.json
 .phpactor.json
 .phpunit.result.cache
 Homestead.json
