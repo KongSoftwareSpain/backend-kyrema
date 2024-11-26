@@ -384,6 +384,5 @@ class CampoController extends Controller
                 ->whereNotNull('ancho')
                 ->get();
     }
-
 }
 
