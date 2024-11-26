@@ -18,7 +18,7 @@ use App\Http\Controllers\CampoController;
 class ExportController extends Controller
 {
 
-    public function exportExcelToPdf($letrasIdentificacion, Request $request)
+    public function exportToPdf($letrasIdentificacion, Request $request)
         {
             
             try {
@@ -72,21 +72,29 @@ class ExportController extends Controller
                 // Obtener los campos del tipo de producto con columna y fila no nulos
                 $campos = CampoController::fetchCamposCertificado($tipoProducto->id);
 
-                // LOGO DE LA SOCIEDAD
-                if($valores->sociedad_id == env('SOCIEDAD_ADMIN_ID')){
-                    $logo = 'logos/Logo_CANAMA__003.png';
-                } else {
-                    $logo = $valores->logo_sociedad_path;
-                }
+                // LOGOS
+                $camposLogos = CampoController::fetchCamposLogos($tipoProducto->id);
 
-                $logoPath = storage_path('app/public/' . $logo);
+                foreach($camposLogos as $campoLogo){
+                    if($campoLogo->tipo_logo == 'sociedad'){
+                        if($valores->sociedad_id == env('SOCIEDAD_ADMIN_ID')){
+                            $campoLogo->url = 'logos/logo_18.png';
+                        } else {
+                            $campoLogo->url = $valores->logo_sociedad_path;
+                        }        
+                    } else {
+                        $campoLogo->url = CompaniaController::getCompanyLogo($campoLogo->entidad_id);
+                    }
 
-                if(file_exists($logoPath)){
-                    $logoData = base64_encode(file_get_contents($logoPath));
-                    $logoMimeType = mime_content_type($logoPath);
-                    $base64Logo = "data:{$logoMimeType};base64,{$logoData}";
-                } else {
-                    $base64Logo = '';
+                    $logoPath = storage_path('app/public/' . $campoLogo->url);
+
+                    if(file_exists($logoPath)){
+                        $logoData = base64_encode(file_get_contents($logoPath));
+                        $logoMimeType = mime_content_type($logoPath);
+                        $campoLogo->base64 = "data:{$logoMimeType};base64,{$logoData}";
+                    } else {
+                        $campoLogo->base64 = '';
+                    }
                 }
 
                 // Obtener y colocar los datos de tipo_producto_polizas y las pólizas relacionadas
@@ -98,28 +106,6 @@ class ExportController extends Controller
                 ->whereIn('id', $polizasTipoProducto->pluck('poliza_id'))
                 ->get();
 
-                // Obtener las compañías asociadas a cada póliza
-                $companiasIds = $polizas->pluck('compania_id')->unique();
-                $companias = DB::table('companias')
-                ->whereIn('id', $companiasIds)
-                ->get();
-
-                foreach($companias as $compania){
-                    if($compania->logo){
-                        $compania->logo = storage_path('app/public/' . $compania->logo);
-                        $compania->logo = base64_encode(file_get_contents($compania->logo));
-                    }
-                }
-
-                // Agregar el logo y número de póliza de cada compañía en las celdas correspondientes
-                foreach ($polizasTipoProducto as $tipoPoliza) {
-                    $poliza = $polizas->firstWhere('id', $tipoPoliza->poliza_id);
-                    $compania = $companias->firstWhere('id', $poliza->compania_id);
-
-                    $numeroPoliza = $poliza ? $poliza->numero : 'N/A';
-
-                }
-
 
                 // Generar un objeto con tipo de producto, valores, campos y base64 de la plantilla
                 $data = [
@@ -128,9 +114,8 @@ class ExportController extends Controller
                     'campos' => $campos,
                     'polizas_tipo_producto' => $polizasTipoProducto,
                     'polizas' => $polizas,
-                    'companias' => $companias,
                     'base64Plantillas' => $plantillasBase64,
-                    'base64Logo' => $base64Logo
+                    'logos' => $camposLogos
                 ];
 
                 return response()->json($data);
@@ -238,24 +223,11 @@ class ExportController extends Controller
         ->whereIn('id', $polizasTipoProducto->pluck('poliza_id'))
         ->get();
 
-        // Obtener las compañías asociadas a cada póliza
-        $companiasIds = $polizas->pluck('compania_id')->unique();
-        $companias = DB::table('companias')
-        ->whereIn('id', $companiasIds)
-        ->get();
-
-        foreach($companias as $compania){
-            $compania->logo = storage_path('app/public/' . $compania->logo);
-            $compania->logo = base64_encode(file_get_contents($compania->logo));
-        }
 
         // Agregar el logo y número de póliza de cada compañía en las celdas correspondientes
         foreach ($polizasTipoProducto as $tipoPoliza) {
             $poliza = $polizas->firstWhere('id', $tipoPoliza->poliza_id);
-            $compania = $companias->firstWhere('id', $poliza->compania_id);
-
             $numeroPoliza = $poliza ? $poliza->numero : 'N/A';
-
         }
 
         $data = [

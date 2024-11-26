@@ -121,12 +121,12 @@ class ProductoController extends Controller
             'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
         ]);
 
-        if(count($polizas) > 0){
+        if($polizas && count($polizas) > 0){
             // Conectar las polizas con el tipo_producto
             self::insertPolizas($polizas, $tipoProductoId);
         }
 
-        if(count($campos_logos) > 0){
+        if($campos_logos && count($campos_logos) > 0){
             // Conectar las polizas con el tipo_producto
             self::insertLogos($campos_logos, $tipoProductoId);
         }
@@ -146,10 +146,13 @@ class ProductoController extends Controller
                 'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
                 'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
                 'grupo' => $campo['grupo'] ?? null,
+                'copia' => $campo['copia'] ?? false,
             ]);
         }
 
-        self::insertDuracionEnCampos($duracion, $tipoProductoId);
+        // Duraciones con campos 'copia'.
+        $duraciones = $request->input('duracion');
+        self::insertDuracionEnCampos($duraciones, $tipoProductoId);
 
         // Crear campos con opciones recorriendo el array de camposConOpciones
         foreach ($camposConOpciones as $campoConOpciones) {
@@ -163,6 +166,14 @@ class ProductoController extends Controller
         // Definir el nombre de la nueva tabla usando las letras de identificación
         $nombreTabla = strtolower($letrasIdentificacion);
 
+        // Filtrar y quitar las COPIAS para que no se inserten en la tabla duplicados:
+        $campos = array_filter($campos, function($campo) {
+            return $campo['copia'] === false;
+        });
+
+        $camposConOpciones = array_filter($camposConOpciones, function($campo) {
+            return $campo['copia'] === false;
+        });
 
         // Si es un anexo (Es decir tiene tipo_producto_asociado) se crea la tabla solo con los campos
         // con grupo datos_anexo:
@@ -175,7 +186,6 @@ class ProductoController extends Controller
                 return $campo['grupo'] === 'datos_anexo' || $campo['grupo'] === 'datos_fecha';
             });
         }
-        
 
 
         if ($padre_id) {
@@ -321,30 +331,31 @@ class ProductoController extends Controller
                 'poliza_id' => $poliza['poliza_id'],
                 'tipo_producto_id' => $tipoProductoId,
                 'fila' => $poliza['fila'] ?? null,
-                'page' => $campo['page'] ?? null,
+                'page' => $poliza['page'] ?? null,
                 'columna' => $poliza['columna'] ?? null,
-                'fila_logo' => $poliza['fila_logo'] ?? null,
-                'columna_logo' => $poliza['columna_logo'] ?? null,
-                'page_logo' => $campo['page_logo'] ?? null,
+                'copia' => $poliza['copia'] ?? false,   
             ]);
         }
     }
 
-    private function insertDuracionEnCampos($duracion, $tipoProductoId){
-        DB::table('campos')->insert([
-            'nombre' => 'Duración',
-            'nombre_codigo' => 'duracion',
-            'tipo_producto_id' => $tipoProductoId,
-            'columna' => $duracion['columna'] ?? null,
-            'fila' => $duracion['fila'] ?? null,
-            'page' => $campo['page'] ?? null,
-            'tipo_dato' => $duracion['tipo_dato'],
-            'visible' => $duracion['visible'] ?? false,
-            'obligatorio' => $duracion['obligatorio'] ?? false,
-            'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
-            'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
-            'grupo' => $duracion['grupo'] ?? null,
-        ]); 
+    private function insertDuracionEnCampos($duraciones, $tipoProductoId){
+        foreach ($duraciones as $duracion) {
+            DB::table('campos')->insert([
+                'nombre' => 'Duración',
+                'nombre_codigo' => 'duracion',
+                'tipo_producto_id' => $tipoProductoId,
+                'columna' => $duracion['columna'] ?? null,
+                'fila' => $duracion['fila'] ?? null,
+                'page' => $campo['page'] ?? null,
+                'tipo_dato' => $duracion['tipo_dato'],
+                'visible' => $duracion['visible'] ?? false,
+                'obligatorio' => $duracion['obligatorio'] ?? false,
+                'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
+                'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
+                'grupo' => $duracion['grupo'] ?? null,
+                'copia' => $duracion['copia'] ?? false,
+            ]); 
+        }
     }
 
     public function subirPlantilla($id_tipo_producto, $page, Request $request)
@@ -620,17 +631,22 @@ class ProductoController extends Controller
             ->orderBy('id', 'desc')
             ->first();
 
+        // Determinar la longitud del número secuencial basado en la longitud de letrasIdentificacion
+        $longitudSecuencia = strlen($letrasIdentificacion) === 4 ? 5 : 6;
+
         // Calcular el siguiente número secuencial
-        $lastNumber = $lastProduct ? intval(substr($lastProduct->codigo_producto, -6)) : 0;
-        $newNumber = str_pad($lastNumber + 1, 6, '0', STR_PAD_LEFT);
+        $lastNumber = $lastProduct ? intval(substr($lastProduct->codigo_producto, -$longitudSecuencia)) : 0;
+        $newNumber = str_pad($lastNumber + 1, $longitudSecuencia, '0', STR_PAD_LEFT);
 
         // Obtén el prefijo desde la configuración
         $prefijo = strtolower(Config::get('app.prefijo_tipo_producto'));
-    
+
         // Elimina el prefijo del código
         $codigoPorTipoProducto = str_replace($prefijo, '', strtolower($letrasIdentificacion));
 
+        // Construir el nuevo código de producto
         $newCodigoProducto = $tableDatePrefix . strtoupper($codigoPorTipoProducto) . $newNumber;
+
 
         // Añadir el código de producto al array de datos
         $datos['codigo_producto'] = $newCodigoProducto;

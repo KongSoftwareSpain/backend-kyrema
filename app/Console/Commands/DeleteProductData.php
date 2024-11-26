@@ -60,6 +60,12 @@ class DeleteProductData extends Command
             // Delete from tarifas_producto
             DB::table('tarifas_producto')->where('tipo_producto_id', $productId)->delete();
 
+            // Delete from campos_logos
+            DB::table('campos_logos')->where('tipo_producto_id', $productId)->delete();
+
+            // Delete from tipo_producto_polizas
+            DB::table('tipo_producto_polizas')->where('tipo_producto_id', $productId)->delete();
+
             // Drop the table if it exists
             if ($letrasIdentificacion && Schema::hasTable($letrasIdentificacion)) {
                 Schema::dropIfExists($letrasIdentificacion);

@@ -59,4 +59,11 @@ class CompaniaController extends Controller
 
         return response()->json($compania);
     }
+
+    public function getCompanyLogo($id){
+
+        $compania = Compania::find($id);
+
+        return response()->json($compania->logo);
+    }
 }

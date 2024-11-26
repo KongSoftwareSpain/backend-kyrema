@@ -103,12 +103,13 @@ class TipoProductoController extends Controller
         $request->validate([
             'nombre' => 'required|string|max:255',
             'campos_logos' => 'nullable|array',
-            'esAcuerdoKyrema' => 'nullable|boolean',
+            'acuerdo_kyrema' => 'nullable|boolean',
         ]);
 
         // Editar todo menos los campos_logos:
         $tipoProducto = TipoProducto::findOrFail($id);
         $tipoProducto->update($request->except('campos_logos'));
+        $campos_logos = $request->campos_logos;
 
         // Eliminar todos los campos_logos que haya conectado con el tipo_producto
         DB::table('campos_logos')->where('tipo_producto_id', $id)->delete();
@@ -118,7 +119,7 @@ class TipoProductoController extends Controller
             DB::table('campos_logos')->insert([
                 'tipo_logo' => $campo_logo['tipo_logo'],
                 'entidad_id' => $campo_logo['entidad_id'],
-                'tipo_producto_id' => $tipoProductoId,
+                'tipo_producto_id' => $id,
                 'columna' => $campo_logo['columna'] ?? null,
                 'fila' => $campo_logo['fila'] ?? null,
                 'page' => $campo_logo['page'] ?? null,

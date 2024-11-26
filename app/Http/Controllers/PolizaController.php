@@ -170,9 +170,7 @@ class PolizaController extends Controller
             'fila',
             'columna',
             'page',
-            'fila_logo',
-            'columna_logo',
-            'page_logo') // Especifica aquí los campos que quieres seleccionar, excluyendo 'tipo_producto_id'
+            'copia')
             ->where('tipo_producto_id', $id)
             ->get();
 
@@ -187,7 +185,7 @@ class PolizaController extends Controller
         //Borrar todas las plizas conectadas anteriormente:
         DB::table('tipo_producto_polizas')
             ->where('tipo_producto_id', $id)
-            ->delete();
+            ->delete(); 
 
         foreach ($polizas as $poliza) {
             DB::table('tipo_producto_polizas')
@@ -198,9 +196,7 @@ class PolizaController extends Controller
                     'fila' => $poliza['fila'],
                     'columna' => $poliza['columna'],
                     'page' => $poliza['page'],
-                    'fila_logo' => $poliza['fila_logo'],
-                    'columna_logo' => $poliza['columna_logo'],
-                    'page_logo' => $poliza['page_logo'],
+                    'copia' => $poliza['copia'],
                 ]);
         }
 

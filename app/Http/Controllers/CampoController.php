@@ -171,6 +171,7 @@ class CampoController extends Controller
             'obligatorio' => $data['obligatorio'],
             'grupo' => $data['grupo'] ?? null,
             'opciones' => $nombreTabla,
+            'copias' => $data['copias'] ?? null,
             'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
             'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
         ]);
@@ -230,6 +231,7 @@ class CampoController extends Controller
             'obligatorio' => $data['obligatorio'],
             'grupo' => $data['grupo'] ?? null,
             'opciones' => $nombreTabla,
+            'copias' => $data['copias'] ?? null,
             'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
             'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
         ]);
@@ -364,6 +366,22 @@ class CampoController extends Controller
                 ->where('tipo_producto_id', $id)
                 ->whereNotNull('columna')
                 ->whereNotNull('fila')
+                ->get();
+    }
+
+    public function getCamposLogos($id)
+    {
+        $campos = CampoController::fetchCamposLogos($id);
+        return response()->json($campos);
+    }
+
+    public static function fetchCamposLogos($id)
+    {
+        return DB::table('campos_logos')
+                ->where('tipo_producto_id', $id)
+                ->whereNotNull('page')
+                ->whereNotNull('altura')
+                ->whereNotNull('ancho')
                 ->get();
     }
 

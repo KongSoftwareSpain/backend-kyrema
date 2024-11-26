@@ -61,7 +61,7 @@ Route::post('/crear-tipo-producto', [ProductoController::class, 'crearTipoProduc
 Route::post('/subir-plantilla/{id_tipo_producto}/{page}', [ProductoController::class, 'subirPlantilla']);
 
 
-Route::get('/descargar-plantilla/{letrasIdentificacion}', [ExportController::class, 'exportExcelToPdf']);
+Route::get('/descargar-plantilla/{letrasIdentificacion}', [ExportController::class, 'exportToPdf']);
 Route::get('/plantilla-base64' , [ExportController::class, 'getPlantillaBase64']);
 
 
@@ -73,7 +73,7 @@ Route::post('create-campo-opciones/{id_tipo_producto}', [CampoController::class,
 Route::put('/update-campo-opciones/{id}', [CampoController::class, 'updateCampoConOpciones']);
 Route::get('/opciones/{id_campo}', [CampoController::class, 'getOpcionesPorCampo']);
 Route::get('/campos-certificado/{id}', [CampoController::class, 'getCamposCertificado']);
-
+Route::get('/logos/tipo-producto/{id}', [CampoController::class, 'getCamposLogos']);
 
 Route::get('tipos-producto/sociedad/{id_sociedad}', [TipoProductoController::class, 'getTiposProductoPorSociedad']);
 Route::get('tipos-producto/all', [TipoProductoController::class, 'index']);
