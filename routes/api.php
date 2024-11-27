@@ -104,6 +104,8 @@ Route::post('sociedad/{sociedad_padre_id}/hija/{sociedad_hija_id}', [TipoProduct
 
 Route::get('comerciales/all', [ComercialController::class, 'getAllUsers']);
 Route::get('comerciales/sociedad/{id_sociedad}', [ComercialController::class, 'getComercialesPorSociedad']);
+Route::post('comercial', [ComercialController::class, 'store']);
+Route::put('comercial/{id}', [ComercialController::class, 'update']);
 Route::delete('comercial/{id}', [ComercialController::class, 'destroy']);
 
 Route::post('/auth/login', [AuthController::class, 'login']);
@@ -197,4 +199,5 @@ Route::post('/payment/create', [PaymentController::class, 'createPayment']);
 Route::get('/socios', [SocioController::class, 'index']);
 Route::get('/socio/{dni}', [SocioController::class, 'getAsegurado']);
 Route::post('/socio', [SocioController::class, 'store']);
+Route::put('/socio/{id}', [SocioController::class, 'update']);
 Route::delete('/socio/{id}', [SocioController::class, 'destroy']);

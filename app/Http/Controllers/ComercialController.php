@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Support\Facades\Hash;
 use App\Models\Comercial;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ComercialController extends Controller
 {
@@ -23,7 +24,6 @@ class ComercialController extends Controller
             'usuario' => 'required|string|max:255',
             'email' => 'required|string|max:255',
             'responsable' => 'nullable|boolean',
-            'contraseña' => 'required|string|max:255',
             'dni' => 'nullable|string|max:255',
             'sexo' => 'nullable|string|max:10',
             'fecha_nacimiento' => 'required|date',
@@ -90,6 +90,7 @@ class ComercialController extends Controller
         return response()->json($comercial);
     }
 
+
     public function update(Request $request, $id)
     {
         $request->validate([
@@ -98,7 +99,6 @@ class ComercialController extends Controller
             'usuario' => 'required|string|max:255',
             'email' => 'required|string|max:255',
             'responsable' => 'nullable|boolean',
-            'contraseña' => 'required|string|max:255',
             'dni' => 'nullable|string|max:255',
             'sexo' => 'nullable|string|max:10',
             'fecha_nacimiento' => 'required|date',
@@ -117,30 +117,40 @@ class ComercialController extends Controller
             'path_foto' => 'nullable|file|mimes:jpeg,png,jpg,gif|max:4096',
         ]);
 
-        // Cambiar el formato de las fechas 'Y-m-d\TH:i:s'
-        if ($request->fecha_nacimiento) {
-            $request->fecha_nacimiento = date('Y-m-d\TH:i:s', strtotime($request->fecha_nacimiento));
-        }
-        if ($request->fecha_alta) {
-            $request->fecha_alta = date('Y-m-d\TH:i:s', strtotime($request->fecha_alta));
-        }   
+        // Preparar los datos a actualizar
+        $data = $request->except(['path_foto', 'created_at', 'updated_at']);
         
-        $request['dni'] == null ? $request['dni'] = '' : $request['dni']; 
+        // Formatear fechas antes de actualizar
+        if (!empty($data['fecha_nacimiento'])) {
+            $data['fecha_nacimiento'] = date('Y-m-d', strtotime($data['fecha_nacimiento']));
+        }
+        if (!empty($data['fecha_alta'])) {
+            $data['fecha_alta'] = date('Y-m-d', strtotime($data['fecha_alta']));
+        }
 
-        $comercial = Comercial::findOrFail($id);
+        // Actualizar en la base de datos
+        DB::table('comercials')
+            ->where('id', $id)
+            ->update($data);
 
-        $comercial->update($request->except('path_foto'));
-
-        // Si se ha subido una foto, guardarla
+        // Procesar la foto si se subió una nueva
         if ($request->hasFile('path_foto')) {
             $foto = $request->file('path_foto');
-            $fotoPath = $foto->storeAs('public/profile-pics', 'foto_' . $foto->getClientOriginalName() . '_' . $comercial->id . '.' . $foto->extension());
-            $comercial->path_foto = str_replace('public/', '', $fotoPath); // Guardar la ruta de la foto
-            $comercial->save();
+            $fotoPath = $foto->storeAs(
+                'public/profile-pics',
+                'foto_' . $id . '.' . $foto->extension()
+            );
+            DB::table('comercials')
+                ->where('id', $id)
+                ->update(['path_foto' => str_replace('public/', '', $fotoPath)]);
         }
+
+        // Recuperar el registro actualizado para devolverlo
+        $comercial = DB::table('comercials')->where('id', $id)->first();
 
         return response()->json($comercial);
     }
+
 
     public function destroy($id)
     {

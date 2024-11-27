@@ -11,7 +11,7 @@ class Socio extends Model
 
     // Definir la tabla asociada al modelo
     protected $table = 'socios';
-
+    public $timestamps = false;
     // Especificar los campos que se pueden asignar de forma masiva
     protected $fillable = [
         'dni',

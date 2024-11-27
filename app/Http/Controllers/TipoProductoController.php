@@ -6,6 +6,7 @@ use App\Models\TipoProducto;
 use Illuminate\Http\Request;
 use App\Models\TipoProductoSociedad;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class TipoProductoController extends Controller
 {
@@ -103,8 +104,11 @@ class TipoProductoController extends Controller
         $request->validate([
             'nombre' => 'required|string|max:255',
             'campos_logos' => 'nullable|array',
-            'acuerdo_kyrema' => 'nullable|boolean',
+            'acuerdo_kyrema' => 'nullable|integer',
+            'nombre_unificado' => 'nullable|integer',
         ]);
+
+        Log::info($request->all());
 
         // Editar todo menos los campos_logos:
         $tipoProducto = TipoProducto::findOrFail($id);
