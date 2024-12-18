@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 class Socio extends Model
 {
@@ -27,4 +28,11 @@ class Socio extends Model
         'provincia',
         'codigo_postal'
     ];
+
+    public static function getUltimoProducto($id_socio){
+        return $producto = DB::table('socios_productos')
+            ->where('id_socio', $id_socio)
+            ->orderBy('created_at', 'desc')
+            ->first();
+    }
 }

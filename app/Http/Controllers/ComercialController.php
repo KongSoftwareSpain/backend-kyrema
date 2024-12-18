@@ -15,6 +15,10 @@ class ComercialController extends Controller
         return response()->json($comerciales);
     }
 
+    public function isComercialPaginaWeb($id_comercial){
+        $comercial = Comercial::find($id_comercial);
+        return response()->json($comercial->pagina_web == '1');
+    }
     
     public function store(Request $request)
     {
@@ -23,10 +27,10 @@ class ComercialController extends Controller
             'id_sociedad' => 'required|numeric|exists:sociedad,id',
             'usuario' => 'required|string|max:255',
             'email' => 'required|string|max:255',
-            'responsable' => 'nullable|boolean',
+            'responsable' => 'nullable|string|max:255',
             'dni' => 'nullable|string|max:255',
             'sexo' => 'nullable|string|max:10',
-            'fecha_nacimiento' => 'required|date',
+            'fecha_nacimiento' => 'nullable|date',
             'fecha_alta' => 'nullable|date',
             'referido' => 'nullable|string|max:255',
             'direccion' => 'nullable|string|max:255',
@@ -57,14 +61,21 @@ class ComercialController extends Controller
         }
     
         // Crear una copia de los datos del request
-        $data = $request->all();
-    
+        $data = $request->except('path_foto');
+
+        if($request->responsable == '2'){
+            $data['responsable'] = '1';
+            $data['pagina_web'] = '1';
+        } else {
+            $data['pagina_web'] = '0';
+        }
+
         // Hashear la contraseña
         $data['contraseña'] = Hash::make($request->contraseña);
         $data['dni'] == null ? $data['dni'] = '' : $data['dni']; 
     
         // Crear el comercial usando los datos modificados
-        $comercial = Comercial::create($data->except('path_foto'));
+        $comercial = Comercial::create($data);
 
         // Si se ha subido una foto, guardarla
         if ($request->hasFile('path_foto')) {
