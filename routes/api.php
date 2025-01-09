@@ -31,6 +31,7 @@ use App\Http\Controllers\CompaniaController;
 use App\Http\Controllers\PolizaController;
 use App\Http\Controllers\SocioController;
 use Illuminate\Support\Facades\Mail;
+use App\Http\Controllers\CategoriaController;
 
 
 
@@ -197,7 +198,10 @@ Route::post('/payment/create', [PaymentController::class, 'createPayment']);
 
 // SOCIOS:
 Route::get('/socios', [SocioController::class, 'index']);
-Route::get('/socio/{dni}', [SocioController::class, 'getAsegurado']);
-Route::post('/socio', [SocioController::class, 'store']);
+Route::get('/socio/{dni}/categoria/{categoria_id}', [SocioController::class, 'getAsegurado']);
+Route::post('/socio/categoria/{categoria_id}', [SocioController::class, 'store']);
 Route::put('/socio/{id}', [SocioController::class, 'update']);
 Route::delete('/socio/{id}', [SocioController::class, 'destroy']);
+
+// CATEGORIAS:
+Route::apiResource('categorias', CategoriaController::class);

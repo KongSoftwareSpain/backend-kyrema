@@ -30,6 +30,7 @@ class ProductoController extends Controller
             'nombreProducto' => 'required|string',
             'letrasIdentificacion' => 'required|string',
             'acuerdo_kyrema' => 'nullable|boolean',
+            'categoria_id' => 'nullable|integer',
             'columna_logo_sociedad' => 'nullable|string',
             'fila_logo_sociedad' => 'nullable|string',
             'page_logo_sociedad' => 'nullable|string',
@@ -52,6 +53,7 @@ class ProductoController extends Controller
 
         $nombreProducto = $request->input('nombreProducto');
         $letrasIdentificacion = $request->input('letrasIdentificacion');
+        $categoria_id = $request->input('categoria_id');
         $acuerdo_kyrema = $request->input('acuerdo_kyrema');
         $nombre_unificado = $request->input('nombre_unificado');
         $campos_logos = $request->input('campos_logos');
@@ -113,6 +115,7 @@ class ProductoController extends Controller
         // Insertar información del tipo de producto en la tabla correspondiente y obtener el ID
         $tipoProductoId = DB::table('tipo_producto')->insertGetId([
             'letras_identificacion' => $letrasIdentificacion,
+            'categoria_id' => $categoria_id,
             'acuerdo_kyrema' => $acuerdo_kyrema,
             'nombre_unificado' => $nombre_unificado,
             'nombre' => $nombreProducto,

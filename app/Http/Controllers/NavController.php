@@ -105,6 +105,10 @@ class NavController extends Controller
                 "link" => "/comisiones"
             ],
             [
+                "label" => "Categorias",
+                "link" => "/categorias"
+            ],
+            [
                 "label" => "Productos",
                 "link" => "/gestion-productos"
             ],
