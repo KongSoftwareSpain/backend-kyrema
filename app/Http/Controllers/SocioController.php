@@ -15,12 +15,15 @@ class SocioController extends Controller
         return response()->json($socios);
     }
 
-    public function getAsegurado($dni){
-        $socio = Socio::where('dni', $dni)->first();
+    public function getAsegurado($dni, $categoria_id){
+        $socio = Socio::where('dni', $dni)->where('categoria_id', $categoria_id)->first();
+        if (!$socio) {
+            return response()->json(['message' => 'Socio not found.'], 404);
+        }
         return response()->json($socio);
     }
 
-    public function store(Request $request)
+    public function store(Request $request, $categoria_id)
     {
         $request->validate([
             'dni' => 'required|string',
@@ -37,6 +40,10 @@ class SocioController extends Controller
             'codigo_postal' => 'nullable|string'
         ]);
 
+        $request->merge([
+            'categoria_id' => $categoria_id
+        ]);
+
         // Validar si el DNI ya existe
         if (DB::table('socios')->where('dni', $request->dni)->exists()) {
             return response()->json(['message' => 'El DNI ya está en uso.'], 409);
@@ -44,7 +51,7 @@ class SocioController extends Controller
 
         if ($request->fecha_nacimiento) {
             $request->merge([
-                'fecha_nacimiento' => date('Y-m-d\TH:i:s', strtotime($request->fecha_nacimiento))
+                'fecha_nacimiento' => date('Y-m-d\TH:i:s', strtotime($request->fecha_nacimiento)),
             ]);
         }
 

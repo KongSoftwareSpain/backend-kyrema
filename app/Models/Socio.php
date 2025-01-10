@@ -26,7 +26,8 @@ class Socio extends Model
         'direccion',
         'poblacion',
         'provincia',
-        'codigo_postal'
+        'codigo_postal',
+        'categoria_id'
     ];
 
     public static function getUltimoProducto($id_socio){
