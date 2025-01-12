@@ -205,3 +205,6 @@ Route::delete('/socio/{id}', [SocioController::class, 'destroy']);
 
 // CATEGORIAS:
 Route::apiResource('categorias', CategoriaController::class);
+
+// INFORMES:
+Route::get('/reports', [ExportController::class, 'getReportData']);

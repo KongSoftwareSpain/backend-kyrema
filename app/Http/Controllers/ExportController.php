@@ -18,6 +18,58 @@ use App\Http\Controllers\CampoController;
 class ExportController extends Controller
 {
 
+    public function getReportData(Request $request)
+    {
+        // Validar los parámetros
+        $request->validate([
+            'tipo_producto_id' => 'required|integer',
+            'fecha_desde' => 'required|date',
+            'fecha_hasta' => 'required|date',
+            'sociedad_id' => 'nullable|integer',
+        ]);
+
+        // Obtener los parámetros
+        $tipoProductoId = $request->input('tipo_producto_id');
+        $fechaDesde = $request->input('fecha_desde');
+        $fechaHasta = $request->input('fecha_hasta');
+        $sociedadId = $request->input('sociedad_id');
+
+        // Obtener las letras de identificación del tipo de producto
+        $tipoProducto = DB::table('tipo_producto')->where('id', $tipoProductoId)->first();
+
+        if (!$tipoProducto) {
+            return response()->json(['error' => 'Tipo de producto no encontrado'], 404);
+        }
+
+        // Query principal (sin INNER JOIN con polizas)
+        $data = DB::table($tipoProducto->letras_identificacion . ' as pc')
+            ->select(
+                DB::raw("pc.nombre_socio + ' ' + pc.apellido_1 + ' ' + pc.apellido_2 as nombre_completo"),
+                'pc.dni',
+                'pc.fecha_de_emisión',
+                'pc.fecha_de_inicio',
+                DB::raw("CASE WHEN pc.subproducto IS NOT NULL THEN '". $tipoProducto->nombre ."' + ' - ' + pc.subproducto ELSE '". $tipoProducto->nombre ."' END as producto"),
+                'pc.sociedad',
+                'pc.tipo_de_pago',
+            )
+            ->whereBetween('pc.fecha_de_emisión', [$fechaDesde, $fechaHasta]);
+
+        // Filtrar por sociedad si se proporciona
+        if (!empty($sociedadId)) {
+            $data->where('pc.sociedad_id', $sociedadId);
+        }
+
+        // Ejecutar la consulta
+        $result = $data->get();
+
+        // Log de los resultados (opcional, para depuración)
+        Log::info($result);
+
+        return response()->json($result);
+    }
+
+
+
     public function exportToPdf($letrasIdentificacion, Request $request)
         {
             
