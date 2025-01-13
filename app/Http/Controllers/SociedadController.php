@@ -113,6 +113,23 @@ class SociedadController extends Controller
         return response()->json($sociedadesCompletas);
     }
 
+    public static function getArrayIdSociedadesHijas($id)
+    {
+        $sociedad = Sociedad::findOrFail($id); // Obtener la sociedad inicial
+        $sociedadesHijas = $sociedad->getSociedadesHijasRecursivo($id);
+
+        // Combinar la sociedad inicial con sus hijas
+        $sociedadesCompletas = array_merge([$sociedad], $sociedadesHijas);
+
+        // Convertir a una colección para poder usar pluck
+        $sociedadesCompletasCollection = collect($sociedadesCompletas);
+
+        // Extraer solo los IDs
+        $sociedadesHijasIds = $sociedadesCompletasCollection->pluck('id')->toArray();
+
+        return $sociedadesHijasIds;
+    }
+
     public function getSociedadesHijasPorTipoProducto($sociedad_id, $letras_identificacion)
     {
         // Obtener la sociedad inicial

@@ -223,7 +223,7 @@ class ProductoController extends Controller
                                     $table->integer($nombreCampo)->nullable();
                                     break;
                                 case 'date':
-                                    $table->date($nombreCampo)->nullable();
+                                    $table->datetime($nombreCampo)->nullable();
                                     break;
                                 default:
                                     $table->string($nombreCampo)->nullable();
@@ -684,9 +684,9 @@ class ProductoController extends Controller
         // $datos['hora_inicio'] = Carbon::now()->format('H:i:s');
         $hora = Carbon::now()->format('H:i:s');
 
-        // $datos['fecha_de_inicio'] = $datos['fecha_de_inicio'] . $hora;
+        $datos['fecha_de_inicio'] = $datos['fecha_de_inicio'] . $hora;
 
-        // $datos['fecha_de_fin'] = $datos['fecha_de_fin'] . $hora;
+        $datos['fecha_de_fin'] = $datos['fecha_de_fin'] . $hora;
 
         // Insertar los datos en la tabla correspondiente
         $id = DB::table($nombreTabla)->insertGetId($datos);

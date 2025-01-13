@@ -14,6 +14,8 @@ use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
 use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\CampoController;
+use App\Http\Controllers\SociedadController;
+use Illuminate\Support\Facades\Schema; // Importar el facade para el esquema
 
 class ExportController extends Controller
 {
@@ -34,6 +36,8 @@ class ExportController extends Controller
         $fechaHasta = $request->input('fecha_hasta');
         $sociedadId = $request->input('sociedad_id');
 
+        $sociedades = SociedadController::getArrayIdSociedadesHijas($sociedadId);
+
         // Obtener las letras de identificación del tipo de producto
         $tipoProducto = DB::table('tipo_producto')->where('id', $tipoProductoId)->first();
 
@@ -41,22 +45,36 @@ class ExportController extends Controller
             return response()->json(['error' => 'Tipo de producto no encontrado'], 404);
         }
 
-        // Query principal (sin INNER JOIN con polizas)
-        $data = DB::table($tipoProducto->letras_identificacion . ' as pc')
+        // Verificar si la tabla y la columna 'subproducto' existen
+        $tableName = $tipoProducto->letras_identificacion;
+        $hasSubproductoColumn = Schema::hasColumn($tableName, 'subproducto');
+
+        // Query principal
+        $data = DB::table($tableName . ' as pc')
             ->select(
                 DB::raw("pc.nombre_socio + ' ' + pc.apellido_1 + ' ' + pc.apellido_2 as nombre_completo"),
                 'pc.dni',
+                'pc.codigo_producto',
                 'pc.fecha_de_emisión',
                 'pc.fecha_de_inicio',
-                DB::raw("CASE WHEN pc.subproducto IS NOT NULL THEN '". $tipoProducto->nombre ."' + ' - ' + pc.subproducto ELSE '". $tipoProducto->nombre ."' END as producto"),
+                DB::raw(
+                    $hasSubproductoColumn 
+                        ? "CASE WHEN pc.subproducto IS NOT NULL THEN '". $tipoProducto->nombre ."' + ' - ' + pc.subproducto_codigo ELSE '". $tipoProducto->nombre ."' END as producto" 
+                        : "'". $tipoProducto->nombre ."' as producto"
+                ),
                 'pc.sociedad',
                 'pc.tipo_de_pago',
+                DB::raw("CASE 
+                            WHEN pc.comercial_creador_id IS NOT NULL THEN c.nombre
+                            ELSE NULL 
+                        END as referidos")
             )
+            ->leftJoin('comercial as c', 'pc.comercial_creador_id', '=', 'c.id') // JOIN con la tabla comercial
             ->whereBetween('pc.fecha_de_emisión', [$fechaDesde, $fechaHasta]);
 
         // Filtrar por sociedad si se proporciona
         if (!empty($sociedadId)) {
-            $data->where('pc.sociedad_id', $sociedadId);
+            $data->whereIn('pc.sociedad_id', $sociedades);
         }
 
         // Ejecutar la consulta
@@ -65,9 +83,16 @@ class ExportController extends Controller
         // Log de los resultados (opcional, para depuración)
         Log::info($result);
 
-        return response()->json($result);
-    }
+        // Obtener la cantidad de productos por tipo
+        $counts = DB::table($tipoProducto->letras_identificacion)
+        ->select('tipo_producto', DB::raw('COUNT(*) as cantidad'))
+        ->whereBetween('fecha_de_emisión', [$fechaDesde, $fechaHasta])
+        ->groupBy('tipo_producto')
+        ->get();
 
+        return response()->json(['data' => $results, 'counts' => $counts]);
+
+    }
 
 
     public function exportToPdf($letrasIdentificacion, Request $request)
