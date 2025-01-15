@@ -1,10 +1,12 @@
-# Canama desarrollo
+# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
+# More GitHub Actions for Azure: https://github.com/Azure/actions
+
 name: Build and deploy PHP app to Azure Web App - canama-desarrollo
 
 on:
   push:
     branches:
-      - main
+      - dev
   workflow_dispatch:
 
 jobs:
@@ -19,14 +21,18 @@ jobs:
         with:
           php-version: '8.2'
 
-      - name: Install Composer dependencies
-        run: composer install --optimize-autoloader --no-dev
+      - name: Check if composer.json exists
+        id: check_files
+        uses: andstor/file-existence-action@v1
+        with:
+          files: 'composer.json'
 
-      - name: Remove any existing zip files
-        run: rm -f php-app.zip
+      - name: Run composer install if composer.json exists
+        if: steps.check_files.outputs.files_exists == 'true'
+        run: composer validate --no-check-publish && composer install --prefer-dist --no-progress
 
       - name: Zip artifact for deployment
-        run: zip -r release.zip ./*
+        run: zip release.zip ./* -r
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
@@ -40,7 +46,7 @@ jobs:
     environment:
       name: 'Production'
       url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
-
+    
     steps:
       - name: Download artifact from build job
         uses: actions/download-artifact@v4
@@ -49,11 +55,7 @@ jobs:
 
       - name: Unzip artifact for deployment
         run: unzip release.zip
-
-      # Agregar retraso de 30 segundos
-      - name: Esperar para evitar conflictos
-        run: sleep 30
-
+      
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v3
         id: deploy-to-webapp
@@ -62,4 +64,3 @@ jobs:
           slot-name: 'Production'
           package: .
           publish-profile: ${{ secrets.AzureAppService_PublishProfile_1905178b48e445008d385870b472759a }}
-
