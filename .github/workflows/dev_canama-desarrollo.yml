@@ -61,5 +61,5 @@ jobs:
           app-name: 'canama-desarrollo'
           slot-name: 'Production'
           package: .
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_A4E743E581F7409A9C75C9E03974FDEB }}
+          publish-profile: ${{ secrets.AzureAppService_PublishProfile_1905178b48e445008d385870b472759a }}
 
