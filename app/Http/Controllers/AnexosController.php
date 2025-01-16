@@ -104,6 +104,7 @@ class AnexosController extends Controller
             'tipoProductoAsociado' => 'required|integer|exists:tipo_producto,id',
             'duracion' => 'nullable|array',
         ]);
+        
 
         $nombre = $request->input('nombre');
         $letrasIdentificacion = $request->input('letras_identificacion');
