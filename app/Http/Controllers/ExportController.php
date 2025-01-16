@@ -80,21 +80,37 @@ class ExportController extends Controller
         // Ejecutar la consulta
         $results = $data->get();
     
-        // Obtener la cantidad de productos por tipo diferenciando subproductos
-        $counts = DB::table($tableName)
-            ->select(
-                DB::raw("CASE 
-                            WHEN subproducto IS NOT NULL THEN '". $tipoProducto->nombre ."' + ' - ' + subproducto_codigo
-                            ELSE '". $tipoProducto->nombre ."'
-                        END as tipo_producto"),
-                DB::raw('COUNT(*) as cantidad')
-            )
-            ->whereBetween('fecha_de_emisión', [$fechaDesde, $fechaHasta])
-            ->groupBy(DB::raw("CASE 
-                                WHEN subproducto IS NOT NULL THEN '". $tipoProducto->nombre ."' + ' - ' + subproducto_codigo
-                                ELSE '". $tipoProducto->nombre ."'
-                            END"))
-            ->get();
+        if (!$hasSubproductoColumn) {
+            $counts = collect([
+                [
+                    'tipo_producto' => $tipoProducto->nombre,
+                    'cantidad' => DB::table($tableName)
+                        ->whereBetween('fecha_de_emisión', [$fechaDesde, $fechaHasta])
+                        ->count(),
+                ]
+            ]);
+        } else {
+            // Obtener la cantidad de productos por tipo diferenciando subproductos
+            $counts = DB::table($tableName)
+                ->select(
+                    DB::raw( "CASE 
+                                    WHEN subproducto IS NOT NULL THEN CONCAT('{$tipoProducto->nombre}', ' - ', subproducto_codigo) 
+                                    ELSE '{$tipoProducto->nombre}' 
+                            END as tipo_producto" 
+                    ),
+                    DB::raw('COUNT(*) as cantidad')
+                )
+                ->whereBetween('fecha_de_emisión', [$fechaDesde, $fechaHasta])
+                ->groupBy(
+                    DB::raw("CASE 
+                                    WHEN subproducto IS NOT NULL THEN CONCAT('{$tipoProducto->nombre}', ' - ', subproducto_codigo) 
+                                    ELSE '{$tipoProducto->nombre}' 
+                            END") 
+                )
+                ->get();
+        }
+
+
     
         return response()->json(['data' => $results, 'counts' => $counts]);
     }

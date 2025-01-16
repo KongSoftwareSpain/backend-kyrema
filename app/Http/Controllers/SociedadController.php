@@ -29,6 +29,11 @@ class SociedadController extends Controller
 
     public function store(Request $request)
     {
+        if (!$request->hasFile('logo') && empty($request->logo)) {
+            $request->request->remove('logo');
+        }
+
+
         // Validar los datos de la sociedad y el archivo de logo
         $request->validate([
             'nombre' => 'required|string|max:255',
@@ -51,7 +56,7 @@ class SociedadController extends Controller
             'swift' => 'nullable|string|max:11',
             'dominio' => 'nullable|string|max:255',
             'observaciones' => 'nullable|string|max:255',
-            'logo' => 'nullable|file|mimes:jpeg,png,jpg,gif|max:4096',  // Validación del archivo logo
+            'logo' => 'nullable',  
             'sociedad_padre_id' => 'nullable|numeric|exists:sociedad,id',
         ]);
 
@@ -183,6 +188,10 @@ class SociedadController extends Controller
 
     public function update(Request $request, $id)
     {
+        if (!$request->hasFile('logo') && empty($request->logo)) {
+            $request->request->remove('logo');
+        }
+
         $request->validate([
             'nombre' => 'string|max:255',
             'cif' => 'nullable|string|max:255',
@@ -204,7 +213,7 @@ class SociedadController extends Controller
             'swift' => 'nullable|string|max:11',
             'dominio' => 'nullable|string|max:255',
             'observaciones' => 'nullable|string|max:255',
-            'logo' => 'nullable|string|max:255',
+            'logo' => 'nullable',
             'sociedad_padre_id' => 'nullable|numeric|exists:sociedad,id',
         ]);
 

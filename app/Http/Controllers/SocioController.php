@@ -44,9 +44,12 @@ class SocioController extends Controller
             'categoria_id' => $categoria_id
         ]);
 
-        // Validar si el DNI ya existe
-        if (DB::table('socios')->where('dni', $request->dni)->exists()) {
-            return response()->json(['message' => 'El DNI ya está en uso.'], 409);
+        // Validar si el DNI ya existe en la misma categoría
+        if (DB::table('socios')
+         ->where('dni', $request->dni)
+         ->where('categoria_id', $categoria_id)
+         ->exists()) {
+            return response()->json(['message' => 'El DNI ya está en uso en esta categoría.'], 409);
         }
 
         if ($request->fecha_nacimiento) {

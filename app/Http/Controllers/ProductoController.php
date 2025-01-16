@@ -293,7 +293,7 @@ class ProductoController extends Controller
                             $table->integer($nombreCampo)->nullable();
                             break;
                         case 'date':
-                            $table->date($nombreCampo)->nullable();
+                            $table->datetime($nombreCampo)->nullable();
                             break;
                         default:
                             $table->string($nombreCampo)->nullable();
@@ -420,7 +420,7 @@ class ProductoController extends Controller
         $nombreTabla = strtolower($letrasIdentificacion);
         
         // Obtener la fecha y hora actual
-        $fechaActual = now();
+        $fechaActual = Carbon::now()->format('Y-m-d\TH:i:s');
 
         // Obtener el tipo de producto por las letras de identificación
         $tipoProducto = DB::table('tipo_producto')
@@ -682,16 +682,22 @@ class ProductoController extends Controller
         $datos['created_at'] = Carbon::now()->format('Y-m-d\TH:i:s');
         $datos['updated_at'] = Carbon::now()->format('Y-m-d\TH:i:s');
         // $datos['hora_inicio'] = Carbon::now()->format('H:i:s');
-        $hora = Carbon::now()->format('H:i:s');
+        $horaActual = Carbon::now()->format('H:i:s');
+        $datos['fecha_de_inicio'] = Carbon::parse($datos['fecha_de_inicio'])
+            ->setTimeFromTimeString($horaActual)
+            ->format('Y-m-d\TH:i:s');
 
-        $datos['fecha_de_inicio'] = $datos['fecha_de_inicio'] . $hora;
-
-        $datos['fecha_de_fin'] = $datos['fecha_de_fin'] . $hora;
+        $datos['fecha_de_fin'] = Carbon::parse($datos['fecha_de_fin'])
+            ->setTimeFromTimeString($horaActual)
+            ->format('Y-m-d\TH:i:s');
 
         // Insertar los datos en la tabla correspondiente
         $id = DB::table($nombreTabla)->insertGetId($datos);
 
-        SocioProducto::connectSocioAndProducto($datos['socio_id'], $id, $nombreTabla);
+        if(isset($datos['socio_id'])){
+            // Conectar el socio con el producto
+            SocioProducto::connectSocioAndProducto($datos['socio_id'], $id, $nombreTabla);
+        }
 
         return response()->json(['id' => $id], 201);
     }
