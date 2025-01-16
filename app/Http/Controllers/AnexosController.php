@@ -33,7 +33,10 @@ class AnexosController extends Controller
             $tipoAnexo = $anexo['tipo_anexo']; // Tipo de anexo
             $letrasIdentificacion = strtolower($tipoAnexo['letras_identificacion']); // Nombre de la tabla
             $duracion = $tipoAnexo['duracion']; // Duración del anexo
-            $plantillaPath = $tipoAnexo['plantilla_path']; // Ruta de la plantilla
+            $plantillasPaths = [
+                $tipoAnexo['plantilla_path_1'], $tipoAnexo['plantilla_path_2'], $tipoAnexo['plantilla_path_3'], $tipoAnexo['plantilla_path_4'],
+                $tipoAnexo['plantilla_path_5'], $tipoAnexo['plantilla_path_6'], $tipoAnexo['plantilla_path_7'], $tipoAnexo['plantilla_path_8'],
+            ]; // Plantillas asociadas al anexo
             $anexoId = $anexo['id']; // ID del anexo (si existe)
             $formato = $anexo['formato']; // Campos dinámicos del anexo
             $tarifas = $anexo['tarifas']; // Tarifas del anexo
@@ -61,7 +64,14 @@ class AnexosController extends Controller
                 }
 
                 // Agregar la plantilla que tenga asignado el tipo de anexo
-                $data['plantilla_path'] = $plantillaPath;
+                $data['plantilla_path_1'] = $plantillasPaths[0];
+                $data['plantilla_path_2'] = $plantillasPaths[1];
+                $data['plantilla_path_3'] = $plantillasPaths[2];
+                $data['plantilla_path_4'] = $plantillasPaths[3];
+                $data['plantilla_path_5'] = $plantillasPaths[4];
+                $data['plantilla_path_6'] = $plantillasPaths[5];
+                $data['plantilla_path_7'] = $plantillasPaths[6];
+                $data['plantilla_path_8'] = $plantillasPaths[7];
 
                 if ($anexoId) {
                     // Si el anexo tiene un ID, se actualiza el registro existente
@@ -310,7 +320,7 @@ class AnexosController extends Controller
     {
         
         $tipoAnexo = TipoProducto::findOrFail($id);
-        $plantillaPath = $tipoAnexo->plantilla_path;
+        $plantillasPaths = [$tipoAnexo->plantilla_path_1, $tipoAnexo->plantilla_path_2, $tipoAnexo->plantilla_path_3, $tipoAnexo->plantilla_path_4];
 
         // Borrar la tabla asociada al tipo de anexo
         $letrasIdentificacion = $tipoAnexo->letras_identificacion;
@@ -321,14 +331,16 @@ class AnexosController extends Controller
         $tipoAnexo->delete();
 
         // Borrar los campos asociados al tipo de anexo
-        DB::table('campos_anexos')->where('tipo_anexo', $id)->delete();
+        DB::table('campos')->where('tipo_producto_id', $id)->delete();
 
         //Eliminar las tarifas asociadas al tipo de anexo
         DB::table('tarifas_producto')->where('tipo_producto_id', $id)->delete();
 
-        // Eliminar la plantilla si existe
-        if ($plantillaPath && Storage::disk('public')->exists($plantillaPath)) {
-            Storage::disk('public')->delete($plantillaPath);
+        foreach ($plantillasPaths as $plantillaPath) {
+            // Eliminar la plantilla si existe
+            if ($plantillaPath && Storage::disk('public')->exists($plantillaPath)) {
+                Storage::disk('public')->delete($plantillaPath);
+            }
         }
 
         return response()->json(null, 204);

@@ -29,6 +29,11 @@ class SociedadController extends Controller
 
     public function store(Request $request)
     {
+        if (!$request->hasFile('logo') && empty($request->logo)) {
+            $request->request->remove('logo');
+        }
+
+
         // Validar los datos de la sociedad y el archivo de logo
         $request->validate([
             'nombre' => 'required|string|max:255',
@@ -51,7 +56,7 @@ class SociedadController extends Controller
             'swift' => 'nullable|string|max:11',
             'dominio' => 'nullable|string|max:255',
             'observaciones' => 'nullable|string|max:255',
-            'logo' => 'nullable|file|mimes:jpeg,png,jpg,gif|max:2048',  // Validación del archivo logo
+            'logo' => 'nullable',  
             'sociedad_padre_id' => 'nullable|numeric|exists:sociedad,id',
         ]);
 
@@ -61,7 +66,7 @@ class SociedadController extends Controller
         // Si se ha subido un logo, guardarlo
         if ($request->hasFile('logo')) {
             $logo = $request->file('logo');
-            $logoPath = $logo->storeAs('public/logos', 'logo_' . $sociedad->id . '.' . $logo->extension());
+            $logoPath = $logo->storeAs('public/logos', 'logo_' . $logo->getClientOriginalName() . '_' . $sociedad->id . '.' . $logo->extension());
             $sociedad->logo = str_replace('public/', '', $logoPath); // Guardar la ruta del logo
             $sociedad->save();
         }
@@ -111,6 +116,23 @@ class SociedadController extends Controller
         $sociedadesCompletas = array_merge([$sociedad], $sociedadesHijas);
 
         return response()->json($sociedadesCompletas);
+    }
+
+    public static function getArrayIdSociedadesHijas($id)
+    {
+        $sociedad = Sociedad::findOrFail($id); // Obtener la sociedad inicial
+        $sociedadesHijas = $sociedad->getSociedadesHijasRecursivo($id);
+
+        // Combinar la sociedad inicial con sus hijas
+        $sociedadesCompletas = array_merge([$sociedad], $sociedadesHijas);
+
+        // Convertir a una colección para poder usar pluck
+        $sociedadesCompletasCollection = collect($sociedadesCompletas);
+
+        // Extraer solo los IDs
+        $sociedadesHijasIds = $sociedadesCompletasCollection->pluck('id')->toArray();
+
+        return $sociedadesHijasIds;
     }
 
     public function getSociedadesHijasPorTipoProducto($sociedad_id, $letras_identificacion)
@@ -166,6 +188,10 @@ class SociedadController extends Controller
 
     public function update(Request $request, $id)
     {
+        if (!$request->hasFile('logo') && empty($request->logo)) {
+            $request->request->remove('logo');
+        }
+
         $request->validate([
             'nombre' => 'string|max:255',
             'cif' => 'nullable|string|max:255',
@@ -187,7 +213,7 @@ class SociedadController extends Controller
             'swift' => 'nullable|string|max:11',
             'dominio' => 'nullable|string|max:255',
             'observaciones' => 'nullable|string|max:255',
-            'logo' => 'nullable|string|max:255',
+            'logo' => 'nullable',
             'sociedad_padre_id' => 'nullable|numeric|exists:sociedad,id',
         ]);
 

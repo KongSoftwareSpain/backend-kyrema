@@ -25,7 +25,10 @@ class DeleteProductData extends Command
             // Obtener letrasIdentificacion y plantilla_path antes de eliminar la tabla tipo_producto
             $product = DB::table('tipo_producto')->where('id', $productId)->first();
             $letrasIdentificacion = $product->letras_identificacion ?? null;
-            $plantillaPath = $product->plantilla_path ?? null;
+            $plantillasPaths = [
+                $product->plantilla_path_1 ?? null, $product->plantilla_path_2 ?? null, $product->plantilla_path_3 ?? null, $product->plantilla_path_4 ?? null,
+                $product->plantilla_path_5 ?? null, $product->plantilla_path_6 ?? null, $product->plantilla_path_7 ?? null, $product->plantilla_path_8 ?? null,
+            ];
 
             // Obtener los campos con opciones (opciones != null)
             $camposConOpciones = DB::table('campos')->where('tipo_producto_id', $productId)->whereNotNull('opciones')->get();
@@ -57,6 +60,12 @@ class DeleteProductData extends Command
             // Delete from tarifas_producto
             DB::table('tarifas_producto')->where('tipo_producto_id', $productId)->delete();
 
+            // Delete from campos_logos
+            DB::table('campos_logos')->where('tipo_producto_id', $productId)->delete();
+
+            // Delete from tipo_producto_polizas
+            DB::table('tipo_producto_polizas')->where('tipo_producto_id', $productId)->delete();
+
             // Drop the table if it exists
             if ($letrasIdentificacion && Schema::hasTable($letrasIdentificacion)) {
                 Schema::dropIfExists($letrasIdentificacion);
@@ -65,11 +74,13 @@ class DeleteProductData extends Command
             // Delete from campos
             DB::table('campos')->where('tipo_producto_id', $productId)->delete();
 
-            // Eliminar la plantilla si existe
-            if ($plantillaPath && Storage::disk('public')->exists($plantillaPath)) {
-                Storage::disk('public')->delete($plantillaPath);
-            }
 
+            foreach ($plantillasPaths as $plantillaPath) {
+                // Eliminar la plantilla si existe
+                if ($plantillaPath && Storage::disk('public')->exists($plantillaPath)) {
+                    Storage::disk('public')->delete($plantillaPath);
+                }
+            }
 
             $anexos = DB::table('tipos_anexos')->where('id_tipo_producto', $productId)->get();
 
@@ -85,11 +96,16 @@ class DeleteProductData extends Command
 
                     DB::table('campos_anexos')->where('tipo_anexo', $anexo->id)->delete();
 
-                    $plantillaPathAnexo = $anexo->plantilla_path ?? null;
+                    $plantillasPathsAnexo = [
+                        $anexo->plantilla_path_1 ?? null, $anexo->plantilla_path_2 ?? null, $anexo->plantilla_path_3 ?? null, $anexo->plantilla_path_4 ?? null,
+                        $anexo->plantilla_path_5 ?? null, $anexo->plantilla_path_6 ?? null, $anexo->plantilla_path_7 ?? null, $anexo->plantilla_path_8 ?? null,
+                    ];
 
-                    // Eliminar la plantilla si existe
-                    if ($plantillaPathAnexo && Storage::disk('public')->exists($plantillaPathAnexo)) {
-                        Storage::disk('public')->delete($plantillaPathAnexo);
+                    foreach ($plantillasPathsAnexo as $plantillaPathAnexo) {
+                        // Eliminar la plantilla si existe
+                        if ($plantillaPathAnexo && Storage::disk('public')->exists($plantillaPathAnexo)) {
+                            Storage::disk('public')->delete($plantillaPathAnexo);
+                        }
                     }
                 }
             }
