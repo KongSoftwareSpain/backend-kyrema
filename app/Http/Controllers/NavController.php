@@ -105,17 +105,21 @@ class NavController extends Controller
                 "link" => "/comisiones"
             ],
             [
+                "label" => "Categorías",
+                "link" => "/categorias"
+            ],
+            [
                 "label" => "Productos",
                 "link" => "/gestion-productos"
             ],
             [
-                "label" => "Compañias",
+                "label" => "Compañías",
                 "link" => "/companias"
             ],
             [
                 "label" => "Socios",
                 "link" => "/socios"
-            ]
+            ]            
         ];
         $navegacion[2]["children"] = $tiposProducto->map(function($tipoProducto){
             return [

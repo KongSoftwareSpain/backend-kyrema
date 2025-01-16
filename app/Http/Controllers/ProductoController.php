@@ -13,6 +13,10 @@ use App\Models\Anulacion; // Importar el modelo Anulacion
 // Usar CampoController;
 use App\Http\Controllers\CampoController;
 use Illuminate\Support\Facades\Config;
+use App\Models\Socio;
+use App\Models\Comercial;
+use App\Models\TipoProducto;
+use App\Models\SocioProducto;
 
 class ProductoController extends Controller
 {
@@ -26,6 +30,7 @@ class ProductoController extends Controller
             'nombreProducto' => 'required|string',
             'letrasIdentificacion' => 'required|string',
             'acuerdo_kyrema' => 'nullable|boolean',
+            'categoria_id' => 'nullable|integer',
             'columna_logo_sociedad' => 'nullable|string',
             'fila_logo_sociedad' => 'nullable|string',
             'page_logo_sociedad' => 'nullable|string',
@@ -48,6 +53,7 @@ class ProductoController extends Controller
 
         $nombreProducto = $request->input('nombreProducto');
         $letrasIdentificacion = $request->input('letrasIdentificacion');
+        $categoria_id = $request->input('categoria_id');
         $acuerdo_kyrema = $request->input('acuerdo_kyrema');
         $nombre_unificado = $request->input('nombre_unificado');
         $campos_logos = $request->input('campos_logos');
@@ -109,6 +115,7 @@ class ProductoController extends Controller
         // Insertar información del tipo de producto en la tabla correspondiente y obtener el ID
         $tipoProductoId = DB::table('tipo_producto')->insertGetId([
             'letras_identificacion' => $letrasIdentificacion,
+            'categoria_id' => $categoria_id,
             'acuerdo_kyrema' => $acuerdo_kyrema,
             'nombre_unificado' => $nombre_unificado,
             'nombre' => $nombreProducto,
@@ -216,7 +223,7 @@ class ProductoController extends Controller
                                     $table->integer($nombreCampo)->nullable();
                                     break;
                                 case 'date':
-                                    $table->date($nombreCampo)->nullable();
+                                    $table->datetime($nombreCampo)->nullable();
                                     break;
                                 default:
                                     $table->string($nombreCampo)->nullable();
@@ -248,6 +255,8 @@ class ProductoController extends Controller
                     $table->unsignedBigInteger('comercial_id')->nullable();
                     // Campo para saber si que comercial crea el producto en nombre de otro
                     $table->unsignedBigInteger('comercial_creador_id')->nullable();
+                    $table->boolean('mediante_pagina_web')->nullable();
+                    $table->unsignedBigInteger('socio_id')->nullable();
                     $table->string('logo_sociedad_path')->nullable();
                 } else {
                     $table->unsignedBigInteger('producto_id')->nullable();
@@ -284,7 +293,7 @@ class ProductoController extends Controller
                             $table->integer($nombreCampo)->nullable();
                             break;
                         case 'date':
-                            $table->date($nombreCampo)->nullable();
+                            $table->datetime($nombreCampo)->nullable();
                             break;
                         default:
                             $table->string($nombreCampo)->nullable();
@@ -411,7 +420,7 @@ class ProductoController extends Controller
         $nombreTabla = strtolower($letrasIdentificacion);
         
         // Obtener la fecha y hora actual
-        $fechaActual = now();
+        $fechaActual = Carbon::now()->format('Y-m-d\TH:i:s');
 
         // Obtener el tipo de producto por las letras de identificación
         $tipoProducto = DB::table('tipo_producto')
@@ -605,6 +614,24 @@ class ProductoController extends Controller
         // Cojo los datos del nuevo producto
         $datos = $request->input('nuevoProducto');
 
+        Log::info($datos);  
+
+        // Control por si se hace por pagina web para que el comercial que haya traido a un socio siga cobrando las comisiones pertinentes.
+        if($datos['mediante_pagina_web'] == true){
+            $datos['mediante_pagina_web'] = 1;
+            $ultimoProducto = Socio::getUltimoProducto($datos['socio_id']);
+            Log::info('Letras identificacion '. $ultimoProducto->letras_identificacion);
+            Log::info('ID: '. $ultimoProducto->id_producto);
+            $comercial_id = Comercial::getComercialByProducto($ultimoProducto->letras_identificacion, $ultimoProducto->id_producto);
+
+            if ($comercial_id) {
+                Log::info('Comercial ID: ' . $comercial_id);
+            } else {
+                Log::info('No se encontró un comercial_id para el producto con ID: ' . $ultimoProducto->id_producto);
+            }
+            $datos['comercial_id'] = $comercial_id;
+        }
+
         //Añadir a los datos la plantilla_path que tenga el seguro en ese momento:
         $datos['plantilla_path_1'] = $plantillas_paths[0];
         $datos['plantilla_path_2'] = $plantillas_paths[1];
@@ -655,14 +682,22 @@ class ProductoController extends Controller
         $datos['created_at'] = Carbon::now()->format('Y-m-d\TH:i:s');
         $datos['updated_at'] = Carbon::now()->format('Y-m-d\TH:i:s');
         // $datos['hora_inicio'] = Carbon::now()->format('H:i:s');
-        $hora = Carbon::now()->format('H:i:s');
+        $horaActual = Carbon::now()->format('H:i:s');
+        $datos['fecha_de_inicio'] = Carbon::parse($datos['fecha_de_inicio'])
+            ->setTimeFromTimeString($horaActual)
+            ->format('Y-m-d\TH:i:s');
 
-        // $datos['fecha_de_inicio'] = $datos['fecha_de_inicio'] . $hora;
-
-        // $datos['fecha_de_fin'] = $datos['fecha_de_fin'] . $hora;
+        $datos['fecha_de_fin'] = Carbon::parse($datos['fecha_de_fin'])
+            ->setTimeFromTimeString($horaActual)
+            ->format('Y-m-d\TH:i:s');
 
         // Insertar los datos en la tabla correspondiente
         $id = DB::table($nombreTabla)->insertGetId($datos);
+
+        if(isset($datos['socio_id'])){
+            // Conectar el socio con el producto
+            SocioProducto::connectSocioAndProducto($datos['socio_id'], $id, $nombreTabla);
+        }
 
         return response()->json(['id' => $id], 201);
     }

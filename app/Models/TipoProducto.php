@@ -20,6 +20,9 @@ class TipoProducto extends Model
         'nombre',
         'padre_id',
         'tipo_producto_asociado',
+        'acuerdo_kyrema',
+        'nombre_unificado',
+        
     ];
 
     public function tarifas()

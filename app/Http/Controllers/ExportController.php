@@ -14,9 +14,108 @@ use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
 use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\CampoController;
+use App\Http\Controllers\SociedadController;
+use Illuminate\Support\Facades\Schema; // Importar el facade para el esquema
 
 class ExportController extends Controller
 {
+
+    public function getReportData(Request $request)
+    {
+        // Validar los parámetros
+        $request->validate([
+            'tipo_producto_id' => 'required|integer',
+            'fecha_desde' => 'required|date',
+            'fecha_hasta' => 'required|date',
+            'sociedad_id' => 'nullable|integer',
+        ]);
+    
+        // Obtener los parámetros
+        $tipoProductoId = $request->input('tipo_producto_id');
+        $fechaDesde = $request->input('fecha_desde');
+        $fechaHasta = $request->input('fecha_hasta');
+        $sociedadId = $request->input('sociedad_id');
+    
+        $sociedades = SociedadController::getArrayIdSociedadesHijas($sociedadId);
+    
+        // Obtener las letras de identificación del tipo de producto
+        $tipoProducto = DB::table('tipo_producto')->where('id', $tipoProductoId)->first();
+    
+        if (!$tipoProducto) {
+            return response()->json(['error' => 'Tipo de producto no encontrado'], 404);
+        }
+    
+        // Verificar si la tabla y la columna 'subproducto' existen
+        $tableName = $tipoProducto->letras_identificacion;
+        $hasSubproductoColumn = Schema::hasColumn($tableName, 'subproducto');
+    
+        // Query principal
+        $data = DB::table($tableName . ' as pc')
+            ->select(
+                DB::raw("pc.nombre_socio + ' ' + pc.apellido_1 + ' ' + pc.apellido_2 as nombre_completo"),
+                'pc.dni',
+                'pc.codigo_producto',
+                'pc.fecha_de_emisión',
+                'pc.fecha_de_inicio',
+                DB::raw(
+                    $hasSubproductoColumn 
+                        ? "CASE WHEN pc.subproducto IS NOT NULL THEN '". $tipoProducto->nombre ."' + ' - ' + pc.subproducto_codigo ELSE '". $tipoProducto->nombre ."' END as producto" 
+                        : "'". $tipoProducto->nombre ."' as producto"
+                ),
+                'pc.sociedad',
+                'pc.tipo_de_pago',
+                DB::raw("CASE 
+                            WHEN pc.comercial_creador_id IS NOT NULL THEN c.nombre
+                            ELSE NULL 
+                        END as referidos")
+            )
+            ->leftJoin('comercial as c', 'pc.comercial_creador_id', '=', 'c.id') // JOIN con la tabla comercial
+            ->whereBetween('pc.fecha_de_emisión', [$fechaDesde, $fechaHasta]);
+    
+        // Filtrar por sociedad si se proporciona
+        if (!empty($sociedadId)) {
+            $data->whereIn('pc.sociedad_id', $sociedades);
+        }
+    
+        // Ejecutar la consulta
+        $results = $data->get();
+    
+        if (!$hasSubproductoColumn) {
+            $counts = collect([
+                [
+                    'tipo_producto' => $tipoProducto->nombre,
+                    'cantidad' => DB::table($tableName)
+                        ->whereBetween('fecha_de_emisión', [$fechaDesde, $fechaHasta])
+                        ->count(),
+                ]
+            ]);
+        } else {
+            // Obtener la cantidad de productos por tipo diferenciando subproductos
+            $counts = DB::table($tableName)
+                ->select(
+                    DB::raw( "CASE 
+                                    WHEN subproducto IS NOT NULL THEN CONCAT('{$tipoProducto->nombre}', ' - ', subproducto_codigo) 
+                                    ELSE '{$tipoProducto->nombre}' 
+                            END as tipo_producto" 
+                    ),
+                    DB::raw('COUNT(*) as cantidad')
+                )
+                ->whereBetween('fecha_de_emisión', [$fechaDesde, $fechaHasta])
+                ->groupBy(
+                    DB::raw("CASE 
+                                    WHEN subproducto IS NOT NULL THEN CONCAT('{$tipoProducto->nombre}', ' - ', subproducto_codigo) 
+                                    ELSE '{$tipoProducto->nombre}' 
+                            END") 
+                )
+                ->get();
+        }
+
+
+    
+        return response()->json(['data' => $results, 'counts' => $counts]);
+    }
+    
+
 
     public function exportToPdf($letrasIdentificacion, Request $request)
         {

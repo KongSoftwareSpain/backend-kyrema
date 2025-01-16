@@ -1,0 +1,9 @@
+error_log=/dev/stderr
+display_errors=Off
+log_errors=On
+display_startup_errors=Off
+date.timezone=Europe/Madrid
+memory_limit=256M
+
+extension=sqlsrv.so
+extension=pdo_sqlsrv.so

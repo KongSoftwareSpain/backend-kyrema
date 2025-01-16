@@ -8,6 +8,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Tymon\JWTAuth\Contracts\JWTSubject;
 use App\Notifications\CustomResetPassword;
+use Illuminate\Support\Facades\DB;
 
 class Comercial extends Authenticatable implements JWTSubject
 {
@@ -25,6 +26,7 @@ class Comercial extends Authenticatable implements JWTSubject
         'usuario',
         'email',
         'responsable',
+        'pagina_web',
         'contraseña',
         'dni',
         'sexo',
@@ -77,5 +79,16 @@ class Comercial extends Authenticatable implements JWTSubject
     {
         return [];
     }
+
+    public static function getComercialByProducto($letras_identificacion, $id) {
+        $result = DB::table($letras_identificacion)
+            ->select('comercial_id') // Especifica las columnas que quieres obtener
+            ->where('id', $id) // Aplica el filtro por ID
+            ->first(); // Obtén un único registro
+
+        return $result ? $result->comercial_id : null; // Devuelve el valor de comercial_id o null si no hay resultados
+    }
+
+    
 }
 
