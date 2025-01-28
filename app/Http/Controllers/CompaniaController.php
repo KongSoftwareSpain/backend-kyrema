@@ -32,7 +32,7 @@ class CompaniaController extends Controller
             'cargo_contacto_1' => 'nullable',
             'email_contacto_1' => 'nullable',
             'telefono_contacto_1' => 'nullable',
-            'comentarios' => 'required'
+            'comentarios' => 'nullable'
         ]);
 
         $compania = Compania::create($request->all());
@@ -51,7 +51,7 @@ class CompaniaController extends Controller
             'cargo_contacto_1' => 'nullable',
             'email_contacto_1' => 'nullable',
             'telefono_contacto_1' => 'nullable',
-            'comentarios' => 'required'
+            'comentarios' => 'nullable'
         ]);
 
         $compania = Compania::find($id);

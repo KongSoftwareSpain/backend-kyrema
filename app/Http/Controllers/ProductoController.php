@@ -198,6 +198,8 @@ class ProductoController extends Controller
         if ($padre_id) {
             // Obtén el nombre de la tabla del padre
             $nombreTablaPadre = DB::table('tipo_producto')->where('id', $padre_id)->value('letras_identificacion');
+
+            Log::info($nombreTablaPadre);
         
             // Verifica si la tabla existe antes de modificarla
             if (Schema::hasTable($nombreTablaPadre)) {
@@ -355,7 +357,7 @@ class ProductoController extends Controller
                 'tipo_producto_id' => $tipoProductoId,
                 'columna' => $duracion['columna'] ?? null,
                 'fila' => $duracion['fila'] ?? null,
-                'page' => $campo['page'] ?? null,
+                'page' => $duracion['page'] ?? null,
                 'tipo_dato' => $duracion['tipo_dato'],
                 'visible' => $duracion['visible'] ?? false,
                 'obligatorio' => $duracion['obligatorio'] ?? false,
