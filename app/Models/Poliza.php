@@ -20,9 +20,6 @@ class Poliza extends Model
         'descripcion',
         'prima_neta',
         'impuestos',
-        'fecha_inicio',
-        'fecha_fin_venta',
-        'fecha_fin_servicio',
         'estado',
         'doc_adjuntos_1', 'doc_adjuntos_2', 'doc_adjuntos_3',
         'doc_adjuntos_4', 'doc_adjuntos_5', 'doc_adjuntos_6',
@@ -34,4 +31,13 @@ class Poliza extends Model
     {
         return $this->belongsTo(Compania::class);
     }
+
+    // Nos aseguramos que los timestamps estén habilitados
+    public $timestamps = true;
+
+    // Si necesitas formatear las fechas automáticamente
+    protected $dates = ['created_at', 'updated_at', 'fecha_inicio', 'fecha_fin_venta', 'fecha_fin_servicio'];
+
+    // Personalizamos el formato de fechas para que SQL server lo pueda convertir de varchar a datetime
+    protected $dateFormat = 'Y-m-d\TH:i:s';
 }
