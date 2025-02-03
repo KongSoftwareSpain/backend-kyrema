@@ -41,40 +41,40 @@ Route::post('password/email', [ForgotPasswordController::class, 'sendResetLinkEm
 Route::post('password/reset', [ResetPasswordController::class, 'reset']);
 
 
-Route::get('/productos/{letrasIdentificacion}', [ProductoController::class, 'getProductosByTipoAndSociedades']);
-Route::get('/historial/{letrasIdentificacion}', [ProductoController::class, 'getHistorialProductosByTipoAndSociedades']);
-Route::get('/productos/{letrasIdentificacion}/comercial/{comercial_id}', [ProductoController::class, 'getProductosByTipoAndComercial']);
-Route::get('/historial/{letrasIdentificacion}/comercial/{comercial_id}', [ProductoController::class, 'getHistorialProductosByTipoAndComercial']);
+Route::get('productos/{letrasIdentificacion}', [ProductoController::class, 'getProductosByTipoAndSociedades']);
+Route::get('historial/{letrasIdentificacion}', [ProductoController::class, 'getHistorialProductosByTipoAndSociedades']);
+Route::get('productos/{letrasIdentificacion}/comercial/{comercial_id}', [ProductoController::class, 'getProductosByTipoAndComercial']);
+Route::get('historial/{letrasIdentificacion}/comercial/{comercial_id}', [ProductoController::class, 'getHistorialProductosByTipoAndComercial']);
 
 // ANULADOS
 Route::get('anulados/{letrasIdentificacion}', [AnuladosController::class, 'getAnulados']);
 
 
 
-Route::post('/crear-producto/{letrasIdentificacion}', [ProductoController::class, 'crearProducto']);
-Route::post('/editar-producto/{letrasIdentificacion}', [ProductoController::class, 'editarProducto']);
-Route::post('/anular-producto/{letrasIdentificacion}', [ProductoController::class, 'anularProducto']);
-Route::delete('/eliminar-producto/{letrasIdentificacion}', [ProductoController::class, 'eliminarProducto']);
-Route::get('/duraciones/{nombreTabla}', [ProductoController::class, 'getDuraciones']);
+Route::post('crear-producto/{letrasIdentificacion}', [ProductoController::class, 'crearProducto']);
+Route::post('editar-producto/{letrasIdentificacion}', [ProductoController::class, 'editarProducto']);
+Route::post('anular-producto/{letrasIdentificacion}', [ProductoController::class, 'anularProducto']);
+Route::delete('eliminar-producto/{letrasIdentificacion}', [ProductoController::class, 'eliminarProducto']);
+Route::get('duraciones/{nombreTabla}', [ProductoController::class, 'getDuraciones']);
 
 
-Route::post('/crear-tipo-producto', [ProductoController::class, 'crearTipoProducto']);
-Route::post('/subir-plantilla/{id_tipo_producto}/{page}', [ProductoController::class, 'subirPlantilla']);
+Route::post('crear-tipo-producto', [ProductoController::class, 'crearTipoProducto']);
+Route::post('subir-plantilla/{id_tipo_producto}/{page}', [ProductoController::class, 'subirPlantilla']);
 
 
-Route::get('/descargar-plantilla/{letrasIdentificacion}', [ExportController::class, 'exportToPdf']);
-Route::get('/plantilla-base64' , [ExportController::class, 'getPlantillaBase64']);
+Route::get('descargar-plantilla/{letrasIdentificacion}', [ExportController::class, 'exportToPdf']);
+Route::get('plantilla-base64' , [ExportController::class, 'getPlantillaBase64']);
 
 
 Route::apiResource('campos', CampoController::class);
-Route::get('/campos', [CampoController::class, 'getByTipoProducto']);
-Route::put('/campos-update/{id_tipo_producto}', [CampoController::class, 'updatePorTipoProducto']);
-Route::post('/add-campos/{id_tipo_producto}', [CampoController::class, 'addCampos']);
+Route::get('campos', [CampoController::class, 'getByTipoProducto']);
+Route::put('campos-update/{id_tipo_producto}', [CampoController::class, 'updatePorTipoProducto']);
+Route::post('add-campos/{id_tipo_producto}', [CampoController::class, 'addCampos']);
 Route::post('create-campo-opciones/{id_tipo_producto}', [CampoController::class, 'createCampoConOpciones']);
-Route::put('/update-campo-opciones/{id}', [CampoController::class, 'updateCampoConOpciones']);
-Route::get('/opciones/{id_campo}', [CampoController::class, 'getOpcionesPorCampo']);
-Route::get('/campos-certificado/{id}', [CampoController::class, 'getCamposCertificado']);
-Route::get('/logos/tipo-producto/{id}', [CampoController::class, 'getCamposLogos']);
+Route::put('update-campo-opciones/{id}', [CampoController::class, 'updateCampoConOpciones']);
+Route::get('opciones/{id_campo}', [CampoController::class, 'getOpcionesPorCampo']);
+Route::get('campos-certificado/{id}', [CampoController::class, 'getCamposCertificado']);
+Route::get('logos/tipo-producto/{id}', [CampoController::class, 'getCamposLogos']);
 
 Route::get('tipos-producto/sociedad/{id_sociedad}', [TipoProductoController::class, 'getTiposProductoPorSociedad']);
 Route::get('tipos-producto/all', [TipoProductoController::class, 'index']);
@@ -109,35 +109,35 @@ Route::post('comercial', [ComercialController::class, 'store']);
 Route::put('comercial/{id}', [ComercialController::class, 'update']);
 Route::delete('comercial/{id}', [ComercialController::class, 'destroy']);
 
-Route::post('/auth/login', [AuthController::class, 'login']);
-Route::get('/comercial/{id}', [ComercialController::class, 'show']);
-Route::put('/comercial/{id}', [ComercialController::class, 'update']);
-Route::post('/comercial', [ComercialController::class, 'store']);
+Route::post('auth/login', [AuthController::class, 'login']);
+Route::get('comercial/{id}', [ComercialController::class, 'show']);
+Route::put('comercial/{id}', [ComercialController::class, 'update']);
+Route::post('comercial', [ComercialController::class, 'store']);
 
 Route::apiResource('comercial-comisiones', ComercialComisionController::class);
 
 // ANEXOS:
-Route::get('/anexos/sociedad/{id_sociedad}', [AnexosController::class, 'getAnexosPorSociedad']);
+Route::get('anexos/sociedad/{id_sociedad}', [AnexosController::class, 'getAnexosPorSociedad']);
 
-Route::get('/anexos/{id}', [AnexosController::class, 'show']);
+Route::get('anexos/{id}', [AnexosController::class, 'show']);
 
 Route::get('anexos/{id_tipo_producto}/producto/{id_producto}', [AnexosController::class, 'getAnexosPorProducto']);
 // Conectar anexo con producto:
-Route::post('/anexos/{id_producto}', [AnexosController::class, 'conectarAnexosConProducto']);
+Route::post('anexos/{id_producto}', [AnexosController::class, 'conectarAnexosConProducto']);
 
 //Tipo anexo:
-Route::delete('/anexos/{id}', [AnexosController::class, 'destroy']);
+Route::delete('anexos/{id}', [AnexosController::class, 'destroy']);
 
 // Crear tipo anexo:
-Route::post('/anexos', [AnexosController::class, 'createTipoAnexo']);
+Route::post('anexos', [AnexosController::class, 'createTipoAnexo']);
 // Subir plantilla:
 Route::post('subir-plantilla-anexo/{letrasIdentificacion}', [AnexosController::class, 'subirPlantillaAnexo']);
 
 // Descargar plantilla anexo:
-Route::get('/descargar-plantilla-anexo/{tipoAnexoId}', [ExportController::class, 'exportAnexoExcelToPdf']);
+Route::get('descargar-plantilla-anexo/{tipoAnexoId}', [ExportController::class, 'exportAnexoExcelToPdf']);
 
 
-Route::get('/anexos/tipo-producto/{id_tipo_producto}', [AnexosController::class, 'getTipoAnexosPorTipoProducto']);
+Route::get('anexos/tipo-producto/{id_tipo_producto}', [AnexosController::class, 'getTipoAnexosPorTipoProducto']);
 
 
 Route::get('tipos-anexo/all', [TipoAnexoController::class, 'index']);
@@ -167,7 +167,7 @@ Route::get('tarifa-anexo/sociedad/{id_sociedad}/tipo-anexo/{id_tipo_anexo}', [Ta
 Route::get('tipos-pago/all', [TipoPagoController::class, 'index']);
 Route::post('tipo_pago_producto_sociedad', [TipoPagoProductoSociedadController::class, 'store']);
 Route::get('tipo_pago_producto_sociedad/sociedad/{id_sociedad}', [TipoPagoProductoSociedadController::class, 'getTiposPagoPorSociedad']);
-Route::get('/tipo_pago_producto_sociedad/sociedad/{sociedad_id}/tipo-producto/{tipo_producto_id}', [TipoPagoProductoSociedadController::class, 'getTiposPagoPorSociedadYTipoProducto']);
+Route::get('tipo_pago_producto_sociedad/sociedad/{sociedad_id}/tipo-producto/{tipo_producto_id}', [TipoPagoProductoSociedadController::class, 'getTiposPagoPorSociedadYTipoProducto']);
 Route::post('sociedad/{sociedad_padre_id}/hija/{sociedad_hija_id}/tipos-pago', [TipoPagoProductoSociedadController::class, 'transferirTiposPago']);
 
 // COMPAÑIAS:
@@ -197,14 +197,14 @@ Route::post('/payment/create', [PaymentController::class, 'createPayment']);
 
 
 // SOCIOS:
-Route::get('/socios', [SocioController::class, 'index']);
-Route::get('/socio/{dni}/categoria/{categoria_id}', [SocioController::class, 'getAsegurado']);
-Route::post('/socio/categoria/{categoria_id}', [SocioController::class, 'store']);
-Route::put('/socio/{id}', [SocioController::class, 'update']);
-Route::delete('/socio/{id}', [SocioController::class, 'destroy']);
+Route::get('socios', [SocioController::class, 'index']);
+Route::get('socio/{dni}/categoria/{categoria_id}', [SocioController::class, 'getAsegurado']);
+Route::post('socio/categoria/{categoria_id}', [SocioController::class, 'store']);
+Route::put('socio/{id}', [SocioController::class, 'update']);
+Route::delete('socio/{id}', [SocioController::class, 'destroy']);
 
 // CATEGORIAS:
 Route::apiResource('categorias', CategoriaController::class);
 
 // INFORMES:
-Route::get('/reports', [ExportController::class, 'getReportData']);
+Route::get('reports', [ExportController::class, 'getReportData']);
