@@ -36,14 +36,18 @@ class CorsMiddleware
         }
 
         $response->headers->set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-        $response->headers->set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        $response->headers->set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-CSRF-TOKEN, Accept, multipart/form-data');
 
-        // Si es una petición OPTIONS, retornamos una respuesta vacía con las cabeceras CORS
+        // Permitir credenciales (si usas cookies o sesiones en la API)
+        $response->headers->set('Access-Control-Allow-Credentials', 'true');
+
+        // Si es una petición OPTIONS, respondemos con los mismos encabezados
         if ($request->isMethod('OPTIONS')) {
             return response('', 200)
                 ->header('Access-Control-Allow-Origin', in_array($origin, $allowedOrigins) ? $origin : '')
                 ->header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-                ->header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+                ->header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-CSRF-TOKEN, Accept, multipart/form-data')
+                ->header('Access-Control-Allow-Credentials', 'true');
         }
 
         return $response;
