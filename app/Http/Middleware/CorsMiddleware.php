@@ -16,22 +16,33 @@ class CorsMiddleware
      */
     public function handle(Request $request, Closure $next)
     {
+        $allowedOrigins = [
+            'http://localhost:4200',
+            'https://proud-ocean-001393110.5.azurestaticapps.net',
+            'https://canamaseguros.com',
+        ];
+
+        $origin = $request->headers->get('Origin');
+
         $response = $next($request);
 
-        // Si la respuesta es un BinaryFileResponse, simplemente retornamos la respuesta
+        // Si la respuesta es un BinaryFileResponse, simplemente la retornamos
         if ($response instanceof \Symfony\Component\HttpFoundation\BinaryFileResponse) {
             return $response;
         }
 
-        // Agregamos las cabeceras CORS a la respuesta
-        $response->headers->set('Access-Control-Allow-Origin', 'http://localhost:4200');
+        // Verificamos si el origen está permitido y lo establecemos dinámicamente
+        if (in_array($origin, $allowedOrigins)) {
+            $response->headers->set('Access-Control-Allow-Origin', $origin);
+        }
+
         $response->headers->set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
         $response->headers->set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-        // Si es una petición OPTIONS, retornamos una respuesta vacía con las cabeceras CORS
+        // Manejo especial para las solicitudes OPTIONS
         if ($request->isMethod('OPTIONS')) {
             return response('', 200)
-                ->header('Access-Control-Allow-Origin', 'http://localhost:4200')
+                ->header('Access-Control-Allow-Origin', $origin ?? '*')
                 ->header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
                 ->header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
         }
@@ -39,3 +50,4 @@ class CorsMiddleware
         return $response;
     }
 }
+
