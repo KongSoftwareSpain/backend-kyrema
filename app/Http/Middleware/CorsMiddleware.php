@@ -7,13 +7,6 @@ use Illuminate\Http\Request;
 
 class CorsMiddleware
 {
-    /**
-     * Handle an incoming request.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \Closure  $next
-     * @return mixed
-     */
     public function handle(Request $request, Closure $next)
     {
         $allowedOrigins = [
@@ -25,29 +18,26 @@ class CorsMiddleware
 
         $response = $next($request);
 
-        // Si la respuesta es un BinaryFileResponse, la retornamos directamente
         if ($response instanceof \Symfony\Component\HttpFoundation\BinaryFileResponse) {
             return $response;
         }
 
-        // Verificamos si el origen está en la lista permitida
+        // Permitir origen si está en la lista
         if (in_array($origin, $allowedOrigins)) {
             $response->headers->set('Access-Control-Allow-Origin', $origin);
         }
 
         $response->headers->set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-        $response->headers->set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-CSRF-TOKEN, Accept, multipart/form-data');
-
-        // Permitir credenciales (si usas cookies o sesiones en la API)
+        $response->headers->set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, multipart/form-data');
         $response->headers->set('Access-Control-Allow-Credentials', 'true');
 
-        // Si es una petición OPTIONS, respondemos con los mismos encabezados
         if ($request->isMethod('OPTIONS')) {
-            return response('', 200)
-                ->header('Access-Control-Allow-Origin', in_array($origin, $allowedOrigins) ? $origin : '')
-                ->header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-                ->header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-CSRF-TOKEN, Accept, multipart/form-data')
-                ->header('Access-Control-Allow-Credentials', 'true');
+            return response()->json([], 200, [
+                'Access-Control-Allow-Origin' => in_array($origin, $allowedOrigins) ? $origin : '*',
+                'Access-Control-Allow-Methods' => 'GET, POST, PUT, DELETE, OPTIONS',
+                'Access-Control-Allow-Headers' => 'Content-Type, Authorization, X-Requested-With, multipart/form-data',
+                'Access-Control-Allow-Credentials' => 'true'
+            ]);
         }
 
         return $response;
