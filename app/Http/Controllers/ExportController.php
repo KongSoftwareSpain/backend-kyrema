@@ -337,7 +337,6 @@ class ExportController extends Controller
             'camposAnexo' => $camposAnexo,
             'polizas_tipo_producto' => $polizasTipoProducto,
             'polizas' => $polizas,
-            'companias' => $companias,
             'base64Plantillas' => $plantillasBase64,
             'base64Logo' => $base64Logo
         ];
