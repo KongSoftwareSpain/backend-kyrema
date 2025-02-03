@@ -396,6 +396,10 @@ class ProductoController extends Controller
             Storage::disk('public')->putFileAs('plantillas', $archivoPlantilla, $nombreArchivo);
 
             $plantilla_path_name = 'plantilla_path_' . $page;
+
+            Log::info($plantilla_path_name);
+            Log::info($rutaArchivo);
+
             // Añadir la ruta de la plantilla a la tabla tipo_producto
             DB::table('tipo_producto')
                 ->where('id', $id_tipo_producto)
