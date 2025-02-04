@@ -14,8 +14,9 @@ class CreateCategoriasTable extends Migration
     public function up()
     {
         Schema::create('categorias', function (Blueprint $table) {
-            $table->id(); // Crea un campo 'id' autoincremental y llave primaria
-            $table->string('nombre'); // Campo para almacenar el nombre de la categoría
+            $table->id();
+            $table->unsignedBigInteger('id_comercial'); 
+            $table->unsignedBigInteger('id_socio');
         });
     }
 
