@@ -41,10 +41,15 @@ class SocioController extends Controller
                 return $sociedad->id;
             }, $sociedades);
 
+            // Añadir la sociedad actual
+            $sociedades[] = $comercial->id_sociedad;
+
             $socios = Socio::join('socios_comerciales', 'socios.id', '=', 'socios_comerciales.id_socio')
-                ->whereIn('socios_comerciales.id_comercial', $sociedades)
-                ->select('socios.*')
-                ->get();
+            ->join('comercial', 'socios_comerciales.id_comercial', '=', 'comercial.id')
+            ->whereIn('comercial.id_sociedad', $sociedades)
+            ->select('socios.*')
+            ->get();
+        
         } else {
             $socios = Socio::join('socios_comerciales', 'socios.id', '=', 'socios_comerciales.id_socio')
                 ->where('socios_comerciales.id_comercial', $id_comercial)
@@ -71,6 +76,8 @@ class SocioController extends Controller
             'poblacion' => 'nullable|string',
             'provincia' => 'nullable|string',
             'codigo_postal' => 'nullable|string'
+        ], [
+            'email.email' => 'El formato del correo electrónico no es correcto.'
         ]);
 
         $request->merge([

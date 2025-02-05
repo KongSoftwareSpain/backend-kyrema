@@ -145,14 +145,16 @@ class NavController extends Controller
         // Condición para filtrar las opciones en el array de navegación
         if ($sociedadPadreId == env('SOCIEDAD_ADMIN_ID') && isset($navegacion[2])) {
             $navegacion[1]["children"] = array_values(array_filter($navegacion[1]["children"], function($child) {
-                return in_array($child["label"], ["Sociedades", "Comisiones"]);
+                return in_array($child["label"], ["Sociedades", "Comisiones", "Socios"]);
             }));
         }
 
         // Si no es responsable
         if($responsable != 1){
-            // Quitar el navegación [1]
-            unset($navegacion[1]);
+            // Quitar el apartado de Gestión excepto Socios.
+            $navegacion[1]["children"] = array_values(array_filter($navegacion[1]["children"], function($child) {
+                return in_array($child["label"], ["Socios"]);
+            }));
         }
 
         return response()->json($navegacion);
