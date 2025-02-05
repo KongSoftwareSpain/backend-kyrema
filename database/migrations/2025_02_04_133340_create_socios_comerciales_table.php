@@ -13,6 +13,8 @@ return new class extends Migration
     {
         Schema::create('socios_comerciales', function (Blueprint $table) {
             $table->id();
+            $table->unsignedBigInteger('id_socio');
+            $table->unsignedBigInteger('id_comercial');
             $table->timestamps();
         });
     }

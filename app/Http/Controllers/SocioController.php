@@ -36,8 +36,13 @@ class SocioController extends Controller
 
             $sociedades = $sociedad->getSociedadesHijasRecursivo($comercial->id_sociedad);
 
+            // Coger solo los ids de las sociedades
+            $sociedades = array_map(function($sociedad){
+                return $sociedad->id;
+            }, $sociedades);
+
             $socios = Socio::join('socios_comerciales', 'socios.id', '=', 'socios_comerciales.id_socio')
-                ->whereIn('socios_comerciales.id_comercial', $sociedades->pluck('id'))
+                ->whereIn('socios_comerciales.id_comercial', $sociedades)
                 ->select('socios.*')
                 ->get();
         } else {
@@ -53,6 +58,7 @@ class SocioController extends Controller
     public function store(Request $request, $categoria_id)
     {
         $request->validate([
+            'id_comercial' => 'required|string',
             'dni' => 'required|string',
             'nombre_socio' => 'required|string',
             'apellido_1' => 'nullable|string',
@@ -85,7 +91,7 @@ class SocioController extends Controller
             ]);
         }
 
-        $socio = DB::table('socios')->insertGetId($request->all());
+        $socio = DB::table('socios')->insertGetId($request->except(['id_comercial']));
 
         SocioComercial::create([
             'id_comercial' => $request->id_comercial,
@@ -108,13 +114,24 @@ class SocioController extends Controller
         $socio = Socio::findOrFail($id);
         $socio->update($request->except(['updated_at']));
 
-        // Si ya existe la conexion con ese mismo comercial, no hacer nada
-        // si el comercial es distinto añadirlo.
         $socio_comercial = SocioComercial::where('id_socio', $id)->first();
-        if ($socio_comercial->id_comercial != $request->id_comercial) {
-            $socio_comercial->update([
-                'id_comercial' => $request->id_comercial
+
+        // Si el socio no estaba conectado con nadie previamente, conectarlo con el comercial
+        if (!$socio_comercial) {
+            SocioComercial::create([
+                'id_comercial' => $request->id_comercial,
+                'id_socio' => $id
             ]);
+        } else {
+
+            // Si ya existe la conexion con ese mismo comercial, no hacer nada
+            // si el comercial es distinto añadirlo.
+            if ($socio_comercial->id_comercial != $request->id_comercial) {
+                $socio_comercial->update([
+                    'id_comercial' => $request->id_comercial
+                ]);
+            }
+
         }
 
         return response()->json($socio);
