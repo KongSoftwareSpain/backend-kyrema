@@ -1,0 +1,3 @@
+sroldan@mpm.es
+
+https://learn.microsoft.com/en-us/azure/app-service/overview-nat-gateway-integratio

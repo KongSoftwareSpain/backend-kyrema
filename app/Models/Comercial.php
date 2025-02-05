@@ -89,6 +89,12 @@ class Comercial extends Authenticatable implements JWTSubject
         return $result ? $result->comercial_id : null; // Devuelve el valor de comercial_id o null si no hay resultados
     }
 
+    // Funcion para ver si es responsable o no
+    public static function isResponsable($id_comercial) {
+        $comercial = Comercial::find($id_comercial);
+        return $comercial->responsable;
+    }   
+
     
 }
 

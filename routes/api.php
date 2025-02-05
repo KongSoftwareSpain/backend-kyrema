@@ -202,6 +202,7 @@ Route::get('socio/{dni}/categoria/{categoria_id}', [SocioController::class, 'get
 Route::post('socio/categoria/{categoria_id}', [SocioController::class, 'store']);
 Route::put('socio/{id}', [SocioController::class, 'update']);
 Route::delete('socio/{id}', [SocioController::class, 'destroy']);
+Route::get('socios/comercial/{id_comercial}', [SocioController::class, 'getSociosByComercial']);
 
 // CATEGORIAS:
 Route::apiResource('categorias', CategoriaController::class);
