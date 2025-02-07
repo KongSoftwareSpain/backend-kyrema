@@ -689,13 +689,26 @@ class ProductoController extends Controller
         $datos['updated_at'] = Carbon::now()->format('Y-m-d\TH:i:s');
         // $datos['hora_inicio'] = Carbon::now()->format('H:i:s');
         $horaActual = Carbon::now()->format('H:i:s');
-        $datos['fecha_de_inicio'] = Carbon::parse($datos['fecha_de_inicio'])
-            ->setTimeFromTimeString($horaActual)
-            ->format('Y-m-d\TH:i:s');
+        $fechaHoy = Carbon::today();
 
-        $datos['fecha_de_fin'] = Carbon::parse($datos['fecha_de_fin'])
-            ->setTimeFromTimeString($horaActual)
-            ->format('Y-m-d\TH:i:s');
+        if (Carbon::parse($datos['fecha_de_inicio'])->toDateString() > $fechaHoy->toDateString()) {
+            $datos['fecha_de_inicio'] = Carbon::parse($datos['fecha_de_inicio'])
+                ->setTime(0, 0, 0)
+                ->format('Y-m-d\TH:i:s');
+        
+            $datos['fecha_de_fin'] = Carbon::parse($datos['fecha_de_fin'])
+                ->setTime(0, 0, 0)
+                ->format('Y-m-d\TH:i:s');
+        } else {
+            $datos['fecha_de_inicio'] = Carbon::parse($datos['fecha_de_inicio'])
+                ->setTimeFromTimeString($horaActual)
+                ->format('Y-m-d\TH:i:s');
+        
+            $datos['fecha_de_fin'] = Carbon::parse($datos['fecha_de_fin'])
+                ->setTimeFromTimeString($horaActual)
+                ->format('Y-m-d\TH:i:s');
+        }
+        
 
         // Insertar los datos en la tabla correspondiente
         $id = DB::table($nombreTabla)->insertGetId($datos);
