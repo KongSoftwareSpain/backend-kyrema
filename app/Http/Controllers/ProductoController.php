@@ -147,6 +147,7 @@ class ProductoController extends Controller
                 'columna' => $campo['columna'] ?? null,
                 'fila' => $campo['fila'] ?? null,
                 'page' => $campo['page'] ?? null,
+                'font_size' => $campo['font_size'] ?? null,
                 'tipo_dato' => $campo['tipo_dato'],
                 'visible' => $campo['visible'] ?? false,
                 'obligatorio' => $campo['obligatorio'] ?? false,
@@ -343,6 +344,7 @@ class ProductoController extends Controller
                 'tipo_producto_id' => $tipoProductoId,
                 'fila' => $poliza['fila'] ?? null,
                 'page' => $poliza['page'] ?? null,
+                'font_size' => $poliza['font_size'] ?? null,
                 'columna' => $poliza['columna'] ?? null,
                 'copia' => $poliza['copia'] ?? false,   
             ]);
@@ -358,6 +360,7 @@ class ProductoController extends Controller
                 'columna' => $duracion['columna'] ?? null,
                 'fila' => $duracion['fila'] ?? null,
                 'page' => $duracion['page'] ?? null,
+                'font_size' => $duracion['font_size'] ?? null,
                 'tipo_dato' => $duracion['tipo_dato'],
                 'visible' => $duracion['visible'] ?? false,
                 'obligatorio' => $duracion['obligatorio'] ?? false,
