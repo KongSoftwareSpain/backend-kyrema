@@ -147,6 +147,7 @@ class ProductoController extends Controller
                 'columna' => $campo['columna'] ?? null,
                 'fila' => $campo['fila'] ?? null,
                 'page' => $campo['page'] ?? null,
+                'font_size' => $campo['font_size'] ?? null,
                 'tipo_dato' => $campo['tipo_dato'],
                 'visible' => $campo['visible'] ?? false,
                 'obligatorio' => $campo['obligatorio'] ?? false,
@@ -343,6 +344,7 @@ class ProductoController extends Controller
                 'tipo_producto_id' => $tipoProductoId,
                 'fila' => $poliza['fila'] ?? null,
                 'page' => $poliza['page'] ?? null,
+                'font_size' => $poliza['font_size'] ?? null,
                 'columna' => $poliza['columna'] ?? null,
                 'copia' => $poliza['copia'] ?? false,   
             ]);
@@ -358,6 +360,7 @@ class ProductoController extends Controller
                 'columna' => $duracion['columna'] ?? null,
                 'fila' => $duracion['fila'] ?? null,
                 'page' => $duracion['page'] ?? null,
+                'font_size' => $duracion['font_size'] ?? null,
                 'tipo_dato' => $duracion['tipo_dato'],
                 'visible' => $duracion['visible'] ?? false,
                 'obligatorio' => $duracion['obligatorio'] ?? false,
@@ -689,13 +692,26 @@ class ProductoController extends Controller
         $datos['updated_at'] = Carbon::now()->format('Y-m-d\TH:i:s');
         // $datos['hora_inicio'] = Carbon::now()->format('H:i:s');
         $horaActual = Carbon::now()->format('H:i:s');
-        $datos['fecha_de_inicio'] = Carbon::parse($datos['fecha_de_inicio'])
-            ->setTimeFromTimeString($horaActual)
-            ->format('Y-m-d\TH:i:s');
+        $fechaHoy = Carbon::today();
 
-        $datos['fecha_de_fin'] = Carbon::parse($datos['fecha_de_fin'])
-            ->setTimeFromTimeString($horaActual)
-            ->format('Y-m-d\TH:i:s');
+        if (Carbon::parse($datos['fecha_de_inicio'])->toDateString() > $fechaHoy->toDateString()) {
+            $datos['fecha_de_inicio'] = Carbon::parse($datos['fecha_de_inicio'])
+                ->setTime(0, 0, 0)
+                ->format('Y-m-d\TH:i:s');
+        
+            $datos['fecha_de_fin'] = Carbon::parse($datos['fecha_de_fin'])
+                ->setTime(0, 0, 0)
+                ->format('Y-m-d\TH:i:s');
+        } else {
+            $datos['fecha_de_inicio'] = Carbon::parse($datos['fecha_de_inicio'])
+                ->setTimeFromTimeString($horaActual)
+                ->format('Y-m-d\TH:i:s');
+        
+            $datos['fecha_de_fin'] = Carbon::parse($datos['fecha_de_fin'])
+                ->setTimeFromTimeString($horaActual)
+                ->format('Y-m-d\TH:i:s');
+        }
+        
 
         // Insertar los datos en la tabla correspondiente
         $id = DB::table($nombreTabla)->insertGetId($datos);

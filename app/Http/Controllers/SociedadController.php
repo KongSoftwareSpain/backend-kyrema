@@ -89,13 +89,13 @@ class SociedadController extends Controller
         }
 
         // Verificar si la sociedad ya es de nivel 2 (su padre es admin)
-        if ($sociedad->padre_id == 1) {
+        if ($sociedad->sociedad_padre_id == 1) {
             return $sociedad;
         }
 
         // Si no es de nivel 2, seguir subiendo en la jerarquía hasta llegar a nivel 2
-        while ($sociedad->padre_id != 1) {
-            $sociedad = Sociedad::find($sociedad->padre_id);
+        while ($sociedad->sociedad_padre_id != 1) {
+            $sociedad = Sociedad::find($sociedad->sociedad_padre_id);
 
             // Si llegamos a la sociedad admin (id = 1), devolvemos null
             if ($sociedad->id == 1) {

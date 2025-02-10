@@ -123,6 +123,12 @@ class ExportController extends Controller
             try {
 
                 $id = $request->input('id');
+
+                Log::info($id);
+
+                if(!$id){
+                    return response()->json(['error' => 'ID no proporcionado'], 400);
+                }
                 
                 // VALORES DEL PRODUCTO
                 $valores = DB::table($letrasIdentificacion)->where('id', $id)->first();
@@ -131,8 +137,13 @@ class ExportController extends Controller
                     return response()->json(['error' => 'Valores no encontrados'], 404);
                 }
 
-                // TIPO PRODUCTO
-                $tipoProducto = DB::table('tipo_producto')->where('letras_identificacion', $letrasIdentificacion)->first();
+                // Comprobar que $valores no tiene el campo 'subproducto'
+                if (property_exists($valores, 'subproducto')) {
+                    $tipoProducto = DB::table('tipo_producto')->where('id', $valores->subproducto)->first();
+                } else {
+                    // TIPO PRODUCTO
+                    $tipoProducto = DB::table('tipo_producto')->where('letras_identificacion', $letrasIdentificacion)->first();
+                }
                 
                 if (!$tipoProducto) {
                     return response()->json(['error' => 'Tipo de producto no encontrado'], 404);
