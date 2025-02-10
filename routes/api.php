@@ -13,7 +13,6 @@ use App\Http\Controllers\TipoAnexoController;
 use App\Http\Controllers\CampoAnexoController;
 use App\Http\Controllers\ValorAnexoController;
 use App\Http\Controllers\TarifaProductoController;
-use App\Http\Controllers\TarifaAnexoController;
 use App\Http\Controllers\EscaladoAnexoController;
 use App\Http\Controllers\NavegacionController;
 use App\Http\Controllers\AuthController;
@@ -157,8 +156,8 @@ Route::post('tarifa-producto/sociedad', [TarifaProductoController::class, 'store
 Route::put('tarifa/sociedad/{id_sociedad}', [TarifaProductoController::class, 'updateTarifaPorSociedad']);
 Route::post('tarifa/sociedad/{id_sociedad}', [TarifaProductoController::class, 'createTarifaPorSociedad']);
 
-Route::apiResource('tarifas-producto', TarifaProductoController::class);
-Route::apiResource('tarifas-anexo', TarifaAnexoController::class);
+// Route::apiResource('tarifas-producto', TarifaProductoController::class);
+// Route::apiResource('tarifas-anexo', TarifaAnexoController::class);
 
 Route::post('tarifa-anexo/sociedad', [TarifaAnexoController::class, 'store']);
 Route::get('tarifa-anexo/sociedad/{id_sociedad}/tipo-anexo/{id_tipo_anexo}', [TarifaAnexoController::class, 'getTarifaPorSociedadAndTipoAnexo']);
