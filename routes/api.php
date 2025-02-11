@@ -31,6 +31,7 @@ use App\Http\Controllers\PolizaController;
 use App\Http\Controllers\SocioController;
 use Illuminate\Support\Facades\Mail;
 use App\Http\Controllers\CategoriaController;
+use App\Http\Controllers\TarifaAnexoController;
 
 
 
@@ -134,6 +135,10 @@ Route::post('subir-plantilla-anexo/{letrasIdentificacion}', [AnexosController::c
 
 // Descargar plantilla anexo:
 Route::get('descargar-plantilla-anexo/{tipoAnexoId}', [ExportController::class, 'exportAnexoExcelToPdf']);
+
+//ANEXOS BLOQUEADOS
+Route::get('anexos-bloqueados/{tipo_producto_asociado}', [AnexosController::class, 'getAnexosBloqueados']);
+Route::post('anexos-bloqueados', [AnexosController::class, 'saveAnexosBloqueados']);
 
 
 Route::get('anexos/tipo-producto/{id_tipo_producto}', [AnexosController::class, 'getTipoAnexosPorTipoProducto']);
