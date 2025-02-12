@@ -11,9 +11,59 @@ use Carbon\Carbon;
 use App\Models\TiposAnexos;
 use App\Models\TipoProductoSociedad;
 use App\Models\TipoProducto;
+use Illuminate\Support\Facades\Config;
 
 class AnexosController extends Controller
 {
+    public function getAnexosBloqueados($tipo_producto_asociado)
+    {
+        // 1. Obtener los subproductos asociados al tipo_producto_asociado
+        $subproductos = DB::table('tipo_producto') // Asumiendo que tienes una tabla `subproductos`
+            ->where('padre_id', $tipo_producto_asociado) // Reemplaza con tu campo adecuado
+            ->pluck('id'); // Obtener solo los IDs de los subproductos
+
+        // 2. Obtener los registros de `anexos_bloqueados_subproductos` que coinciden con esos subproductos
+        $anexosBloqueados = DB::table('anexos_bloqueados_subproductos')
+            ->whereIn('subproducto_id', $subproductos)
+            ->get();
+
+        return $anexosBloqueados->toArray(); // Retornar como array
+    }
+
+
+    public function saveAnexosBloqueados(Request $request)
+    {
+        // Validar el array de registros que llega en el request
+        $request->validate([
+            'anexos' => 'required|array',
+            'anexos.*.subproducto_id' => 'required|integer|exists:tipo_producto,id',
+            'anexos.*.anexo_id' => 'required|integer|exists:tipo_producto,id',
+        ]);
+
+        // Obtener el array de anexos
+        $anexos = $request->input('anexos');
+
+        // Extraer los IDs de los subproductos para eliminar registros existentes
+        $subproductoIds = array_unique(array_column($anexos, 'subproducto_id'));
+
+        // Eliminar todas las ocurrencias de los subproductos que llegan
+        DB::table('anexos_bloqueados_subproductos')
+            ->whereIn('subproducto_id', $subproductoIds)
+            ->delete();
+
+        // Insertar los nuevos registros
+        foreach ($anexos as $anexo) {
+            DB::table('anexos_bloqueados_subproductos')->insert([
+                'subproducto_id' => $anexo['subproducto_id'],
+                'anexo_id' => $anexo['anexo_id'],
+                'created_at' => Carbon::now(),
+                'updated_at' => Carbon::now(),
+            ]);
+        }
+
+        return response()->json(['message' => 'Anexos bloqueados actualizados correctamente'], 200);
+    }
+
     public function conectarAnexosConProducto($id_producto, Request $request){
         // Me llegará un array con todos los anexos que tengo que crear y conectar con el producto
         // Si ya tiene un id se cambia el mismo anexo sino se crea unno nuevo
