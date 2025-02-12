@@ -47,25 +47,4 @@ class TarifaAnexoController extends Controller
         return response()->json($tarifaAnexo);
     }
 
-    public function index()
-    {
-        $tarifaAnexos = TarifaAnexo::all();
-        return response()->json($tarifaAnexos);
-    }
-
-
-    public function show($id)
-    {
-        $tarifaAnexo = TarifaAnexo::findOrFail($id);
-        return response()->json($tarifaAnexo);
-    }
-
-
-    public function destroy($id)
-    {
-        $tarifaAnexo = TarifaAnexo::findOrFail($id);
-        $tarifaAnexo->delete();
-
-        return response()->json(null, 204);
-    }
 }
