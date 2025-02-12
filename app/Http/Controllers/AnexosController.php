@@ -35,26 +35,33 @@ class AnexosController extends Controller
     {
         // Validar el array de registros que llega en el request
         $request->validate([
-            'anexos' => 'required|array', // Asegura que es un array
-            'anexos.*.subproducto_id' => 'required|integer|exists:subproductos,id', // Validar que `subproducto_id` exista en la tabla `subproductos`
-            'anexos.*.anexo_id' => 'required|integer|exists:anexos,id', // Validar que `anexo_id` exista en la tabla `anexos`
+            'anexos' => 'required|array',
+            'anexos.*.subproducto_id' => 'required|integer|exists:tipo_producto,id',
+            'anexos.*.anexo_id' => 'required|integer|exists:tipo_producto,id',
         ]);
 
         // Obtener el array de anexos
-        $anexos = $request->input('data');
+        $anexos = $request->input('anexos');
 
-        // Insertar los registros en la tabla `anexos_bloqueados_subproductos`
+        // Extraer los IDs de los subproductos para eliminar registros existentes
+        $subproductoIds = array_unique(array_column($anexos, 'subproducto_id'));
+
+        // Eliminar todas las ocurrencias de los subproductos que llegan
+        DB::table('anexos_bloqueados_subproductos')
+            ->whereIn('subproducto_id', $subproductoIds)
+            ->delete();
+
+        // Insertar los nuevos registros
         foreach ($anexos as $anexo) {
             DB::table('anexos_bloqueados_subproductos')->insert([
                 'subproducto_id' => $anexo['subproducto_id'],
                 'anexo_id' => $anexo['anexo_id'],
-                'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),  // Puedes ajustar las fechas si las necesitas personalizadas
-                'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s')
+                'created_at' => Carbon::now(),
+                'updated_at' => Carbon::now(),
             ]);
         }
 
-        // Responder con éxito
-        return response()->json(['message' => 'Anexos bloqueados guardados correctamente'], 200);
+        return response()->json(['message' => 'Anexos bloqueados actualizados correctamente'], 200);
     }
 
     public function conectarAnexosConProducto($id_producto, Request $request){

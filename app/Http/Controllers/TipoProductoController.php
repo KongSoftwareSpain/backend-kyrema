@@ -228,8 +228,19 @@ class TipoProductoController extends Controller
                 ->get();
         }
 
-        // Construir la respuesta incluyendo los campos y tarifas de cada subproducto
-        $subproductosConDetalles = $subproductos->map(function ($subproducto) {
+        // Obtener todos los IDs de los subproductos
+        $subproductoIds = $subproductos->pluck('id')->toArray();
+
+        // Obtener los anexos bloqueados para estos subproductos y agruparlos por subproducto_id
+        $anexosBloqueados = DB::table('anexos_bloqueados_subproductos')
+            ->whereIn('subproducto_id', $subproductoIds)
+            ->select('subproducto_id', 'anexo_id')
+            ->get()
+            ->groupBy('subproducto_id')
+            ->map(fn($items) => $items->pluck('anexo_id')->toArray());
+
+        // Construir la respuesta incluyendo los campos, tarifas y anexos bloqueados
+        $subproductosConDetalles = $subproductos->map(function ($subproducto) use ($anexosBloqueados) {
             return [
                 'id' => $subproducto->id,
                 'nombre' => $subproducto->nombre,
@@ -243,17 +254,18 @@ class TipoProductoController extends Controller
                 'plantilla_path_7' => $subproducto->plantilla_path_7,
                 'plantilla_path_8' => $subproducto->plantilla_path_8,
                 'padre_id' => $subproducto->padre_id,
-                // Utilizando relaciones para obtener tarifas y campos
                 'tarifas' => $subproducto->tarifas,
                 'campos' => $subproducto->campos,
                 'created_at' => $subproducto->created_at,
                 'updated_at' => $subproducto->updated_at,
                 'tipo_duracion' => $subproducto->tipo_duracion,
                 'duracion' => $subproducto->duracion,
+                'anexos_bloqueados' => $anexosBloqueados[$subproducto->id] ?? [] // Si no hay anexos bloqueados, devolver un array vacío
             ];
         });
 
         return $subproductosConDetalles;
     }
+
 
 }
