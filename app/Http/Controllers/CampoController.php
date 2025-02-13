@@ -130,9 +130,11 @@ class CampoController extends Controller
 
 
     // Crea un campo con opciones
-    public function createCampoConOpciones($campoConOpciones, $id_tipo_producto)
+    public function createCampoConOpciones(Request $request, $id_tipo_producto)
     {
-        $data = $this->validateData($campoConOpciones);
+        $data = $request->input('campo');
+
+        $data = $this->validateData($data);
 
         // Generar nombre de la tabla OPCIONES_NOMBRECAMPO_LETRAS:
         $tipo_producto = TipoProducto::findOrFail($id_tipo_producto);
@@ -167,15 +169,18 @@ class CampoController extends Controller
             'columna' => $data['columna'],
             'fila' => $data['fila'],
             'page' => $data['page'],
+            'font_size' => $data['font_size'],
             'visible' => $data['visible'],
             'obligatorio' => $data['obligatorio'],
             'grupo' => $data['grupo'] ?? null,
             'opciones' => $nombreTabla,
-            'copia' => $data['copia'] ?? null,
+            'copia' => $data['copia'] ?? false,
             'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
             'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
         ]);
 
+
+        self::addCampoConOpciones($data, $tipo_producto->letras_identificacion);
 
         return response()->json(['message' => 'Campo con opciones creado exitosamente'], 201);
     }
@@ -227,11 +232,12 @@ class CampoController extends Controller
             'columna' => $data['columna'],
             'fila' => $data['fila'],
             'page' => $data['page'],
+            'font_size' => $data['font_size'],
             'visible' => $data['visible'],
             'obligatorio' => $data['obligatorio'],
             'grupo' => $data['grupo'] ?? null,
             'opciones' => $nombreTabla,
-            'copias' => $data['copias'] ?? null,
+            'copia' => $data['copia'] ?? false,
             'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
             'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
         ]);
@@ -241,12 +247,12 @@ class CampoController extends Controller
         return response()->json(['message' => 'Campo con opciones creado exitosamente'], 201);
     }
 
-    //Funcion para añadir la columna del campo con opciones a la tabla de la base de datos
-    private function addCampoConOpciones($campoConOpciones, $letrasIdentificacion){
-        Schema::table($letrasIdentificacion, function (Blueprint $table) {
-            $table->string($campoConOpciones['nombre'])->nullable();
+    private function addCampoConOpciones($campoConOpciones, $letrasIdentificacion) {
+        Schema::table($letrasIdentificacion, function (Blueprint $table) use ($campoConOpciones) {
+            $table->string(strtolower(str_replace(' ', '_', $campoConOpciones['nombre'])))->nullable();
         });
     }
+    
 
 
     // Método para validar manualmente los datos en caso de recibir un array

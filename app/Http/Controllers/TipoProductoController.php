@@ -151,7 +151,7 @@ class TipoProductoController extends Controller
 
             // Obtener letrasIdentificacion y plantilla_path antes de eliminar la tabla tipo_producto
             $product = DB::table('tipo_producto')->where('id', $productId)->first();
-            $letrasIdentificacion = $product->letras_identificacion ?? null;
+            // $letrasIdentificacion = $product->letras_identificacion ?? null;
             $plantillasPaths = [
                 $product->plantilla_path_1 ?? null, $product->plantilla_path_2 ?? null, $product->plantilla_path_3 ?? null, $product->plantilla_path_4 ?? null,
                 $product->plantilla_path_5 ?? null, $product->plantilla_path_6 ?? null, $product->plantilla_path_7 ?? null, $product->plantilla_path_8 ?? null,
@@ -194,9 +194,9 @@ class TipoProductoController extends Controller
             DB::table('tipo_producto_polizas')->where('tipo_producto_id', $productId)->delete();
 
             // Drop the table if it exists
-            if ($letrasIdentificacion && Schema::hasTable($letrasIdentificacion)) {
-                Schema::dropIfExists($letrasIdentificacion);
-            }
+            // if ($letrasIdentificacion && Schema::hasTable($letrasIdentificacion)) {
+            //     Schema::dropIfExists($letrasIdentificacion);
+            // }
 
             // Delete from campos
             DB::table('campos')->where('tipo_producto_id', $productId)->delete();
