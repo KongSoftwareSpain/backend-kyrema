@@ -144,6 +144,27 @@ class AnexosController extends Controller
                     }
                     $data['fecha_de_emisión'] = Carbon::now()->format('Y-m-d\TH:i:s');
                     
+                    $horaActual = Carbon::now()->format('H:i:s');
+                    $fechaHoy = Carbon::today();
+
+                    if (Carbon::parse($data['fecha_de_inicio'])->toDateString() > $fechaHoy->toDateString()) {
+                        $data['fecha_de_inicio'] = Carbon::parse($data['fecha_de_inicio'])
+                            ->setTime(0, 0, 0)
+                            ->format('Y-m-d\TH:i:s');
+                    
+                        $data['fecha_de_fin'] = Carbon::parse($data['fecha_de_fin'])
+                            ->setTime(0, 0, 0)
+                            ->format('Y-m-d\TH:i:s');
+                    } else {
+                        $data['fecha_de_inicio'] = Carbon::parse($data['fecha_de_inicio'])
+                            ->setTimeFromTimeString($horaActual)
+                            ->format('Y-m-d\TH:i:s');
+                    
+                        $data['fecha_de_fin'] = Carbon::parse($data['fecha_de_fin'])
+                            ->setTimeFromTimeString($horaActual)
+                            ->format('Y-m-d\TH:i:s');
+                    }
+                    
                     DB::table($letrasIdentificacion)->insert($data);
                 }
             } else {
