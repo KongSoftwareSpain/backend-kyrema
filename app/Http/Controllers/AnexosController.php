@@ -56,8 +56,8 @@ class AnexosController extends Controller
             DB::table('anexos_bloqueados_subproductos')->insert([
                 'subproducto_id' => $anexo['subproducto_id'],
                 'anexo_id' => $anexo['anexo_id'],
-                'created_at' => Carbon::now(),
-                'updated_at' => Carbon::now(),
+                'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
+                'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
             ]);
         }
 

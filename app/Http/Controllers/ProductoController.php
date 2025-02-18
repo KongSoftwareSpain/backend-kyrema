@@ -40,7 +40,7 @@ class ProductoController extends Controller
             'polizas' => 'nullable|array',
             'campos' => 'nullable|array',
             'campos.*.nombre' => 'required|string',
-            'campos.*.tipo_dato' => 'required|string|in:text,number,date,decimal,selector',
+            'campos.*.tipo_dato' => 'required|string|in:text,number,date,decimal,selector,select',
             'camposConOpciones' => 'nullable|array',
             'camposConOpciones.*.nombre' => 'required|string',
             'camposConOpciones.*.opciones' => 'required|array',
@@ -161,14 +161,6 @@ class ProductoController extends Controller
         // Duraciones con campos 'copia'.
         $duraciones = $request->input('duracion');
         self::insertDuracionEnCampos($duraciones, $tipoProductoId);
-
-        // Crear campos con opciones recorriendo el array de camposConOpciones
-        foreach ($camposConOpciones as $campoConOpciones) {
-            // Crear el campo con opciones
-            $campoController = new CampoController();
-
-            $campoController->createCampoConOpciones($campoConOpciones, $tipoProductoId);
-        }
 
         
         // Definir el nombre de la nueva tabla usando las letras de identificación
@@ -312,6 +304,14 @@ class ProductoController extends Controller
                 
                 $table->timestamps();
             });
+        }
+
+        // Crear campos con opciones recorriendo el array de camposConOpciones
+        foreach ($camposConOpciones as $campoConOpciones) {
+            // Crear el campo con opciones
+            $campoController = new CampoController();
+
+            $campoController->createCampoConOpciones($campoConOpciones, $tipoProductoId);
         }
         
 
@@ -545,7 +545,7 @@ class ProductoController extends Controller
         $nombreTabla = strtolower($letrasIdentificacion);
         
         // Obtener la fecha y hora actual
-        $fechaActual = now();
+        $fechaActual = Carbon::now()->format('Y-m-d H:i:s');    
 
         Log::info('Fecha actual: ' . $fechaActual);
         
@@ -567,7 +567,7 @@ class ProductoController extends Controller
         // Convertir letras de identificación a nombre de tabla
         $nombreTabla = strtolower($letrasIdentificacion);
 
-        $fechaActual = now();
+        $fechaActual = Carbon::now()->format('Y-m-d H:i:s');   
         
         // Realizar consulta dinámica usando el nombre de la tabla
         $productos = DB::table($nombreTabla)
