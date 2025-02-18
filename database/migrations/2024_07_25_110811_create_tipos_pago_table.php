@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('tipos_pago', function (Blueprint $table) {
             $table->id();
-            $table->string('nonbre');
+            $table->string('nombre');
             $table->string('codigo');
             $table->timestamps();
         });
