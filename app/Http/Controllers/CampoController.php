@@ -130,9 +130,8 @@ class CampoController extends Controller
 
 
     // Crea un campo con opciones
-    public function createCampoConOpciones(Request $request, $id_tipo_producto)
+    public function createCampoConOpciones($data, $id_tipo_producto)
     {
-        $data = $request->input('campo');
 
         $data = $this->validateData($data);
 
@@ -169,7 +168,7 @@ class CampoController extends Controller
             'columna' => $data['columna'],
             'fila' => $data['fila'],
             'page' => $data['page'],
-            'font_size' => $data['font_size'],
+            // 'font_size' => $data['font_size'],
             'visible' => $data['visible'],
             'obligatorio' => $data['obligatorio'],
             'grupo' => $data['grupo'] ?? null,
@@ -180,7 +179,7 @@ class CampoController extends Controller
         ]);
 
 
-        self::addCampoConOpciones($data, $tipo_producto->letras_identificacion);
+        // self::addCampoConOpciones($data, $tipo_producto->letras_identificacion);
 
         return response()->json(['message' => 'Campo con opciones creado exitosamente'], 201);
     }
@@ -232,7 +231,7 @@ class CampoController extends Controller
             'columna' => $data['columna'],
             'fila' => $data['fila'],
             'page' => $data['page'],
-            'font_size' => $data['font_size'],
+            // 'font_size' => $data['font_size'],
             'visible' => $data['visible'],
             'obligatorio' => $data['obligatorio'],
             'grupo' => $data['grupo'] ?? null,
