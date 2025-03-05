@@ -31,6 +31,7 @@ use App\Http\Controllers\PolizaController;
 use App\Http\Controllers\SocioController;
 use Illuminate\Support\Facades\Mail;
 use App\Http\Controllers\CategoriaController;
+use App\Http\Controllers\SociedadComisionController;
 use App\Http\Controllers\TarifaAnexoController;
 
 
@@ -114,7 +115,13 @@ Route::get('comercial/{id}', [ComercialController::class, 'show']);
 Route::put('comercial/{id}', [ComercialController::class, 'update']);
 Route::post('comercial', [ComercialController::class, 'store']);
 
-Route::apiResource('comercial-comisiones', ComercialComisionController::class);
+Route::get('comisiones/comercial/{id}', [ComercialComisionController::class, 'index']);
+Route::get('comisiones/sociedad/{id}', [SociedadComisionController::class, 'index']);
+Route::post('comisiones/comercial/{id}', [ComercialComisionController::class, 'store']);
+Route::post('comisiones/sociedad/{id}', [SociedadComisionController::class, 'store']);
+
+Route::get('comisiones-total-price/sociedad/{sociedadId}', [SociedadComisionController::class, 'getTotalPrice']);
+
 
 // ANEXOS:
 Route::get('anexos/sociedad/{id_sociedad}', [AnexosController::class, 'getAnexosPorSociedad']);

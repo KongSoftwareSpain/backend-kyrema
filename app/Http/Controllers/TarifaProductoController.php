@@ -38,17 +38,54 @@ class TarifaProductoController extends Controller
         return response()->json($tarifas);
     }
 
+    public static function getTarifasPorSociedadAndProductos($id_sociedad, array $productosIds)
+    {
+        // Obtenemos todas las tarifas de los productos para la sociedad dada
+        $tarifas = TarifasProducto::whereIn('tipo_producto_id', $productosIds)
+                    ->where('id_sociedad', $id_sociedad)
+                    ->get()
+                    ->keyBy('tipo_producto_id'); // Indexamos por tipo_producto_id para fácil acceso
+
+        // Obtenemos las tarifas base de la sociedad principal solo si faltan productos en la sociedad dada
+        $productosSinTarifa = array_diff($productosIds, $tarifas->keys()->all());
+
+        if (!empty($productosSinTarifa)) {
+            $tarifasAdmin = TarifasProducto::whereIn('tipo_producto_id', $productosSinTarifa)
+                            ->where('id_sociedad', env('SOCIEDAD_ADMIN_ID'))
+                            ->get()
+                            ->keyBy('tipo_producto_id');
+
+            // Mezclamos las tarifas específicas con las de la sociedad principal (si faltaban)
+            $tarifas = $tarifas->merge($tarifasAdmin);
+        }
+
+        return $tarifas->values(); // Devolvemos las tarifas en un array sin claves asociativas
+    }
+
+    public static function getTarifasPorSociedadYTipoProducto($id_sociedad, $id_tipo_producto)
+    {
+        // Intentamos obtener las tarifas asociadas con el id_sociedad y el id_tipo_producto proporcionados
+        $tarifas = TarifasProducto::where('id_sociedad', $id_sociedad)
+                    ->where('tipo_producto_id', $id_tipo_producto)
+                    ->get();
+
+        // Si no hay tarifas para el id_sociedad y el id_tipo_producto, obtenemos las tarifas con sociedad_id SOCIEDAD_ADMIN_ID
+        if ($tarifas->isEmpty()) {
+            $tarifas = TarifasProducto::where('id_sociedad', self::SOCIEDAD_ADMIN_ID)
+                        ->where('tipo_producto_id', $id_tipo_producto)
+                        ->get();
+        }
+
+        // Retornamos las tarifas
+        return $tarifas;
+    }
+
     public function getTarifaPorSociedadAndTipoProducto($id_sociedad, Request $request){
-        // Primero obtenemos de la request el id del tipo de producto
+        // Obtenemos el id del tipo de producto desde el request
         $id_tipo_producto = $request->input('tipo_producto_id');
 
-        // Intenta obtener las tarifas asociadas con el id_sociedad y el id_tipo_producto proporcionados
-        $tarifas = TarifasProducto::where('id_sociedad', $id_sociedad)->where('tipo_producto_id', $id_tipo_producto)->get();
-
-        // Si no hay tarifas para el id_sociedad y el id_tipo_producto, obtiene las tarifas con sociedad_id SOCIEDAD_ADMIN_ID y el tipo_producto_id proporcionado
-        if ($tarifas->isEmpty()) {
-            $tarifas = TarifasProducto::where('id_sociedad', self::SOCIEDAD_ADMIN_ID)->where('tipo_producto_id', $id_tipo_producto)->get();
-        }
+        // Llamamos al método intermedio para obtener las tarifas
+        $tarifas = TarifaProductoController::getTarifasPorSociedadYTipoProducto($id_sociedad, $id_tipo_producto);
 
         // Devuelve las tarifas en formato JSON
         return response()->json($tarifas);
@@ -109,11 +146,6 @@ class TarifaProductoController extends Controller
 
     }
 
-    public function index()
-    {
-        $tarifaProductos = TarifaProducto::all();
-        return response()->json($tarifaProductos);
-    }
 
     public function store(Request $request)
     {
@@ -140,37 +172,5 @@ class TarifaProductoController extends Controller
         ]);
 
         return response()->json($tarifaProducto, 201);
-    }
-
-    public function show($id)
-    {
-        $tarifaProducto = TarifaProducto::findOrFail($id);
-        return response()->json($tarifaProducto);
-    }
-
-    public function update(Request $request, $id)
-    {
-        $request->validate([
-            'tipo_producto_id' => 'numeric|exists:tipo_producto,id',
-            'id_sociedad' => 'numeric|exists:sociedad,id',
-            'precio_base' => 'numeric',
-            'extra_1' => 'numeric',
-            'extra_2' => 'numeric',
-            'extra_3' => 'numeric',
-            'precio_total' => 'numeric',
-        ]);
-
-        $tarifaProducto = TarifaProducto::findOrFail($id);
-        $tarifaProducto->update($request->all());
-
-        return response()->json($tarifaProducto);
-    }
-
-    public function destroy($id)
-    {
-        $tarifaProducto = TarifaProducto::findOrFail($id);
-        $tarifaProducto->delete();
-
-        return response()->json(null, 204);
     }
 }
