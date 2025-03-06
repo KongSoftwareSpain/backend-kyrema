@@ -24,6 +24,15 @@ class TarifasProducto extends Model
         'precio_total',
     ];
 
+    protected $casts = [
+        'precio_base' => 'float',
+        'extra_1' => 'float',
+        'extra_2' => 'float',
+        'extra_3' => 'float',
+        'precio_total' => 'float'
+    ];
+    
+
     public function sociedad()
     {
         return $this->belongsTo(Sociedad::class, 'id_sociedad', 'id');
