@@ -24,10 +24,10 @@ class SociedadComisionController extends Controller {
         if ($sociedad->padre_id === null || $sociedad->padre_id === env('SOCIEDAD_ADMIN_ID')) {
             $productos = TarifaProductoController::getTarifasPorSociedadAndProductos($sociedadId, $productoIds);
 
-            $resultado = array_map(function ($producto) {
+            $resultado = $productos->map(function ($producto) {
                 return [
                     'id' => $producto['tipo_producto_id'], 
-                    'totalPrice' => $producto['totalPrice']
+                    'totalPrice' => $producto['precio_total']
                 ];
             }, $productos);
 

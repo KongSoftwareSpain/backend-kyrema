@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class ComercialComision extends Model
 {
-    protected $table = 'comercial_comision';
+    protected $table = 'comisiones_comercial';
     public $incrementing = false;
     protected $keyType = 'string';
 
