@@ -97,6 +97,7 @@ Route::delete('sociedad/{id}', [SociedadController::class, 'destroy']);
 Route::put('sociedad/{id}', [SociedadController::class, 'update']);
 Route::put('sociedad/{id}/permisos', [SociedadController::class, 'updatePermisos']);
 Route::get('sociedades/padres', [SociedadController::class, 'getSociedadesPadres']);
+Route::get('sociedades', [SociedadController::class, 'index']);
 Route::get('sociedad/comercial/{comercial_id}', [SociedadController::class, 'getSociedadPorComercial']);
 
 
@@ -117,8 +118,8 @@ Route::post('comercial', [ComercialController::class, 'store']);
 
 Route::get('comisiones/comercial/{id}', [ComercialComisionController::class, 'index']);
 Route::get('comisiones/sociedad/{id}', [SociedadComisionController::class, 'index']);
-Route::post('comisiones/comercial/{id}', [ComercialComisionController::class, 'store']);
-Route::post('comisiones/sociedad/{id}', [SociedadComisionController::class, 'store']);
+Route::put('comisiones/comercial/{id}', [ComercialComisionController::class, 'store']);
+Route::put('comisiones/sociedad/{id}', [SociedadComisionController::class, 'store']);
 
 Route::post('comisiones-total-price/sociedad/{sociedadId}', [SociedadComisionController::class, 'getTotalPrice']);
 
