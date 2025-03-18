@@ -58,14 +58,14 @@ class SociedadComisionController extends Controller {
                 ->where('tipo_producto_id', $producto['tipo_producto_id'])
                 ->first();
 
-            $comisionSegundoNivel = $this->calularComision($precioBase, $comisionSegundoNivel);
+            $comisionSegundoNivel = $this->calcularComision($precioBase, $comisionSegundoNivel);
 
             if ($sociedad->sociedad_padre_id == $sociedadSegundoNivel->id) {
                 // Obtener la comisión de la sociedad padre inmediata
                 
                 // Caso 1: la sociedad padre ya es de segundo nivel:
                 // Se calcula el porcentaje directamente desde la tarifa (precio_base)
-                $comisionSociedad = $this->calcularComision($precioBase, $comisionSegundoNivel);
+                $comisionSociedad = $comisionSegundoNivel;
             } else {
                 // Caso 2: la sociedad padre no es de segundo nivel, se debe seguir subiendo en la cadena
                 $comisionSociedad = $this->getRestOfCommissions($sociedad->sociedad_padre_id, $producto['tipo_producto_id'], $comisionSegundoNivel);
