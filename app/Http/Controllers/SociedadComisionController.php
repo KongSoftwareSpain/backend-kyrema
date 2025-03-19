@@ -37,7 +37,7 @@ class SociedadComisionController extends Controller {
             return response()->json($resultado);
         }
 
-        Log::info($sociedad);
+
         // Buscar la sociedad de segundo nivel asociada
         $sociedadSegundoNivel = $this->buscarSociedadSegundoNivel($sociedad);
 
@@ -49,16 +49,22 @@ class SociedadComisionController extends Controller {
 
         // Obtener el precio base de los productos
         $productos = TarifaProductoController::getTarifasPorSociedadAndProductos($sociedadSegundoNivel->id, $productoIds);
-        Log::info($productos);
 
         foreach ($productos as &$producto) {
             $precioBase = $producto['precio_total'];
-            
-            $comisionSegundoNivel = ComisionSociedad::where('id_sociedad', $sociedad->sociedad_padre_id)
+
+            Log::info($producto['tipo_producto_id']);
+            Log::info($sociedadSegundoNivel->id);
+
+            $comisionSegundoNivel = ComisionSociedad::where('id_sociedad', $sociedadSegundoNivel->id)
                 ->where('tipo_producto_id', $producto['tipo_producto_id'])
                 ->first();
+            Log::info($comisionSegundoNivel);
+            
+            
 
             $comisionSegundoNivel = $this->calcularComision($precioBase, $comisionSegundoNivel);
+
 
             if ($sociedad->sociedad_padre_id == $sociedadSegundoNivel->id) {
                 // Obtener la comisión de la sociedad padre inmediata
@@ -70,9 +76,7 @@ class SociedadComisionController extends Controller {
                 // Caso 2: la sociedad padre no es de segundo nivel, se debe seguir subiendo en la cadena
                 $comisionSociedad = $this->getRestOfCommissions($sociedad->sociedad_padre_id, $producto['tipo_producto_id'], $comisionSegundoNivel);
             }
-    
-            Log::info($comisionSegundoNivel);
-            Log::info($comisionSociedad);
+
     
             // Asignamos la comisión calculada al producto (redondeada a dos decimales)
             $producto['comision_calculada'] = round($comisionSociedad, 2);
@@ -96,9 +100,13 @@ class SociedadComisionController extends Controller {
 
         // Mientras exista una sociedad padre y no se haya alcanzado la sociedad de admin
         while ($currentSociedad->sociedad_padre_id !== null && $currentSociedad->sociedad_padre_id !== env('SOCIEDAD_ADMIN_ID')) {
-            $comision = ComisionSociedad::where('id_sociedad', $currentSociedad->sociedad_padre_id)
+            Log::info('Sociedad padre'. $currentSociedad);
+            Log::info('Tipo producto'. $tipoProductoId);
+            $comision = ComisionSociedad::where('id_sociedad', $currentSociedad->id)
                         ->where('tipo_producto_id', $tipoProductoId)
                         ->first();
+
+            Log::info('Comision'. $comision);
             if ($comision) {
                 $comisionSegundoNivel = $comisionSegundoNivel - $this->calcularComision($comisionSegundoNivel, $comision);
             }
