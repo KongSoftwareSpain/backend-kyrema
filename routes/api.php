@@ -122,6 +122,7 @@ Route::put('comisiones/comercial/{id}', [ComercialComisionController::class, 'st
 Route::put('comisiones/sociedad/{id}', [SociedadComisionController::class, 'store']);
 
 Route::post('comisiones-total-price/sociedad/{sociedadId}', [SociedadComisionController::class, 'getTotalPrice']);
+Route::post('comisiones-total-price/comercial/{sociedadId}', [ComercialComisionController::class, 'getTotalPriceForCommercial']);
 
 
 // ANEXOS:

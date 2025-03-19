@@ -93,6 +93,41 @@ class SociedadComisionController extends Controller {
         return response()->json($resultado);
     }
 
+    private function getTotalPriceForCommercial($sociedadId, Request $request)
+    {
+        $productoIds = $request->input('productoIds'); 
+
+        // Obtener la sociedad actual
+        $sociedad = Sociedad::find($sociedadId);
+
+        // Si es de primer nivel, devolvemos directamente el precio del producto
+        if ($sociedad->sociedad_padre_id === null || $sociedad->sociedad_padre_id === env('SOCIEDAD_ADMIN_ID')) {
+            
+            $productos = TarifaProductoController::getTarifasPorSociedadAndProductos($sociedadId, $productoIds);
+
+            $resultado = $productos->map(function ($producto) {
+                return [
+                    'id' => $producto['tipo_producto_id'], 
+                    'totalPrice' => $producto['precio_total']
+                ];
+            }, $productos);
+
+            return response()->json($resultado);
+        }
+
+        if (!$sociedad) {
+            return response()->json(['error' => 'Sociedad no encontrada'], 404);
+        }
+
+        $productos = TarifaProductoController::getTarifasPorSociedadAndProductos($sociedadSegundoNivel->id, $productoIds);
+
+        $comisionSociedad = ComisionSociedad::where('id_sociedad', $sociedadId)
+            ->where('tipo_producto_id', $request->input('tipo_producto_id'))
+            ->first();
+
+        return response()->json($resultado);
+    }
+
 
     private function getRestOfCommissions($sociedadPadreId, $tipoProductoId, $comisionSegundoNivel)
     {
