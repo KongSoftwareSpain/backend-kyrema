@@ -93,39 +93,78 @@ class SociedadComisionController extends Controller {
         return response()->json($resultado);
     }
 
-    private function getTotalPriceForCommercial($sociedadId, Request $request)
+    public function getTotalPriceForCommercial($sociedadId, Request $request)
     {
         $productoIds = $request->input('productoIds'); 
 
         // Obtener la sociedad actual
         $sociedad = Sociedad::find($sociedadId);
 
-        // Si es de primer nivel, devolvemos directamente el precio del producto
-        if ($sociedad->sociedad_padre_id === null || $sociedad->sociedad_padre_id === env('SOCIEDAD_ADMIN_ID')) {
-            
-            $productos = TarifaProductoController::getTarifasPorSociedadAndProductos($sociedadId, $productoIds);
-
-            $resultado = $productos->map(function ($producto) {
-                return [
-                    'id' => $producto['tipo_producto_id'], 
-                    'totalPrice' => $producto['precio_total']
-                ];
-            }, $productos);
-
-            return response()->json($resultado);
-        }
-
         if (!$sociedad) {
             return response()->json(['error' => 'Sociedad no encontrada'], 404);
         }
 
-        $productos = TarifaProductoController::getTarifasPorSociedadAndProductos($sociedadSegundoNivel->id, $productoIds);
+        $productos = TarifaProductoController::getTarifasPorSociedadAndProductos($sociedadId, $productoIds);
 
-        $comisionSociedad = ComisionSociedad::where('id_sociedad', $sociedadId)
-            ->where('tipo_producto_id', $request->input('tipo_producto_id'))
-            ->first();
+        // Si es de primer nivel, devolvemos directamente el precio del producto
+        if ($sociedad->sociedad_padre_id === null || $sociedad->sociedad_padre_id === env('SOCIEDAD_ADMIN_ID')) {
+
+            foreach ($productos as &$producto) {
+                $precioBase = $producto['precio_total'];
+    
+                Log::info($producto['tipo_producto_id']);
+    
+                $comisionSegundoNivel = ComisionSociedad::where('id_sociedad', $sociedadId)
+                    ->where('tipo_producto_id', $producto['tipo_producto_id'])
+                    ->first();
+    
+                $comisionComercial = $this->calcularComision($precioBase, $comisionSegundoNivel);
+    
+        
+                // Asignamos la comisión calculada al producto (redondeada a dos decimales)
+                $producto['comision_calculada'] = round($comisionComercial, 2);
+            }
+
+           
+        } else {
+
+            foreach ($productos as &$producto) {
+                $comision = ComisionSociedad::where('id_sociedad', $sociedadId)
+                ->where('tipo_producto_id', $producto['tipo_producto_id'])
+                ->first();
+
+                if (!$comision) { 
+                    $producto['comision_calculada'] = 0;
+                    continue;
+                }            
+
+                if($comision->tipo == env('COMISION_TIPO_FIJO')) {
+
+                    $producto['comision_calculada'] = $comision->valor;
+
+                } else {
+
+                    $comisionSegundoNivel = ComisionSociedad::where('id_sociedad', $sociedadId)
+                    ->where('tipo_producto_id', $producto['tipo_producto_id'])
+                    ->first();
+
+                    $comisionSociedad = $this->getRestOfCommissions($sociedad->sociedad_padre_id, $producto['tipo_producto_id'], $this->calcularComision($producto['precio_total'], $comisionSegundoNivel));
+
+                    $producto['comision_calculada'] = round(($comisionSociedad - $this->calcularComision($comisionSociedad, $comision)), 2);
+                }
+            }
+
+        }
+
+        $resultado = $productos->map(function ($producto) {
+            return [
+                'id' => $producto['tipo_producto_id'], 
+                'totalPrice' => $producto['comision_calculada']
+            ];
+        }, $productos);
 
         return response()->json($resultado);
+
     }
 
 
