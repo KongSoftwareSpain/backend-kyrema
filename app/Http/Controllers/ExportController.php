@@ -304,21 +304,31 @@ class ExportController extends Controller
             ->get();    
 
 
-        // LOGO DE LA SOCIEDAD
-        if($valores->sociedad_id == env('SOCIEDAD_ADMIN_ID')){
-            $logo = 'logos/Logo_CANAMA__003.png';
-        } else {
-            $logo = $valores->logo_sociedad_path;
-        }
+        // LOGOS
+        $camposLogos = CampoController::fetchCamposLogos($tipoProducto->id);
 
-        $logoPath = storage_path('app/public/' . $logo);
+        foreach($camposLogos as $campoLogo){
+            if($campoLogo->tipo_logo == 'sociedad'){
+                if($valores->sociedad_id == env('SOCIEDAD_ADMIN_ID')){
+                    $campoLogo->url = 'logos/logo_18.png';
+                } else {
+                    $campoLogo->url = $valores->logo_sociedad_path;
+                }        
+            } else {
+                $campoLogo->url = Compania::find($campoLogo->entidad_id)->logo;
+            }
 
-        if(file_exists($logoPath)){
-            $logoData = base64_encode(file_get_contents($logoPath));
-            $logoMimeType = mime_content_type($logoPath);
-            $base64Logo = "data:{$logoMimeType};base64,{$logoData}";
-        } else {
-            $base64Logo = '';
+            $logoPath = public_path('storage/' . $campoLogo->url);
+            Log::info($logoPath);
+
+            if(file_exists($logoPath)){
+                
+                $logoData = base64_encode(file_get_contents($logoPath));
+                $logoMimeType = mime_content_type($logoPath);
+                $campoLogo->base64 = "data:{$logoMimeType};base64,{$logoData}";
+            } else {
+                $campoLogo->base64 = '';
+            }
         }
 
         // Obtener y colocar los datos de tipo_producto_polizas y las pólizas relacionadas
@@ -346,7 +356,7 @@ class ExportController extends Controller
             'polizas_tipo_producto' => $polizasTipoProducto,
             'polizas' => $polizas,
             'base64Plantillas' => $plantillasBase64,
-            'base64Logo' => $base64Logo
+            'logos' => $camposLogos
         ];
 
         return response()->json($data);
