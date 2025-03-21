@@ -188,12 +188,14 @@ class ExportController extends Controller
                             $campoLogo->url = $valores->logo_sociedad_path;
                         }        
                     } else {
-                        $campoLogo->url = CompaniaController::getCompanyLogo($campoLogo->entidad_id);
+                        $campoLogo->url = Compania::find($campoLogo->entidad_id)->logo;
                     }
 
-                    $logoPath = storage_path('app/public/' . $campoLogo->url);
+                    $logoPath = public_path('storage/' . $campoLogo->url);
+                    Log::info($logoPath);
 
                     if(file_exists($logoPath)){
+                        
                         $logoData = base64_encode(file_get_contents($logoPath));
                         $logoMimeType = mime_content_type($logoPath);
                         $campoLogo->base64 = "data:{$logoMimeType};base64,{$logoData}";
@@ -361,6 +363,10 @@ class ExportController extends Controller
 
     public function getLogoBase64($tipoLogo, $entidad_id)
     {
+        if($entidad_id == null){
+            $entidad = Sociedad::find(env('SOCIEDAD_ADMIN_ID'));
+        }
+
         if ($tipoLogo === env('TIPO_LOGO_SOCIEDAD', 'sociedad')) {
             $entidad = Sociedad::find($entidad_id);
         } else {
