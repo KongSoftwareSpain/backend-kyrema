@@ -17,6 +17,13 @@ class ComisionSociedad extends Model {
         'tipo',
     ];
 
+    protected $casts = [
+        'id_sociedad' => 'integer',
+        'valor' => 'float',
+        'tipo_producto_id' => 'integer',
+        'tipo' => 'string',
+    ];  
+
     public function sociedad() {
         return $this->belongsTo(Comercial::class, 'id_sociedad');
     }

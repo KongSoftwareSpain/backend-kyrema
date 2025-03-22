@@ -31,4 +31,20 @@ class Compania extends Model
     {
         return $this->hasMany(Poliza::class);
     }
+
+    public function getLogoBase64()
+    {
+        if (!$this->logo) {
+            return null;
+        }
+
+        $path = storage_path(env('APP_URL') . '/storage/' . $this->logo);
+        
+        if (!file_exists($path)) {
+            return null;
+        }
+
+        $imageData = file_get_contents($path);
+        return 'data:image/png;base64,' . base64_encode($imageData);
+    }
 }

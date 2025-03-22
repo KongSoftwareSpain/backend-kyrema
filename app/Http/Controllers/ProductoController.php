@@ -495,7 +495,7 @@ class ProductoController extends Controller
         $nombreTabla = strtolower($letrasIdentificacion);
         
         // Obtener la fecha y hora actual
-        $fechaActual = now();
+        $fechaActual = Carbon::now()->format('Y-m-d\TH:i:s');
         
         // Obtener los productos que están vigentes (fecha de fin >= fecha actual)
         $productosVigentes = DB::table($nombreTabla)

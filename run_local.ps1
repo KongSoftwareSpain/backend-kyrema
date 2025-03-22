@@ -1,6 +1,6 @@
 # Directorios de kiosco
-$backendPath = "C:\Users\MIGUEL\Desktop\backend-kyrema"
-$frontendPath = "C:\Users\MIGUEL\Desktop\Kyrema\frontend"
+$backendPath = "C:\Users\peric\Desktop\backend-kyrema"
+$frontendPath = "C:\Users\peric\Desktop\Kyrema\frontend"
 $logPath = "$backendPath\storage\logs\laravel.log"
 
 # Función para verificar si un comando esta disponible

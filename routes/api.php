@@ -71,7 +71,7 @@ Route::apiResource('campos', CampoController::class);
 Route::get('campos', [CampoController::class, 'getByTipoProducto']);
 Route::put('campos-update/{id_tipo_producto}', [CampoController::class, 'updatePorTipoProducto']);
 Route::post('add-campos/{id_tipo_producto}', [CampoController::class, 'addCampos']);
-Route::post('create-campo-opciones/{id_tipo_producto}', [CampoController::class, 'createCampoConOpciones']);
+Route::post('create-campo-opciones/{id_tipo_producto}', [CampoController::class, 'createCampoConOpcionesHTTP']);
 Route::put('update-campo-opciones/{id}', [CampoController::class, 'updateCampoConOpciones']);
 Route::get('opciones/{id_campo}', [CampoController::class, 'getOpcionesPorCampo']);
 Route::get('campos-certificado/{id}', [CampoController::class, 'getCamposCertificado']);
@@ -97,6 +97,7 @@ Route::delete('sociedad/{id}', [SociedadController::class, 'destroy']);
 Route::put('sociedad/{id}', [SociedadController::class, 'update']);
 Route::put('sociedad/{id}/permisos', [SociedadController::class, 'updatePermisos']);
 Route::get('sociedades/padres', [SociedadController::class, 'getSociedadesPadres']);
+Route::get('sociedades', [SociedadController::class, 'index']);
 Route::get('sociedad/comercial/{comercial_id}', [SociedadController::class, 'getSociedadPorComercial']);
 
 
@@ -117,10 +118,11 @@ Route::post('comercial', [ComercialController::class, 'store']);
 
 Route::get('comisiones/comercial/{id}', [ComercialComisionController::class, 'index']);
 Route::get('comisiones/sociedad/{id}', [SociedadComisionController::class, 'index']);
-Route::post('comisiones/comercial/{id}', [ComercialComisionController::class, 'store']);
-Route::post('comisiones/sociedad/{id}', [SociedadComisionController::class, 'store']);
+Route::put('comisiones/comercial/{id}', [ComercialComisionController::class, 'store']);
+Route::put('comisiones/sociedad/{id}', [SociedadComisionController::class, 'store']);
 
 Route::post('comisiones-total-price/sociedad/{sociedadId}', [SociedadComisionController::class, 'getTotalPrice']);
+Route::post('comisiones-total-price/comercial/{sociedadId}', [SociedadComisionController::class, 'getTotalPriceForCommercial']);
 
 
 // ANEXOS:
@@ -142,6 +144,9 @@ Route::post('subir-plantilla-anexo/{letrasIdentificacion}', [AnexosController::c
 
 // Descargar plantilla anexo:
 Route::get('descargar-plantilla-anexo/{tipoAnexoId}', [ExportController::class, 'exportAnexoExcelToPdf']);
+
+// LOGOS:
+Route::get('logo/{tipoLogo}/{entidad_id}', [ExportController::class, 'getLogoBase64']);
 
 //ANEXOS BLOQUEADOS
 Route::get('anexos-bloqueados/{tipo_producto_asociado}', [AnexosController::class, 'getAnexosBloqueados']);
@@ -187,6 +192,7 @@ Route::get('companies', [CompaniaController::class, 'getAll']);
 Route::get('companies/{id}', [CompaniaController::class, 'getCompanyById']);
 Route::post('companies', [CompaniaController::class, 'createCompany']);
 Route::put('companies/{id}', [CompaniaController::class, 'updateCompany']);
+Route::delete('companies/{id}', [CompaniaController::class, 'deleteCompany']);
 
 // POLIZAS:
 
@@ -194,6 +200,7 @@ Route::get('company/{id}/polizas', [PolizaController::class, 'getPolizasByCompan
 Route::get('poliza/{id}', [PolizaController::class, 'getPolizaById']);
 Route::post('poliza', [PolizaController::class, 'store']);
 Route::post('poliza/{id}', [PolizaController::class, 'update']);
+Route::delete('poliza/{id}', [PolizaController::class, 'destroy']);
 Route::get('polizas/tipo-producto/{id}', [PolizaController::class, 'getPolizasByTipoProducto']);
 Route::put('polizas/tipo-producto/{id}', [PolizaController::class, 'updatePolizas']);
 Route::get('descargar-poliza/{id}', [PolizaController::class, 'downloadPoliza']);

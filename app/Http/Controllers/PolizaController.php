@@ -203,4 +203,23 @@ class PolizaController extends Controller
         return response()->json($polizas);
     }
 
+    public function destroy($id){
+        $poliza = Poliza::findOrFail($id);
+
+        // Eliminar los documentos adjuntos
+        for ($i = 1; $i <= 6; $i++) {
+            $docField = "doc_adjuntos_$i";
+            if ($poliza->$docField) {
+                $rutaArchivo = 'docs/' . $poliza->$docField;
+                if (Storage::disk('public')->exists($rutaArchivo)) {
+                    Storage::disk('public')->delete($rutaArchivo);
+                }
+            }
+        }
+
+        $poliza->delete();
+
+        return response()->json(['message' => 'Póliza eliminada correctamente']);
+    }
+
 }

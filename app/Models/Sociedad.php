@@ -51,4 +51,20 @@ class Sociedad extends Model
     {
         return $this->hasMany(TarifasProducto::class, 'id_sociedad', 'id');
     }
+
+    public function getLogoBase64()
+    {
+        if (!$this->logo) {
+            return null; // Retorna null si no hay logo
+        }
+
+        $path = storage_path('app/public/logos/' . $this->logo);
+        
+        if (!file_exists($path)) {
+            return null;
+        }
+
+        $imageData = file_get_contents($path);
+        return 'data:image/png;base64,' . base64_encode($imageData);
+    }
 }
