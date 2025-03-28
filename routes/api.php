@@ -209,6 +209,7 @@ Route::get('descargar-poliza/{id}', [PolizaController::class, 'downloadPoliza'])
 Route::apiResource('escalado-anexos', EscaladoAnexoController::class);
 
 Route::get('/nav/{id_sociedad}/{responsable}', [NavController::class, 'getNavegacion']);
+Route::post('/nav/socio/{categoria}', [NavController::class, 'getNavegacionSocio']);
 
 //Pagos:
 Route::post('/payment/create', [PaymentController::class, 'createPayment']);

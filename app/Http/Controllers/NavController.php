@@ -10,6 +10,21 @@ use App\Models\Sociedad;
 class NavController extends Controller
 {   
     const SOCIEDAD_ADMIN_ID = 1;
+
+    public function getNavegacionSocio($categoria){
+        $tiposProducto = TipoProducto::where('categoria_id', $categoria)->get();
+
+        $navegacion = [];
+        $navegacion[] = [
+            "label" => "Mis Datos",
+            "children" => []
+        ];
+        $navegacion[] = [
+            "label" => "Productos",
+            "children" => []
+        ];
+    }
+
     // Para coger las distintas rutas de la aplicación
     public function getNavegacion($id_sociedad, $responsable){
         // Coger los tipos de producto asociados con la sociedad
