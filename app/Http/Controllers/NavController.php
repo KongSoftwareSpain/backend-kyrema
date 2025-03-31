@@ -34,7 +34,7 @@ class NavController extends Controller
         
         $navegacion[1]["children"] = $tiposProducto->map(function($tipoProducto){
             return [
-                "label" => $tipoProducto->nombre,
+                "label" => 'Contratar - ' . $tipoProducto->nombre,
                 "link" => "/contratar/" . strtolower($tipoProducto->letras_identificacion) . '/1'
             ];
         })->toArray();
