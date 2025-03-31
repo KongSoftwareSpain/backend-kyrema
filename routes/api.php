@@ -112,6 +112,7 @@ Route::put('comercial/{id}', [ComercialController::class, 'update']);
 Route::delete('comercial/{id}', [ComercialController::class, 'destroy']);
 
 Route::post('auth/login', [AuthController::class, 'login']);
+Route::post('auth/login/socio', [AuthController::class, 'loginSocio']);
 Route::get('comercial/{id}', [ComercialController::class, 'show']);
 Route::put('comercial/{id}', [ComercialController::class, 'update']);
 Route::post('comercial', [ComercialController::class, 'store']);
@@ -206,10 +207,10 @@ Route::put('polizas/tipo-producto/{id}', [PolizaController::class, 'updatePoliza
 Route::get('descargar-poliza/{id}', [PolizaController::class, 'downloadPoliza']);
 
 
-Route::apiResource('escalado-anexos', EscaladoAnexoController::class);
+Route::apiResource('escalado-anexos', EscaladoAnexoController::class);  
 
 Route::get('/nav/{id_sociedad}/{responsable}', [NavController::class, 'getNavegacion']);
-Route::post('/nav/socio/{categoria}', [NavController::class, 'getNavegacionSocio']);
+Route::get('/nav-socio/{categoria}', [NavController::class, 'getNavegacionSocio']);
 
 //Pagos:
 Route::post('/payment/create', [PaymentController::class, 'createPayment']);
@@ -222,6 +223,8 @@ Route::post('socio/categoria/{categoria_id}', [SocioController::class, 'store'])
 Route::put('socio/{id}', [SocioController::class, 'update']);
 Route::delete('socio/{id}', [SocioController::class, 'destroy']);
 Route::get('socios/comercial/{id_comercial}', [SocioController::class, 'getSociosByComercial']);
+
+Route::get('socio/{id}/productos/{id_tipo_producto}', [SocioController::class, 'getProductosBySocio']);
 
 // CATEGORIAS:
 Route::apiResource('categorias', CategoriaController::class);

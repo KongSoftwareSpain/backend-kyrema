@@ -5,8 +5,9 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Tymon\JWTAuth\Contracts\JWTSubject;
 
-class Socio extends Model
+class Socio extends Model implements JWTSubject
 {
     use HasFactory;
 
@@ -35,5 +36,15 @@ class Socio extends Model
             ->where('id_socio', $id_socio)
             ->orderBy('created_at', 'desc')
             ->first();
+    }
+
+    public function getJWTIdentifier()
+    {
+        return $this->getKey();
+    }
+
+    public function getJWTCustomClaims()
+    {
+        return [];
     }
 }

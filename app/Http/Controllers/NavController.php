@@ -17,12 +17,35 @@ class NavController extends Controller
         $navegacion = [];
         $navegacion[] = [
             "label" => "Mis Datos",
-            "children" => []
+            "link" => '/mis-datos'
         ];
         $navegacion[] = [
-            "label" => "Productos",
+            "label" => "Contratar",
             "children" => []
         ];
+
+        $navegacion[] = [
+            "label" => "Mis Productos",
+            "children" => []
+        ];
+        
+        $tiposProducto = TipoProducto::where('categoria_id', $categoria)->whereNull('padre_id')->whereNull('tipo_producto_asociado')->get();
+
+        
+        $navegacion[1]["children"] = $tiposProducto->map(function($tipoProducto){
+            return [
+                "label" => $tipoProducto->nombre,
+                "link" => "/contratar/" . strtolower($tipoProducto->letras_identificacion) . '/1'
+            ];
+        })->toArray();
+        $navegacion[2]["children"] = $tiposProducto->map(function($tipoProducto){
+            return [
+                "label" => $tipoProducto->nombre,
+                "link" => "/mis-productos/" . strtolower($tipoProducto->letras_identificacion)
+            ];
+        })->toArray();
+
+        return response()->json($navegacion);
     }
 
     // Para coger las distintas rutas de la aplicación
