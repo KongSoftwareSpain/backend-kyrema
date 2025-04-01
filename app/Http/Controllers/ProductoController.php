@@ -25,300 +25,308 @@ class ProductoController extends Controller
 
     public function crearTipoProducto(Request $request)
     {
-        // Validar los datos recibidos
-        $request->validate([
-            'nombreProducto' => 'required|string',
-            'letrasIdentificacion' => 'required|string',
-            'acuerdo_kyrema' => 'nullable|boolean',
-            'categoria_id' => 'nullable|integer',
-            'columna_logo_sociedad' => 'nullable|string',
-            'fila_logo_sociedad' => 'nullable|string',
-            'page_logo_sociedad' => 'nullable|string',
-            'padre_id' => 'nullable|integer',
-            'tipo_producto_asociado' => 'nullable|integer',
-            'separacion_anexos' => 'nullable|string',
-            'polizas' => 'nullable|array',
-            'campos' => 'nullable|array',
-            'campos.*.nombre' => 'required|string',
-            'campos.*.tipo_dato' => 'required|string|in:text,number,date,decimal,selector,select',
-            'camposConOpciones' => 'nullable|array',
-            'camposConOpciones.*.nombre' => 'required|string',
-            'camposConOpciones.*.opciones' => 'required|array',
-            'camposConOpciones.*.opciones.*.nombre' => 'required|string',
-            'camposConOpciones.*.opciones.*.precio' => 'nullable|string',
-            'duracion' => 'required|array',
-            'duracion.*.nombre' => 'required|string',
-            'duracion.*.tipo_dato' => 'required|string|in:anual,mensual,diario,dias_delimitados,selector_dias,fecha_exacta,heredada',
-        ]);
+        DB::beginTransaction();
 
-        $nombreProducto = $request->input('nombreProducto');
-        $letrasIdentificacion = $request->input('letrasIdentificacion');
-        $categoria_id = $request->input('categoria_id');
-        $acuerdo_kyrema = $request->input('acuerdo_kyrema');
-        $nombre_unificado = $request->input('nombre_unificado');
-        $campos_logos = $request->input('campos_logos');
-        $padre_id = $request->input('padre_id');
-        $tipo_producto_asociado = $request->input('tipo_producto_asociado');
-        $separacion_anexos = $request->input('separacion_anexos');
-        $polizas = $request->input('polizas');
-        $campos = $request->input('campos');
-        $camposConOpciones = $request->input('camposConOpciones') ?? [];
-        $duracion = $request->input('duracion')[0];
-
-        // Gestión de la duración del tipo de producto
-        $tipoDuracion = $duracion['tipo_dato'];
-        $valorDuracion = null;
-
-        // Array asociativo para relacionar tipos de duración con días
-        $diasRelacionados = [
-            'anual' => 365,   // Ejemplo: 365 días
-            'mensual' => 30,  // Ejemplo: 30 días
-            'diario' => 1,    // Ejemplo: 1 día
-        ];
-
-        if (array_key_exists($tipoDuracion, $diasRelacionados)) {
-            // Asignar el valor de duración basado en el array asociativo
-            $valorDuracion = $diasRelacionados[$tipoDuracion];
-        } elseif ($tipoDuracion == 'dias_delimitados') {
-            // Si el tipo de duración es 'dias_delimitados', coger la primera opción disponible
-            $valorDuracion = $duracion['opciones'][0]['nombre'] ?? null;
-        } elseif ($tipoDuracion == 'selector_dias') {
-            // Add your code here for 'selector_dias' duration type
-            $valorDuracion = Config::get('app.prefijo_duracion') . $letrasIdentificacion;
-            $valorDuracion = strtolower($valorDuracion);
-            Schema::create($valorDuracion, function (Blueprint $table) {
-                $table->id();
-                $table->string('duracion');
-                $table->decimal('precio_base', 8, 2)->nullable();
-                $table->decimal('extra_1', 8, 2)->nullable();
-                $table->decimal('extra_2', 8, 2)->nullable();
-                $table->decimal('extra_3', 8, 2)->nullable();
-                $table->decimal('precio_total', 8, 2)->nullable();
-                $table->timestamps();
-            });
-            if (!empty($duracion['opciones'])) {
-                foreach ($duracion['opciones'] as $opcion) {
-                    DB::table($valorDuracion)->insert([
-                        'duracion' => $opcion['nombre'],
-                        'precio_base' => $opcion['precio_base'] ?? null,
-                        'extra_1' => $opcion['extra_1'] ?? null,
-                        'extra_2' => $opcion['extra_2'] ?? null,
-                        'extra_3' => $opcion['extra_3'] ?? null,
-                        'precio_total' => $opcion['precio_total'] ?? null,
-                        'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
-                        'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
-                    ]);
-                }
-            }
-        }
-
-        // Insertar información del tipo de producto en la tabla correspondiente y obtener el ID
-        $tipoProductoId = DB::table('tipo_producto')->insertGetId([
-            'letras_identificacion' => $letrasIdentificacion,
-            'categoria_id' => $categoria_id,
-            'acuerdo_kyrema' => $acuerdo_kyrema,
-            'nombre_unificado' => $nombre_unificado,
-            'nombre' => $nombreProducto,
-            'padre_id' => $padre_id,
-            'tipo_producto_asociado' => $tipo_producto_asociado,
-            'separacion_anexos' => $separacion_anexos,
-            'tipo_duracion' => $tipoDuracion,
-            'duracion' => $valorDuracion,
-            'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
-            'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
-        ]);
-
-        if($polizas && count($polizas) > 0){
-            // Conectar las polizas con el tipo_producto
-            self::insertPolizas($polizas, $tipoProductoId);
-        }
-
-        if($campos_logos && count($campos_logos) > 0){
-            // Conectar las polizas con el tipo_producto
-            self::insertLogos($campos_logos, $tipoProductoId);
-        }
-
-        // Insertar información de los campos en la tabla 'campos'
-        foreach ($campos as $campo) {
-            DB::table('campos')->insert([
-                'nombre' => $campo['nombre'],
-                'nombre_codigo' => strtolower(str_replace(' ', '_', $campo['nombre'])),
-                'tipo_producto_id' => $tipoProductoId,
-                'columna' => $campo['columna'] ?? null,
-                'fila' => $campo['fila'] ?? null,
-                'page' => $campo['page'] ?? null,
-                'font_size' => $campo['font_size'] ?? null,
-                'tipo_dato' => $campo['tipo_dato'],
-                'visible' => $campo['visible'] ?? false,
-                'obligatorio' => $campo['obligatorio'] ?? false,
-                'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
-                'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
-                'grupo' => $campo['grupo'] ?? null,
-                'copia' => $campo['copia'] ?? false,
+        try{
+            // Validar los datos recibidos
+            $request->validate([
+                'nombreProducto' => 'required|string',
+                'letrasIdentificacion' => 'required|string',
+                'acuerdo_kyrema' => 'nullable|boolean',
+                'categoria_id' => 'nullable|integer',
+                'columna_logo_sociedad' => 'nullable|string',
+                'fila_logo_sociedad' => 'nullable|string',
+                'page_logo_sociedad' => 'nullable|string',
+                'padre_id' => 'nullable|integer',
+                'tipo_producto_asociado' => 'nullable|integer',
+                'separacion_anexos' => 'nullable|string',
+                'polizas' => 'nullable|array',
+                'campos' => 'nullable|array',
+                'campos.*.nombre' => 'required|string',
+                'campos.*.tipo_dato' => 'required|string|in:text,number,date,decimal,selector,select',
+                'camposConOpciones' => 'nullable|array',
+                'camposConOpciones.*.nombre' => 'required|string',
+                'camposConOpciones.*.opciones' => 'required|array',
+                'camposConOpciones.*.opciones.*.nombre' => 'required|string',
+                'camposConOpciones.*.opciones.*.precio' => 'nullable|string',
+                'duracion' => 'required|array',
+                'duracion.*.nombre' => 'required|string',
+                'duracion.*.tipo_dato' => 'required|string|in:anual,mensual,diario,dias_delimitados,selector_dias,fecha_exacta,heredada',
             ]);
-        }
 
-        // Duraciones con campos 'copia'.
-        $duraciones = $request->input('duracion');
-        self::insertDuracionEnCampos($duraciones, $tipoProductoId);
+            $nombreProducto = $request->input('nombreProducto');
+            $letrasIdentificacion = $request->input('letrasIdentificacion');
+            $categoria_id = $request->input('categoria_id');
+            $acuerdo_kyrema = $request->input('acuerdo_kyrema');
+            $nombre_unificado = $request->input('nombre_unificado');
+            $campos_logos = $request->input('campos_logos');
+            $padre_id = $request->input('padre_id');
+            $tipo_producto_asociado = $request->input('tipo_producto_asociado');
+            $separacion_anexos = $request->input('separacion_anexos');
+            $polizas = $request->input('polizas');
+            $campos = $request->input('campos');
+            $camposConOpciones = $request->input('camposConOpciones') ?? [];
+            $duracion = $request->input('duracion')[0];
 
-        
-        // Definir el nombre de la nueva tabla usando las letras de identificación
-        $nombreTabla = strtolower($letrasIdentificacion);
+            // Gestión de la duración del tipo de producto
+            $tipoDuracion = $duracion['tipo_dato'];
+            $valorDuracion = null;
 
-        // Filtrar y quitar las COPIAS para que no se inserten en la tabla duplicados:
-        $campos = array_filter($campos, function($campo) {
-            return $campo['copia'] === false;
-        });
+            // Array asociativo para relacionar tipos de duración con días
+            $diasRelacionados = [
+                'anual' => 365,   // Ejemplo: 365 días
+                'mensual' => 30,  // Ejemplo: 30 días
+                'diario' => 1,    // Ejemplo: 1 día
+            ];
 
-        $camposConOpciones = array_filter($camposConOpciones, function($campo) {
-            return $campo['copia'] === false;
-        });
-
-        // Si es un anexo (Es decir tiene tipo_producto_asociado) se crea la tabla solo con los campos
-        // con grupo datos_anexo:
-        if($tipo_producto_asociado){
-            $campos = array_filter($campos, function($campo) {
-                return $campo['grupo'] === 'datos_anexo' || $campo['grupo'] === 'datos_fecha';
-            });
-            
-            $camposConOpciones = array_filter($camposConOpciones, function($campo) {
-                return $campo['grupo'] === 'datos_anexo' || $campo['grupo'] === 'datos_fecha';
-            });
-        }
-
-
-        if ($padre_id) {
-            // Obtén el nombre de la tabla del padre
-            $nombreTablaPadre = DB::table('tipo_producto')->where('id', $padre_id)->value('letras_identificacion');
-
-            Log::info($nombreTablaPadre);
-        
-            // Verifica si la tabla existe antes de modificarla
-            if (Schema::hasTable($nombreTablaPadre)) {
-                Schema::table($nombreTablaPadre, function (Blueprint $table) use ($campos, $camposConOpciones) {
-                    if(!Schema::hasColumn($table->getTable(), 'subproducto')){
-                        $table->string('subproducto')->nullable();
-                    }
-                    if(!Schema::hasColumn($table->getTable(), 'subproducto_codigo')){
-                        $table->string('subproducto_codigo')->nullable();
-                    }
-                    // Añadir los campos dinámicos desde $campos
-                    foreach ($campos as $campo) {
-                        $nombreCampo = strtolower(str_replace(' ', '_', $campo['nombre']));
-                        if (!Schema::hasColumn($table->getTable(), $nombreCampo)) {
-                            switch ($campo['tipo_dato']) {
-                                case 'text':
-                                    $table->string($nombreCampo)->nullable();
-                                    break;
-                                case 'decimal':
-                                    $table->decimal($nombreCampo, 8, 2)->nullable();
-                                    break;
-                                case 'number':
-                                    $table->integer($nombreCampo)->nullable();
-                                    break;
-                                case 'date':
-                                    $table->datetime($nombreCampo)->nullable();
-                                    break;
-                                default:
-                                    $table->string($nombreCampo)->nullable();
-                                    break;
-                            }
-                        }
-                    }
-        
-                    // Añadir campos con opciones desde $camposConOpciones
-                    foreach ($camposConOpciones as $campoConOpciones) {
-                        $nombreCampo = strtolower(str_replace(' ', '_', $campoConOpciones['nombre']));
-                        if (!Schema::hasColumn($table->getTable(), $nombreCampo)) {
-                            $table->string($nombreCampo)->nullable();
-                        }
-                    }
-        
-                });
-            }
-        } else {
-            // Crear la tabla en la base de datos
-            Schema::create($nombreTabla, function (Blueprint $table) use ($campos, $camposConOpciones, $tipo_producto_asociado) {
-                $table->id();
-
-                // Estos campos solo se añaden al producto, no al anexo.
-                if($tipo_producto_asociado == null){
-                    // Agregar campos adicionales
-                    $table->unsignedBigInteger('sociedad_id')->nullable();
-                    $table->unsignedBigInteger('tipo_de_pago_id')->nullable();
-                    $table->unsignedBigInteger('comercial_id')->nullable();
-                    // Campo para saber si que comercial crea el producto en nombre de otro
-                    $table->unsignedBigInteger('comercial_creador_id')->nullable();
-                    $table->boolean('mediante_pagina_web')->nullable();
-                    $table->unsignedBigInteger('socio_id')->nullable();
-                    $table->string('logo_sociedad_path')->nullable();
-                } else {
-                    $table->unsignedBigInteger('producto_id')->nullable();
+            if (array_key_exists($tipoDuracion, $diasRelacionados)) {
+                // Asignar el valor de duración basado en el array asociativo
+                $valorDuracion = $diasRelacionados[$tipoDuracion];
+            } elseif ($tipoDuracion == 'dias_delimitados') {
+                // Si el tipo de duración es 'dias_delimitados', coger la primera opción disponible
+                $valorDuracion = $duracion['opciones'][0]['nombre'] ?? null;
+            } elseif ($tipoDuracion == 'selector_dias') {
+                // Add your code here for 'selector_dias' duration type
+                $valorDuracion = Config::get('app.prefijo_duracion') . $letrasIdentificacion;
+                $valorDuracion = strtolower($valorDuracion);
+                Schema::create($valorDuracion, function (Blueprint $table) {
+                    $table->id();
+                    $table->string('duracion');
                     $table->decimal('precio_base', 8, 2)->nullable();
                     $table->decimal('extra_1', 8, 2)->nullable();
                     $table->decimal('extra_2', 8, 2)->nullable();
                     $table->decimal('extra_3', 8, 2)->nullable();
                     $table->decimal('precio_total', 8, 2)->nullable();
-                }
-
-                $table->string('plantilla_path_1')->nullable();
-                $table->string('plantilla_path_2')->nullable();
-                $table->string('plantilla_path_3')->nullable();
-                $table->string('plantilla_path_4')->nullable();
-                $table->string('plantilla_path_5')->nullable();
-                $table->string('plantilla_path_6')->nullable();
-                $table->string('plantilla_path_7')->nullable();
-                $table->string('plantilla_path_8')->nullable();
-                $table->string('duracion')->nullable();
-                // Booleano de si está anulado o no
-                $table->boolean('anulado')->default(false);
-                
-                // Añadimos campos a la tabla
-                foreach ($campos as $campo) {
-                    $nombreCampo = strtolower(str_replace(' ', '_', $campo['nombre']));
-                    switch ($campo['tipo_dato']) {
-                        case 'text':
-                            $table->string($nombreCampo)->nullable();
-                            break;
-                        case 'decimal':
-                            $table->decimal($nombreCampo, 8, 2)->nullable();  // Cambié a decimal en lugar de string para manejar mejor los números decimales
-                            break;
-                        case 'number':
-                            $table->integer($nombreCampo)->nullable();
-                            break;
-                        case 'date':
-                            $table->datetime($nombreCampo)->nullable();
-                            break;
-                        default:
-                            $table->string($nombreCampo)->nullable();
-                            break;
+                    $table->timestamps();
+                });
+                if (!empty($duracion['opciones'])) {
+                    foreach ($duracion['opciones'] as $opcion) {
+                        DB::table($valorDuracion)->insert([
+                            'duracion' => $opcion['nombre'],
+                            'precio_base' => $opcion['precio_base'] ?? null,
+                            'extra_1' => $opcion['extra_1'] ?? null,
+                            'extra_2' => $opcion['extra_2'] ?? null,
+                            'extra_3' => $opcion['extra_3'] ?? null,
+                            'precio_total' => $opcion['precio_total'] ?? null,
+                            'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
+                            'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
+                        ]);
                     }
                 }
+            }
 
-                // Añadimos campos con opciones a la tabla
-                foreach ($camposConOpciones as $campoConOpciones) {
-                    $nombreCampo = strtolower(str_replace(' ', '_', $campoConOpciones['nombre']));
-                    $table->string($nombreCampo)->nullable();
-                }
-                
-                $table->timestamps();
+            // Insertar información del tipo de producto en la tabla correspondiente y obtener el ID
+            $tipoProductoId = DB::table('tipo_producto')->insertGetId([
+                'letras_identificacion' => $letrasIdentificacion,
+                'categoria_id' => $categoria_id,
+                'acuerdo_kyrema' => $acuerdo_kyrema,
+                'nombre_unificado' => $nombre_unificado,
+                'nombre' => $nombreProducto,
+                'padre_id' => $padre_id,
+                'tipo_producto_asociado' => $tipo_producto_asociado,
+                'separacion_anexos' => $separacion_anexos,
+                'tipo_duracion' => $tipoDuracion,
+                'duracion' => $valorDuracion,
+                'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
+                'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
+            ]);
+
+            if($polizas && count($polizas) > 0){
+                // Conectar las polizas con el tipo_producto
+                self::insertPolizas($polizas, $tipoProductoId);
+            }
+
+            if($campos_logos && count($campos_logos) > 0){
+                // Conectar las polizas con el tipo_producto
+                self::insertLogos($campos_logos, $tipoProductoId);
+            }
+
+            // Insertar información de los campos en la tabla 'campos'
+            foreach ($campos as $campo) {
+                DB::table('campos')->insert([
+                    'nombre' => $campo['nombre'],
+                    'nombre_codigo' => strtolower(str_replace(' ', '_', $campo['nombre'])),
+                    'tipo_producto_id' => $tipoProductoId,
+                    'columna' => $campo['columna'] ?? null,
+                    'fila' => $campo['fila'] ?? null,
+                    'page' => $campo['page'] ?? null,
+                    'font_size' => $campo['font_size'] ?? null,
+                    'tipo_dato' => $campo['tipo_dato'],
+                    'visible' => $campo['visible'] ?? false,
+                    'obligatorio' => $campo['obligatorio'] ?? false,
+                    'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
+                    'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
+                    'grupo' => $campo['grupo'] ?? null,
+                    'copia' => $campo['copia'] ?? false,
+                ]);
+            }
+
+            // Duraciones con campos 'copia'.
+            $duraciones = $request->input('duracion');
+            self::insertDuracionEnCampos($duraciones, $tipoProductoId);
+
+            
+            // Definir el nombre de la nueva tabla usando las letras de identificación
+            $nombreTabla = strtolower($letrasIdentificacion);
+
+            // Filtrar y quitar las COPIAS para que no se inserten en la tabla duplicados:
+            $campos = array_filter($campos, function($campo) {
+                return $campo['copia'] === false;
             });
+
+            $camposConOpciones = array_filter($camposConOpciones, function($campo) {
+                return $campo['copia'] === false;
+            });
+
+            // Si es un anexo (Es decir tiene tipo_producto_asociado) se crea la tabla solo con los campos
+            // con grupo datos_anexo:
+            if($tipo_producto_asociado){
+                $campos = array_filter($campos, function($campo) {
+                    return $campo['grupo'] === 'datos_anexo' || $campo['grupo'] === 'datos_fecha';
+                });
+                
+                $camposConOpciones = array_filter($camposConOpciones, function($campo) {
+                    return $campo['grupo'] === 'datos_anexo' || $campo['grupo'] === 'datos_fecha';
+                });
+            }
+
+
+            if ($padre_id) {
+                // Obtén el nombre de la tabla del padre
+                $nombreTablaPadre = DB::table('tipo_producto')->where('id', $padre_id)->value('letras_identificacion');
+
+                Log::info($nombreTablaPadre);
+            
+                // Verifica si la tabla existe antes de modificarla
+                if (Schema::hasTable($nombreTablaPadre)) {
+                    Schema::table($nombreTablaPadre, function (Blueprint $table) use ($campos, $camposConOpciones) {
+                        if(!Schema::hasColumn($table->getTable(), 'subproducto')){
+                            $table->string('subproducto')->nullable();
+                        }
+                        if(!Schema::hasColumn($table->getTable(), 'subproducto_codigo')){
+                            $table->string('subproducto_codigo')->nullable();
+                        }
+                        // Añadir los campos dinámicos desde $campos
+                        foreach ($campos as $campo) {
+                            $nombreCampo = strtolower(str_replace(' ', '_', $campo['nombre']));
+                            if (!Schema::hasColumn($table->getTable(), $nombreCampo)) {
+                                switch ($campo['tipo_dato']) {
+                                    case 'text':
+                                        $table->string($nombreCampo)->nullable();
+                                        break;
+                                    case 'decimal':
+                                        $table->decimal($nombreCampo, 8, 2)->nullable();
+                                        break;
+                                    case 'number':
+                                        $table->integer($nombreCampo)->nullable();
+                                        break;
+                                    case 'date':
+                                        $table->datetime($nombreCampo)->nullable();
+                                        break;
+                                    default:
+                                        $table->string($nombreCampo)->nullable();
+                                        break;
+                                }
+                            }
+                        }
+            
+                        // Añadir campos con opciones desde $camposConOpciones
+                        foreach ($camposConOpciones as $campoConOpciones) {
+                            $nombreCampo = strtolower(str_replace(' ', '_', $campoConOpciones['nombre']));
+                            if (!Schema::hasColumn($table->getTable(), $nombreCampo)) {
+                                $table->string($nombreCampo)->nullable();
+                            }
+                        }
+            
+                    });
+                }
+            } else {
+                // Crear la tabla en la base de datos
+                Schema::create($nombreTabla, function (Blueprint $table) use ($campos, $camposConOpciones, $tipo_producto_asociado) {
+                    $table->id();
+
+                    // Estos campos solo se añaden al producto, no al anexo.
+                    if($tipo_producto_asociado == null){
+                        // Agregar campos adicionales
+                        $table->unsignedBigInteger('sociedad_id')->nullable();
+                        $table->unsignedBigInteger('tipo_de_pago_id')->nullable();
+                        $table->unsignedBigInteger('comercial_id')->nullable();
+                        // Campo para saber si que comercial crea el producto en nombre de otro
+                        $table->unsignedBigInteger('comercial_creador_id')->nullable();
+                        $table->boolean('mediante_pagina_web')->nullable();
+                        $table->unsignedBigInteger('socio_id')->nullable();
+                        $table->string('logo_sociedad_path')->nullable();
+                    } else {
+                        $table->unsignedBigInteger('producto_id')->nullable();
+                        $table->decimal('precio_base', 8, 2)->nullable();
+                        $table->decimal('extra_1', 8, 2)->nullable();
+                        $table->decimal('extra_2', 8, 2)->nullable();
+                        $table->decimal('extra_3', 8, 2)->nullable();
+                        $table->decimal('precio_total', 8, 2)->nullable();
+                    }
+
+                    $table->string('plantilla_path_1')->nullable();
+                    $table->string('plantilla_path_2')->nullable();
+                    $table->string('plantilla_path_3')->nullable();
+                    $table->string('plantilla_path_4')->nullable();
+                    $table->string('plantilla_path_5')->nullable();
+                    $table->string('plantilla_path_6')->nullable();
+                    $table->string('plantilla_path_7')->nullable();
+                    $table->string('plantilla_path_8')->nullable();
+                    $table->string('duracion')->nullable();
+                    // Booleano de si está anulado o no
+                    $table->boolean('anulado')->default(false);
+                    
+                    // Añadimos campos a la tabla
+                    foreach ($campos as $campo) {
+                        $nombreCampo = strtolower(str_replace(' ', '_', $campo['nombre']));
+                        switch ($campo['tipo_dato']) {
+                            case 'text':
+                                $table->string($nombreCampo)->nullable();
+                                break;
+                            case 'decimal':
+                                $table->decimal($nombreCampo, 8, 2)->nullable();  // Cambié a decimal en lugar de string para manejar mejor los números decimales
+                                break;
+                            case 'number':
+                                $table->integer($nombreCampo)->nullable();
+                                break;
+                            case 'date':
+                                $table->datetime($nombreCampo)->nullable();
+                                break;
+                            default:
+                                $table->string($nombreCampo)->nullable();
+                                break;
+                        }
+                    }
+
+                    // Añadimos campos con opciones a la tabla
+                    foreach ($camposConOpciones as $campoConOpciones) {
+                        $nombreCampo = strtolower(str_replace(' ', '_', $campoConOpciones['nombre']));
+                        $table->string($nombreCampo)->nullable();
+                    }
+                    
+                    $table->timestamps();
+                });
+            }
+
+            // Crear campos con opciones recorriendo el array de camposConOpciones
+            foreach ($camposConOpciones as $campoConOpciones) {
+                // Crear el campo con opciones
+                $campoController = new CampoController();
+
+                $campoController->createCampoConOpciones($campoConOpciones, $tipoProductoId);
+            }
+            
+            DB::commit();
+            return response()->json([
+                'message' => 'Producto creado con éxito',
+                'id' => $tipoProductoId
+            ], 200); 
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['error' => 'Error al crear el tipo de producto', 'message' => $e->getMessage()], 500);
         }
-
-        // Crear campos con opciones recorriendo el array de camposConOpciones
-        foreach ($camposConOpciones as $campoConOpciones) {
-            // Crear el campo con opciones
-            $campoController = new CampoController();
-
-            $campoController->createCampoConOpciones($campoConOpciones, $tipoProductoId);
-        }
-        
-
-        return response()->json([
-            'message' => 'Producto creado con éxito',
-            'id' => $tipoProductoId
-        ], 200);    
     }
 
     private function insertLogos($campos_logos, $tipoProductoId){

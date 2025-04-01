@@ -4,9 +4,10 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Comercial;
+use App\Models\Socio;
 use Illuminate\Support\Facades\Hash;
 use Tymon\JWTAuth\Facades\JWTAuth;
-use Tymon\JWTAuth\Exceptions\JWTException;
+use Illuminate\Support\Facades\Log;
 
 class AuthController extends Controller
 {
@@ -36,4 +37,40 @@ class AuthController extends Controller
             'token' => $token
         ], 200);
     }
+
+    /**
+     * Método para iniciar sesión de comerciales.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function loginSocio(Request $request)
+    {
+        $credentials = $request->only('usuario', 'contraseña');
+        $categoria = $request->input('categoria');
+
+        // Buscar al socio por su usuario (email) y categoría
+        $socio = Socio::where('email', $credentials['usuario'])
+                    ->where('categoria_id', $categoria)
+                    ->first();
+
+        if (!$socio) {
+            return response()->json(['error' => 'El usuario no existe o la categoría es incorrecta.'], 401);
+        }
+
+
+        if (!Hash::check($credentials['contraseña'], $socio->password)) {
+            return response()->json(['error' => 'La contraseña es incorrecta.'], 401);
+        }
+
+        // Generar el token JWT para el socio
+        $token = JWTAuth::fromUser($socio);
+
+        // Retornar la información del socio junto con el token
+        return response()->json([
+            'socio' => $socio,
+            'token' => $token
+        ], 200);
+    }
+
 }

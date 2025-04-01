@@ -10,6 +10,44 @@ use App\Models\Sociedad;
 class NavController extends Controller
 {   
     const SOCIEDAD_ADMIN_ID = 1;
+
+    public function getNavegacionSocio($categoria){
+        $tiposProducto = TipoProducto::where('categoria_id', $categoria)->get();
+
+        $navegacion = [];
+        $navegacion[] = [
+            "label" => "Mis Datos",
+            "link" => '/mis-datos'
+        ];
+        $navegacion[] = [
+            "label" => "Contratar",
+            "children" => []
+        ];
+
+        $navegacion[] = [
+            "label" => "Mis Productos",
+            "children" => []
+        ];
+        
+        $tiposProducto = TipoProducto::where('categoria_id', $categoria)->whereNull('padre_id')->whereNull('tipo_producto_asociado')->get();
+
+        
+        $navegacion[1]["children"] = $tiposProducto->map(function($tipoProducto){
+            return [
+                "label" => 'Contratar - ' . $tipoProducto->nombre,
+                "link" => "/contratar/" . strtolower($tipoProducto->letras_identificacion) . '/1'
+            ];
+        })->toArray();
+        $navegacion[2]["children"] = $tiposProducto->map(function($tipoProducto){
+            return [
+                "label" => $tipoProducto->nombre,
+                "link" => "/mis-productos/" . strtolower($tipoProducto->letras_identificacion)
+            ];
+        })->toArray();
+
+        return response()->json($navegacion);
+    }
+
     // Para coger las distintas rutas de la aplicación
     public function getNavegacion($id_sociedad, $responsable){
         // Coger los tipos de producto asociados con la sociedad

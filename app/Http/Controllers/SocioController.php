@@ -8,6 +8,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Models\Comercial;
 use App\Models\Sociedad;
+use App\Models\TipoProducto;
+use App\Models\SocioProducto;
+use Illuminate\Support\Facades\Schema;
 
 class SocioController extends Controller
 {
@@ -151,4 +154,43 @@ class SocioController extends Controller
         $socio->delete();
         return response()->json(null, 204);
     }
+
+    public function getProductosBySocio($id, $id_tipo_producto)
+    {
+        // 1️⃣ Obtener el tipo de producto por su ID
+        $tipoProducto = TipoProducto::find($id_tipo_producto);
+
+        if (!$tipoProducto) {
+            return response()->json(['error' => 'Tipo de producto no encontrado'], 404);
+        }
+
+        // 2️⃣ Obtener las letras de identificación
+        $letrasIdentificacion = $tipoProducto->letras_identificacion;
+
+        if (!$letrasIdentificacion) {
+            return response()->json(['error' => 'El tipo de producto no tiene letras de identificación'], 400);
+        }
+
+        // 3️⃣ Verificar si la tabla con el nombre de las letras_identificacion existe
+        if (!Schema::hasTable($letrasIdentificacion)) {
+            return response()->json([]); // Si no existe, devolvemos un array vacío
+        }
+
+        // 4️⃣ Obtener los registros de la tabla SocioProducto para el socio y tipo de producto
+        $socioProductos = SocioProducto::where('id_socio', $id)
+            ->where('letras_identificacion', $letrasIdentificacion)
+            ->get();
+
+        if ($socioProductos->isEmpty()) {
+            return response()->json([]); // Si no hay registros, devolvemos un array vacío
+        }
+
+        // 5️⃣ Obtener los productos de la tabla dinámica con los IDs de SocioProducto
+        $productos = DB::table($letrasIdentificacion)
+            ->whereIn('id', $socioProductos->pluck('id_producto'))
+            ->get();
+
+        return response()->json($productos);
+    }
+
 }
