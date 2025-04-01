@@ -285,9 +285,13 @@ class CampoController extends Controller
     }
 
     private function addCampoConOpciones($campoConOpciones, $letrasIdentificacion) {
-        Schema::table($letrasIdentificacion, function (Blueprint $table) use ($campoConOpciones) {
-            $table->string(strtolower(str_replace(' ', '_', $campoConOpciones['nombre'])))->nullable();
-        });
+        $nombreColumna = strtolower(str_replace(' ', '_', $campoConOpciones['nombre']));
+    
+        if (!Schema::hasColumn($letrasIdentificacion, $nombreColumna)) {
+            Schema::table($letrasIdentificacion, function (Blueprint $table) use ($nombreColumna) {
+                $table->string($nombreColumna)->nullable();
+            });
+        }
     }
     
 
