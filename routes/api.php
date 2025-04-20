@@ -218,6 +218,7 @@ Route::post('/payment/create', [PaymentController::class, 'createPayment']);
 
 // SOCIOS:
 Route::get('socios', [SocioController::class, 'index']);
+Route::get('socio/{id}', [SocioController::class, 'show']);
 Route::get('socio/{dni}/categoria/{categoria_id}', [SocioController::class, 'getAsegurado']);
 Route::post('socio/categoria/{categoria_id}', [SocioController::class, 'store']);
 Route::put('socio/{id}', [SocioController::class, 'update']);
