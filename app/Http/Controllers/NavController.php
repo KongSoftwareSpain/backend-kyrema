@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\TipoProductoSociedad;
 use App\Models\Sociedad;
 use App\Models\SocioComercial;
+use App\Models\Categoria;
 
 class NavController extends Controller
 {   
@@ -33,6 +34,10 @@ class NavController extends Controller
         $tiposProducto = TipoProducto::where('categoria_id', $categoria)->whereNull('padre_id')->whereNull('tipo_producto_asociado')->get();
 
         $comercial_id = SocioComercial::where('id_socio', $socio_id)->pluck('id_comercial')->first();
+
+        if(!$comercial_id){
+            $comercial_id = Categoria::findOrFail($categoria)->comercial_responsable_id;
+        }
         
         $navegacion[1]["children"] = $tiposProducto->map(function($tipoProducto) use ($comercial_id){
             return [

@@ -107,12 +107,14 @@ Route::post('sociedad/{sociedad_padre_id}/hija/{sociedad_hija_id}', [TipoProduct
 
 Route::get('comerciales/all', [ComercialController::class, 'getAllUsers']);
 Route::get('comerciales/sociedad/{id_sociedad}', [ComercialController::class, 'getComercialesPorSociedad']);
+Route::get('comerciales/responsables', [ComercialController::class, 'getResponsables']);
 Route::post('comercial', [ComercialController::class, 'store']);
 Route::put('comercial/{id}', [ComercialController::class, 'update']);
 Route::delete('comercial/{id}', [ComercialController::class, 'destroy']);
 
 Route::post('auth/login', [AuthController::class, 'login']);
 Route::post('auth/login/socio', [AuthController::class, 'loginSocio']);
+Route::post('auth/register/socio', [AuthController::class, 'registerSocio']);
 Route::get('comercial/{id}', [ComercialController::class, 'show']);
 Route::put('comercial/{id}', [ComercialController::class, 'update']);
 Route::post('comercial', [ComercialController::class, 'store']);
@@ -228,7 +230,10 @@ Route::get('socios/comercial/{id_comercial}', [SocioController::class, 'getSocio
 Route::get('socio/{id}/productos/{id_tipo_producto}', [SocioController::class, 'getProductosBySocio']);
 
 // CATEGORIAS:
-Route::apiResource('categorias', CategoriaController::class);
+Route::get('categorias', [CategoriaController::class, 'index']);
+Route::post('categorias', [CategoriaController::class, 'store']);
+Route::get('categorias/{id}', [CategoriaController::class, 'show']);
+Route::post('categorias/{id}', [CategoriaController::class, 'update']);
 
 // INFORMES:
 Route::get('reports', [ExportController::class, 'getReportData']);

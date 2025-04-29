@@ -4,6 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\Categoria;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Storage;
+
+use Illuminate\Support\Facades\Log;
 
 class CategoriaController extends Controller
 {
@@ -21,15 +25,22 @@ class CategoriaController extends Controller
      */
     public function store(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'nombre' => 'required|string|max:255',
+            'comercial_responsable_id' => 'nullable',
+            'logo' => 'nullable|image|max:2048', // acepta jpg, png, etc.
         ]);
 
-        $categoria = Categoria::create([
-            'nombre' => $request->nombre,
-        ]);
+        Log::info($validated);
 
-        return response()->json($categoria, 201);
+        if ($request->hasFile('logo')) {
+            $logoPath = $request->file('logo')->store('categorias', 'public');
+            $validated['logo'] = $logoPath;
+        }
+
+        $categoria = Categoria::create($validated);
+
+        return response()->json($categoria);
     }
 
     /**
@@ -57,16 +68,31 @@ class CategoriaController extends Controller
             return response()->json(['error' => 'Categoría no encontrada'], 404);
         }
 
-        $request->validate([
+        Log::info($request->all());
+
+        $validated = $request->validate([
             'nombre' => 'required|string|max:255',
+            'comercial_responsable_id' => 'nullable',
+            'logo' => 'nullable|image|max:2048', // acepta jpg, png, etc.
         ]);
 
-        $categoria->update([
-            'nombre' => $request->nombre,
-        ]);
+        if ($request->hasFile('logo')) {
+            // Borrar el logo anterior si existe
+            if ($categoria->logo && Storage::disk('public')->exists($categoria->logo)) {
+                Storage::disk('public')->delete($categoria->logo);
+            }
+
+            // Subir el nuevo logo
+            $logoPath = $request->file('logo')->store('categorias', 'public');
+            $validated['logo'] = $logoPath;
+        }
+
+        // Actualizar la categoría
+        $categoria->update($validated);
 
         return response()->json($categoria);
     }
+
 
     /**
      * Eliminar una categoría.
