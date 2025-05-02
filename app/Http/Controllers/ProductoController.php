@@ -154,7 +154,6 @@ class ProductoController extends Controller
                     'tipo_dato' => $campo['tipo_dato'],
                     'visible' => $campo['visible'] ?? false,
                     'obligatorio' => $campo['obligatorio'] ?? false,
-                    'opciones' => $campo['opciones'] ?? null,
                     'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
                     'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
                     'grupo' => $campo['grupo'] ?? null,
