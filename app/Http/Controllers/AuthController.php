@@ -51,8 +51,8 @@ class AuthController extends Controller
 
         // Buscar al socio por su usuario (email) y categoría
         $socio = Socio::where('email', $credentials['usuario'])
-                    ->where('categoria_id', $categoria)
-                    ->first();
+            ->where('categoria_id', $categoria)
+            ->first();
 
         if (!$socio) {
             return response()->json(['error' => 'El usuario no existe o la categoría es incorrecta.'], 401);
@@ -73,4 +73,36 @@ class AuthController extends Controller
         ], 200);
     }
 
+    public function registerSocio(Request $request)
+    {
+        $data = $request->validate([
+            'nombre' => 'required|string|max:255',
+            'apellido_1' => 'nullable|string|max:255',
+            'apellido_2' => 'nullable|string|max:255',
+            'phone' => 'required|string|max:255',
+            'birthDate' => 'required|date',
+            'email' => 'required|string|email|max:255|unique:socios,email',
+            'password' => 'required|string|min:8',
+            'categoria_id' => 'required|integer|exists:categorias,id',
+        ]);
+
+        $socio = new Socio();
+        $socio->nombre_socio = $data['nombre'];
+        $socio->apellido_1 = $data['apellido_1'] ?? null;
+        $socio->apellido_2 = $data['apellido_2'] ?? null;
+        $socio->telefono = $data['phone'];
+        $socio->fecha_de_nacimiento = $data['birthDate'];
+        $socio->email = $data['email'];
+        $socio->password = Hash::make($data['password']);
+        $socio->categoria_id = $data['categoria_id'];
+
+        $socio->save();
+
+        $token = JWTAuth::fromUser($socio);
+
+        return response()->json([
+            'socio' => $socio,
+            'token' => $token
+        ], 201);
+    }
 }

@@ -6,12 +6,14 @@ use App\Models\TipoProducto;
 use Illuminate\Http\Request;
 use App\Models\TipoProductoSociedad;
 use App\Models\Sociedad;
+use App\Models\SocioComercial;
+use App\Models\Categoria;
 
 class NavController extends Controller
 {   
     const SOCIEDAD_ADMIN_ID = 1;
 
-    public function getNavegacionSocio($categoria){
+    public function getNavegacionSocio($categoria, $socio_id){
         $tiposProducto = TipoProducto::where('categoria_id', $categoria)->get();
 
         $navegacion = [];
@@ -29,13 +31,22 @@ class NavController extends Controller
             "children" => []
         ];
         
-        $tiposProducto = TipoProducto::where('categoria_id', $categoria)->whereNull('padre_id')->whereNull('tipo_producto_asociado')->get();
+        $tiposProducto = TipoProducto::activos()
+            ->where('categoria_id', $categoria)
+            ->whereNull('padre_id')
+            ->whereNull('tipo_producto_asociado')
+            ->get();
 
+        $comercial_id = SocioComercial::where('id_socio', $socio_id)->pluck('id_comercial')->first();
+
+        if(!$comercial_id){
+            $comercial_id = Categoria::findOrFail($categoria)->comercial_responsable_id;
+        }
         
-        $navegacion[1]["children"] = $tiposProducto->map(function($tipoProducto){
+        $navegacion[1]["children"] = $tiposProducto->map(function($tipoProducto) use ($comercial_id){
             return [
                 "label" => 'Contratar - ' . $tipoProducto->nombre,
-                "link" => "/contratar/" . strtolower($tipoProducto->letras_identificacion) . '/1'
+                "link" => "/contratacion/" . strtolower($tipoProducto->letras_identificacion) . '/' . $comercial_id
             ];
         })->toArray();
         $navegacion[2]["children"] = $tiposProducto->map(function($tipoProducto){
@@ -54,7 +65,11 @@ class NavController extends Controller
         $tipoProductoIds = TipoProductoSociedad::where('id_sociedad', $id_sociedad)->pluck('id_tipo_producto');
 
         // Coger los tipos de producto basados en los IDs obtenidos
-        $tiposProducto = TipoProducto::whereIn('id', $tipoProductoIds)->whereNull('padre_id')->whereNull('tipo_producto_asociado')->get();
+        $tiposProducto = TipoProducto::activos()
+            ->whereIn('id', $tipoProductoIds)
+            ->whereNull('padre_id')
+            ->whereNull('tipo_producto_asociado')
+            ->get();
 
         //Devolver la navegación con el siguiente formato:
         

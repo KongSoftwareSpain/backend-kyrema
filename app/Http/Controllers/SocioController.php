@@ -126,22 +126,24 @@ class SocioController extends Controller
 
         $socio_comercial = SocioComercial::where('id_socio', $id)->first();
 
-        // Si el socio no estaba conectado con nadie previamente, conectarlo con el comercial
-        if (!$socio_comercial) {
-            SocioComercial::create([
-                'id_comercial' => $request->id_comercial,
-                'id_socio' => $id
-            ]);
-        } else {
-
-            // Si ya existe la conexion con ese mismo comercial, no hacer nada
-            // si el comercial es distinto añadirlo.
-            if ($socio_comercial->id_comercial != $request->id_comercial) {
-                $socio_comercial->update([
-                    'id_comercial' => $request->id_comercial
+        if($request->id_comercial){
+            // Si el socio no estaba conectado con nadie previamente, conectarlo con el comercial
+            if (!$socio_comercial) {
+                SocioComercial::create([
+                    'id_comercial' => $request->id_comercial,
+                    'id_socio' => $id
                 ]);
-            }
+            } else {
 
+                // Si ya existe la conexion con ese mismo comercial, no hacer nada
+                // si el comercial es distinto añadirlo.
+                if ($socio_comercial->id_comercial != $request->id_comercial) {
+                    $socio_comercial->update([
+                        'id_comercial' => $request->id_comercial
+                    ]);
+                }
+
+            }
         }
 
         return response()->json($socio);

@@ -43,7 +43,7 @@ class ProductoController extends Controller
                 'polizas' => 'nullable|array',
                 'campos' => 'nullable|array',
                 'campos.*.nombre' => 'required|string',
-                'campos.*.tipo_dato' => 'required|string|in:text,number,date,decimal,selector,select',
+                'campos.*.tipo_dato' => 'required|string|in:text,number,date,decimal,selector,select,time',
                 'camposConOpciones' => 'nullable|array',
                 'camposConOpciones.*.nombre' => 'required|string',
                 'camposConOpciones.*.opciones' => 'required|array',
@@ -719,7 +719,10 @@ class ProductoController extends Controller
                 ->setTimeFromTimeString($horaActual)
                 ->format('Y-m-d\TH:i:s');
         }
-        
+
+        $datos['hora_de_inicio'] = $horaActual;
+        $datos['hora_de_fin'] = $horaActual;
+        $datos['hora_de_emisión'] = $horaActual;
 
         // Insertar los datos en la tabla correspondiente
         $id = DB::table($nombreTabla)->insertGetId($datos);
