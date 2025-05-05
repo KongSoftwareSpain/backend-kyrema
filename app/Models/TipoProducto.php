@@ -22,7 +22,7 @@ class TipoProducto extends Model
         'tipo_producto_asociado',
         'acuerdo_kyrema',
         'nombre_unificado',
-        
+        'estado',
     ];
 
     public function tarifas()
