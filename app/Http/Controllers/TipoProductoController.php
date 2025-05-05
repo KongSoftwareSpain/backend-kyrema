@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Http\JsonResponse;
 
 class TipoProductoController extends Controller
 {
@@ -42,7 +43,8 @@ class TipoProductoController extends Controller
         return response()->json($tipoProducto, 201);
     }
 
-    public function getByLetras($letras){
+    public function getByLetras($letras)
+    {
         // Buscar el tipo de producto cuya ruta contiene la ruta pasada como parámetro
         $tipoProducto = TipoProducto::where('letras_identificacion', $letras)->first();
 
@@ -58,7 +60,6 @@ class TipoProductoController extends Controller
         }
 
         return response()->json($tipoProducto);
-
     }
 
     public function show($id)
@@ -67,7 +68,7 @@ class TipoProductoController extends Controller
         return response()->json($tipoProducto);
     }
 
-    public function getLogosPorTipoProducto($id) 
+    public function getLogosPorTipoProducto($id)
     {
         $camposLogos = DB::table('campos_logos')
             ->where('tipo_producto_id', $id)
@@ -137,31 +138,115 @@ class TipoProductoController extends Controller
         return response()->json($tipoProducto);
     }
 
-    public function destroy($id)
+    public function cambiarEstado($id)
     {
         $tipoProducto = TipoProducto::findOrFail($id);
-        $tipoProducto->delete();
+        $tipoProducto->toggleEstado();
 
-        return response()->json(null, 204);
+        return response()->json($tipoProducto);
     }
 
-    public function deleteTipoProducto($productId){
- 
-        try{
+
+    public function destroy($id): JsonResponse
+    {
+        try {
+            DB::beginTransaction();
+
+            // Obtener producto y sus datos clave
+            $product = DB::table('tipo_producto')->where('id', $id)->first();
+
+            if (!$product) {
+                return response()->json(['message' => 'Producto no encontrado.'], 404);
+            }
+
+            $letrasIdentificacion = $product->letras_identificacion ?? null;
+            $plantillasPaths = [
+                $product->plantilla_path_1,
+                $product->plantilla_path_2,
+                $product->plantilla_path_3,
+                $product->plantilla_path_4,
+                $product->plantilla_path_5,
+                $product->plantilla_path_6,
+                $product->plantilla_path_7,
+                $product->plantilla_path_8,
+            ];
+
+            // Eliminar tablas referenciadas en campos con opciones
+            $camposConOpciones = DB::table('campos')
+                ->where('tipo_producto_id', $id)
+                ->whereNotNull('opciones')
+                ->get();
+
+            foreach ($camposConOpciones as $campo) {
+                if (Schema::hasTable($campo->opciones)) {
+                    Schema::dropIfExists($campo->opciones);
+                }
+            }
+
+            // Eliminar recursivamente los hijos (subproductos)
+            $tiposHijos = DB::table('tipo_producto')->where('padre_id', $id)->get();
+            foreach ($tiposHijos as $tipoHijo) {
+                $this->destroy($tipoHijo->id); // llamada recursiva
+            }
+
+            // Eliminar relaciones en otras tablas
+            DB::table('tipo_producto_sociedad')->where('id_tipo_producto', $id)->delete();
+            DB::table('tarifas_producto')->where('tipo_producto_id', $id)->delete();
+            DB::table('campos_logos')->where('tipo_producto_id', $id)->delete();
+            DB::table('tipo_producto_polizas')->where('tipo_producto_id', $id)->delete();
+            DB::table('campos')->where('tipo_producto_id', $id)->delete();
+
+            // Eliminar tabla asociada si existe
+            if ($letrasIdentificacion && Schema::hasTable($letrasIdentificacion)) {
+                Schema::dropIfExists($letrasIdentificacion);
+            }
+
+            // Eliminar archivos de plantillas
+            foreach ($plantillasPaths as $plantillaPath) {
+                if ($plantillaPath && Storage::disk('public')->exists($plantillaPath)) {
+                    Storage::disk('public')->delete($plantillaPath);
+                }
+            }
+
+            // Finalmente, eliminar el producto principal
+            DB::table('tipo_producto')->where('id', $id)->delete();
+
+            DB::commit();
+
+            return response()->json(['message' => "El producto (ID $id) ha sido eliminado correctamente."]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Error al eliminar el producto.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function deleteTipoProducto($productId)
+    {
+
+        try {
 
             // Obtener letrasIdentificacion y plantilla_path antes de eliminar la tabla tipo_producto
             $product = DB::table('tipo_producto')->where('id', $productId)->first();
             // $letrasIdentificacion = $product->letras_identificacion ?? null;
             $plantillasPaths = [
-                $product->plantilla_path_1 ?? null, $product->plantilla_path_2 ?? null, $product->plantilla_path_3 ?? null, $product->plantilla_path_4 ?? null,
-                $product->plantilla_path_5 ?? null, $product->plantilla_path_6 ?? null, $product->plantilla_path_7 ?? null, $product->plantilla_path_8 ?? null,
+                $product->plantilla_path_1 ?? null,
+                $product->plantilla_path_2 ?? null,
+                $product->plantilla_path_3 ?? null,
+                $product->plantilla_path_4 ?? null,
+                $product->plantilla_path_5 ?? null,
+                $product->plantilla_path_6 ?? null,
+                $product->plantilla_path_7 ?? null,
+                $product->plantilla_path_8 ?? null,
             ];
 
             // Obtener los campos con opciones (opciones != null)
             $camposConOpciones = DB::table('campos')->where('tipo_producto_id', $productId)->whereNotNull('opciones')->get();
 
 
-            if($camposConOpciones != null && count($camposConOpciones) > 0){
+            if ($camposConOpciones != null && count($camposConOpciones) > 0) {
                 // Recorrer los campos con opciones y elminiar las tablas con el nombre de las opciones
                 foreach ($camposConOpciones as $campo) {
                     if (Schema::hasTable($campo->opciones)) {
@@ -172,7 +257,7 @@ class TipoProductoController extends Controller
             //Comprobar si tiene tipos hijos:
             $tiposHijos = DB::table('tipo_producto')->where('padre_id', $productId)->get();
 
-            if($tiposHijos != null && count($tiposHijos) > 0){
+            if ($tiposHijos != null && count($tiposHijos) > 0) {
                 foreach ($tiposHijos as $tipoHijo) {
                     $this->call('delete:product-data', ['productId' => $tipoHijo->id]);
                 }
@@ -209,14 +294,12 @@ class TipoProductoController extends Controller
                 }
             }
 
-            
+
 
             return response()->json("Data for product ID $productId has been deleted.");
-
         } catch (\Exception $e) {
             return response()->json($e->getMessage());
         }
- 
     }
 
     public function getSubproductosPorPadreId($id, $subproductos = null)
@@ -260,12 +343,11 @@ class TipoProductoController extends Controller
                 'updated_at' => $subproducto->updated_at,
                 'tipo_duracion' => $subproducto->tipo_duracion,
                 'duracion' => $subproducto->duracion,
+                'estado' => $subproducto->estado,
                 'anexos_bloqueados' => $anexosBloqueados[$subproducto->id] ?? [] // Si no hay anexos bloqueados, devolver un array vacío
             ];
         });
 
         return $subproductosConDetalles;
     }
-
-
 }
