@@ -101,7 +101,7 @@ class SocioController extends Controller
             ]);
         }
 
-        $socio = DB::table('socios')->insertGetId($request->except(['id_comercial']));
+        $socio = DB::table('socios')->insertGetId($request->except(['id_comercial','id']));
 
         SocioComercial::create([
             'id_comercial' => $request->id_comercial,

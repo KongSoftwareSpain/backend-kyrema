@@ -49,7 +49,7 @@ class TipoProductoController extends Controller
         $tipoProducto = TipoProducto::where('letras_identificacion', $letras)->first();
 
         // Si tiene subproductos (hay algun tipo_producto con su id en padre_id), devolverlos
-        $subproductos = TipoProducto::where('padre_id', $tipoProducto->id)->get();
+        $subproductos = TipoProducto::activos()->where('padre_id', $tipoProducto->id)->get();
         if ($subproductos->count() > 0) {
             $tipoProducto['subproductos'] = self::getSubproductosPorPadreId($tipoProducto->id, $subproductos);
         }

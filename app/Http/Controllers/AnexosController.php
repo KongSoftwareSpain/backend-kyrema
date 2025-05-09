@@ -378,7 +378,7 @@ class AnexosController extends Controller
 
     public function getTipoAnexosPorTipoProducto($id_tipo_producto){
 
-        $tiposAnexo = TipoProducto::where('tipo_producto_asociado', $id_tipo_producto)->get();
+        $tiposAnexo = TipoProducto::activos()->where('tipo_producto_asociado', $id_tipo_producto)->get();
 
         return response()->json($tiposAnexo);
 
