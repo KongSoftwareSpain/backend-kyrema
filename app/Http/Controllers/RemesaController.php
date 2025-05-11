@@ -45,6 +45,7 @@ class RemesaController extends Controller
             'monto'                 => $validated['importe'],
             'fecha'                 => $validated['fecha'],
             'estado'                => 'pending',
+            'sociedad_id'           => $validated['sociedad_id'] ?? null,
         ]);
 
         // Crear giro bancario asociado
@@ -79,7 +80,6 @@ class RemesaController extends Controller
         $id_comercial = $request->query('id_comercial');
 
         $giros = GiroBancario::whereBetween('created_at', [$desde, $hasta])
-            ->whereNull('remesa_descarga_id')
             ->get();
 
         if ($giros->isEmpty()) {
@@ -104,7 +104,7 @@ class RemesaController extends Controller
         Storage::put($filename, $xml);
 
         // Guardar la descarga
-        $descarga = RemesaDescarga::create([
+        RemesaDescarga::create([
             'ruta_xml' => $filename,
             'fecha_inicio' => $desde,
             'fecha_fin' => $hasta,
@@ -112,10 +112,6 @@ class RemesaController extends Controller
             'id_comercial' => $id_comercial,
         ]);
 
-        // Asociar cada giro a esta descarga
-        foreach ($giros as $giro) {
-            $giro->update(['remesa_descarga_id' => $descarga->id]);
-        }
 
         return response()->download(storage_path("app/{$filename}"))->deleteFileAfterSend();
     }

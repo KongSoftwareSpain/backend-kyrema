@@ -33,11 +33,4 @@ class RemesaDescarga extends Model
         return $this->belongsTo(Comercial::class, 'id_comercial');
     }
 
-    /**
-     * Pagos por giro asociados a esta descarga (si los registras luego)
-     */
-    public function giros()
-    {
-        return $this->hasMany(GiroBancario::class, 'remesa_descarga_id');
-    }
 }

@@ -31,7 +31,6 @@ class GiroBancario extends Model
     protected $casts = [
         'fecha_firma_mandato' => 'date',
         'fecha_cobro' => 'date',
-        'importe' => 'decimal:2',
     ];
 
     /**

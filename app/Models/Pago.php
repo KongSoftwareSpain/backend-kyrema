@@ -18,11 +18,11 @@ class Pago extends Model
         'monto',
         'fecha',
         'estado',
+        'sociedad_id',
     ];
 
     protected $casts = [
         'fecha' => 'date',
-        'monto' => 'decimal:2',
     ];
 
     /**
@@ -50,5 +50,10 @@ class Pago extends Model
     protected function serializeDate(\DateTimeInterface $date)
     {
         return $date->format('Y-m-d\TH:i:s');
+    }
+
+    public function sociedad()
+    {
+        return $this->belongsTo(Sociedad::class);
     }
 }
