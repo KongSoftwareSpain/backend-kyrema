@@ -14,7 +14,7 @@ return new class extends Migration {
             $table->foreignId('pago_id')->constrained('pagos')->onDelete('cascade');
 
             // Campos específicos del pago por giro bancario
-            $table->string('referencia'); // Codigo del producto*
+            $table->string('referencia')->nullable(); // Codigo del producto*
             $table->string('nombre_cliente');     // NOMBRE*
             $table->string('dni')->nullable();    // DNI
             $table->decimal('importe', 10, 2);    // IMPORTE

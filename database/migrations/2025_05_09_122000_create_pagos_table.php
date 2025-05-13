@@ -10,7 +10,7 @@ return new class extends Migration {
         Schema::create('pagos', function (Blueprint $table) {
             $table->id();
 
-            $table->string('referencia');
+            $table->string('referencia')->nullable();
             $table->string('letras_identificacion');
             $table->unsignedBigInteger('producto_id');
 

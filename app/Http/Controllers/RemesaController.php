@@ -17,7 +17,6 @@ class RemesaController extends Controller
     public function storeGiroBancario(Request $request)
     {
         $validated = $request->validate([
-            'referencia'            => 'required|string',
             'nombre_cliente'        => 'required|string',
             'dni'                   => 'nullable|string',
             'importe'               => 'required|numeric',
@@ -34,11 +33,12 @@ class RemesaController extends Controller
             'letras_identificacion' => 'required|string',
             'producto_id'           => 'required|integer',
             'fecha'                 => 'required|date',
+
+            'sociedad_id'           => 'nullable|integer|exists:sociedad,id',
         ]);
 
         // Crear registro en la tabla general de pagos
         $pago = Pago::create([
-            'referencia'            => $validated['referencia'],
             'letras_identificacion' => $validated['letras_identificacion'],
             'producto_id'           => $validated['producto_id'],
             'tipo_pago'             => 'giro',
@@ -51,7 +51,6 @@ class RemesaController extends Controller
         // Crear giro bancario asociado
         $giro = GiroBancario::create([
             'pago_id'               => $pago->id,
-            'referencia'            => $validated['referencia'],
             'nombre_cliente'        => $validated['nombre_cliente'],
             'dni'                   => $validated['dni'] ?? null,
             'importe'               => $validated['importe'],
@@ -70,6 +69,36 @@ class RemesaController extends Controller
             'message' => 'Pago por giro bancario registrado correctamente',
             'giro'    => $giro,
             'pago'    => $pago,
+        ]);
+    }
+
+    public function addReferenceToPago(Request $request){
+        $validated = $request->validate([
+            'pago_id' => 'required|integer',
+            'referencia' => 'required|string',
+        ]);
+
+        // Actualizar el pago con la referencia
+        $pago = Pago::find($validated['pago_id']);
+        if (!$pago) {
+            return response()->json(['message' => 'Pago no encontrado'], 404);
+        }
+
+        $pago->update(['referencia' => $validated['referencia']]);
+
+        // Encontrar el GiroBancario asociado al pago
+        $giro = GiroBancario::where('pago_id', $pago->id)->first();
+        if (!$giro) {
+            return response()->json(['message' => 'Giro bancario no encontrado'], 404);
+        }
+
+        // Actualizar el giro bancario con la referencia
+        $giro->update(['referencia' => $validated['referencia']]);
+
+        return response()->json([
+            'message' => 'Referencia añadida correctamente al pago',
+            'pago'    => $pago,
+            'giro'    => $giro,
         ]);
     }
 

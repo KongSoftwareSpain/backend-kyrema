@@ -31,11 +31,10 @@ use App\Http\Controllers\PolizaController;
 use App\Http\Controllers\SocioController;
 use Illuminate\Support\Facades\Mail;
 use App\Http\Controllers\CategoriaController;
+use App\Http\Controllers\RemesaController;
 use App\Http\Controllers\SociedadComisionController;
 use App\Http\Controllers\TarifaAnexoController;
-
-
-
+use App\Models\RemesaDescarga;
 
 // Route::get('/productos/{letras_identificativas}', [ProductoController::class, 'getProductosPorTipo']);
 Route::post('password/email', [ForgotPasswordController::class, 'sendResetLinkEmail']);
@@ -189,6 +188,9 @@ Route::post('tipo_pago_producto_sociedad', [TipoPagoProductoSociedadController::
 Route::get('tipo_pago_producto_sociedad/sociedad/{id_sociedad}', [TipoPagoProductoSociedadController::class, 'getTiposPagoPorSociedad']);
 Route::get('tipo_pago_producto_sociedad/sociedad/{sociedad_id}/tipo-producto/{tipo_producto_id}', [TipoPagoProductoSociedadController::class, 'getTiposPagoPorSociedadYTipoProducto']);
 Route::post('sociedad/{sociedad_padre_id}/hija/{sociedad_hija_id}/tipos-pago', [TipoPagoProductoSociedadController::class, 'transferirTiposPago']);
+
+// PAGOS:
+Route::post('pago/giro-bancario', [RemesaController::class, 'storeGiroBancario']);
 
 // COMPAÑIAS:
 
