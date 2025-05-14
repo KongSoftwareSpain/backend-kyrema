@@ -17,8 +17,10 @@ class RemesaController extends Controller
     public function storeGiroBancario(Request $request)
     {
         $validated = $request->validate([
+            'referencia'            => 'required|string',
+
             'nombre_cliente'        => 'required|string',
-            'dni'                   => 'nullable|string',
+            'dni'                   => 'required|string',
             'importe'               => 'required|numeric',
             'fecha_firma_mandato'   => 'required|date',
             'iban_cliente'          => 'required|string',
@@ -39,8 +41,10 @@ class RemesaController extends Controller
 
         // Crear registro en la tabla general de pagos
         $pago = Pago::create([
+            'referencia'            => $validated['referencia'],
             'letras_identificacion' => $validated['letras_identificacion'],
             'producto_id'           => $validated['producto_id'],
+
             'tipo_pago'             => 'giro',
             'monto'                 => $validated['importe'],
             'fecha'                 => $validated['fecha'],
