@@ -31,6 +31,7 @@ use App\Http\Controllers\PolizaController;
 use App\Http\Controllers\SocioController;
 use Illuminate\Support\Facades\Mail;
 use App\Http\Controllers\CategoriaController;
+use App\Http\Controllers\ReferenciaSecuenciaController;
 use App\Http\Controllers\RemesaController;
 use App\Http\Controllers\SociedadComisionController;
 use App\Http\Controllers\TarifaAnexoController;
@@ -190,6 +191,9 @@ Route::get('tipo_pago_producto_sociedad/sociedad/{sociedad_id}/tipo-producto/{ti
 Route::post('sociedad/{sociedad_padre_id}/hija/{sociedad_hija_id}/tipos-pago', [TipoPagoProductoSociedadController::class, 'transferirTiposPago']);
 
 // PAGOS:
+// GENERAR LA REFERENCIA DURANTE EL PAGO (No puede haber un producto 'sin pagar')
+Route::get('generar-referencia/{letras}', [ReferenciaSecuenciaController::class, 'generateReference']);
+
 Route::post('pago/giro-bancario', [RemesaController::class, 'storeGiroBancario']);
 
 // COMPAÑIAS:

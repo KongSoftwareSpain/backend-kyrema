@@ -27,13 +27,11 @@ class RemesaController extends Controller
             'auxiliar'              => 'nullable|string',
             'residente'             => 'nullable|string|in:S,N',
             'referencia_mandato'    => 'required|string',
-            'fecha_cobro'           => 'required|date',
             'referencia_adeudo'     => 'required|string',
             'tipo_adeudo'           => 'required|in:FRST,RCUR,OOFF,FNAL',
             'concepto'              => 'required|string',
 
             'letras_identificacion' => 'required|string',
-            'producto_id'           => 'required|integer',
             'fecha'                 => 'required|date',
 
             'sociedad_id'           => 'nullable|integer|exists:sociedad,id',
@@ -43,7 +41,6 @@ class RemesaController extends Controller
         $pago = Pago::create([
             'referencia'            => $validated['referencia'],
             'letras_identificacion' => $validated['letras_identificacion'],
-            'producto_id'           => $validated['producto_id'],
 
             'tipo_pago'             => 'giro',
             'monto'                 => $validated['importe'],
@@ -63,7 +60,6 @@ class RemesaController extends Controller
             'auxiliar'              => $validated['auxiliar'] ?? null,
             'residente'             => $validated['residente'] ?? 'S',
             'referencia_mandato'    => $validated['referencia_mandato'],
-            'fecha_cobro'           => $validated['fecha_cobro'],
             'referencia_adeudo'     => $validated['referencia_adeudo'],
             'tipo_adeudo'           => $validated['tipo_adeudo'],
             'concepto'              => $validated['concepto'],

@@ -12,7 +12,6 @@ return new class extends Migration {
 
             $table->string('referencia')->nullable();
             $table->string('letras_identificacion');
-            $table->unsignedBigInteger('producto_id');
 
             $table->enum('tipo_pago', ['giro', 'transferencia', 'tarjeta', 'otros']); // más tipos en el futuro
             $table->decimal('monto', 10, 2);

@@ -37,7 +37,7 @@ class SocioController extends Controller
 
             $sociedad = Sociedad::find($comercial->id_sociedad);
 
-            $sociedades = $sociedad->getSociedadesHijasRecursivo($comercial->id_sociedad);
+            $sociedades = $sociedad->getSociedadesHijasDesde($comercial->id_sociedad);
 
             // Coger solo los ids de las sociedades
             $sociedades = array_map(function($sociedad){
