@@ -24,7 +24,7 @@ return new class extends Migration {
             $table->string('auxiliar')->nullable(); // Comercial/Auxiliar (nombre o id según modelo)
             $table->string('residente')->default('S'); // S por defecto
             $table->string('referencia_mandato'); // REFMANDATO*
-            $table->date('fecha_cobro');          // FECHACOBRO*
+            $table->date('fecha_cobro')->nullable();          // FECHACOBRO*
             $table->string('referencia_adeudo');  // REFADEUDO*
             $table->string('tipo_adeudo')->default('FRST'); // TIPOADEUDO*
 

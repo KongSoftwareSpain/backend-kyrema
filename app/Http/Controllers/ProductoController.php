@@ -728,8 +728,9 @@ class ProductoController extends Controller
         $datos['hora_de_fin'] = $fechaFin->format('H:i:s');
         $datos['hora_de_emisión'] = $horaActual;
 
-        // Insertar los datos en la tabla correspondiente
+        unset($datos['nombre_producto'], $datos['letras_identificacion'], $datos['categoria']);
         $id = DB::table($nombreTabla)->insertGetId($datos);
+
 
         if (isset($datos['socio_id'])) {
             // Conectar el socio con el producto
