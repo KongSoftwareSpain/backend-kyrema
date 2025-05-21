@@ -9,6 +9,7 @@ use App\Models\RemesaDescarga;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Storage;
 use App\Services\Remesas\Q19Generator;
+use Illuminate\Support\Facades\Config;
 
 
 class RemesaController extends Controller
@@ -36,6 +37,20 @@ class RemesaController extends Controller
 
             'sociedad_id'           => 'nullable|integer|exists:sociedad,id',
         ]);
+
+        // Obtener el último código de producto generado
+        $tableDatePrefix = Carbon::now()->format('mY');
+
+        // Obtén el prefijo desde la configuración
+        $prefijo = strtolower(Config::get('app.prefijo_tipo_producto'));
+
+        // Elimina el prefijo del código
+        $codigoPorTipoProducto = str_replace($prefijo, '', strtolower($validated['letras_identificacion']));
+
+        // Construir el nuevo código de producto
+        $newCodigoProducto = $tableDatePrefix . strtoupper($codigoPorTipoProducto) . $validated['referencia'];
+
+        $validated['referencia'] = $newCodigoProducto;
 
         // Crear registro en la tabla general de pagos
         $pago = Pago::create([
@@ -72,37 +87,7 @@ class RemesaController extends Controller
         ]);
     }
 
-    public function addReferenceToPago(Request $request){
-        $validated = $request->validate([
-            'pago_id' => 'required|integer',
-            'referencia' => 'required|string',
-        ]);
-
-        // Actualizar el pago con la referencia
-        $pago = Pago::find($validated['pago_id']);
-        if (!$pago) {
-            return response()->json(['message' => 'Pago no encontrado'], 404);
-        }
-
-        $pago->update(['referencia' => $validated['referencia']]);
-
-        // Encontrar el GiroBancario asociado al pago
-        $giro = GiroBancario::where('pago_id', $pago->id)->first();
-        if (!$giro) {
-            return response()->json(['message' => 'Giro bancario no encontrado'], 404);
-        }
-
-        // Actualizar el giro bancario con la referencia
-        $giro->update(['referencia' => $validated['referencia']]);
-
-        return response()->json([
-            'message' => 'Referencia añadida correctamente al pago',
-            'pago'    => $pago,
-            'giro'    => $giro,
-        ]);
-    }
-
-    public function descargarPorFechas(Request $request)
+    public function generarQ19(Request $request)
     {
         $desde = $request->query('desde');
         $hasta = $request->query('hasta');
@@ -143,5 +128,37 @@ class RemesaController extends Controller
 
 
         return response()->download(storage_path("app/{$filename}"))->deleteFileAfterSend();
+    }
+
+
+    public function addReferenceToPago(Request $request)
+    {
+        $validated = $request->validate([
+            'pago_id' => 'required|integer',
+            'referencia' => 'required|string',
+        ]);
+
+        // Actualizar el pago con la referencia
+        $pago = Pago::find($validated['pago_id']);
+        if (!$pago) {
+            return response()->json(['message' => 'Pago no encontrado'], 404);
+        }
+
+        $pago->update(['referencia' => $validated['referencia']]);
+
+        // Encontrar el GiroBancario asociado al pago
+        $giro = GiroBancario::where('pago_id', $pago->id)->first();
+        if (!$giro) {
+            return response()->json(['message' => 'Giro bancario no encontrado'], 404);
+        }
+
+        // Actualizar el giro bancario con la referencia
+        $giro->update(['referencia' => $validated['referencia']]);
+
+        return response()->json([
+            'message' => 'Referencia añadida correctamente al pago',
+            'pago'    => $pago,
+            'giro'    => $giro,
+        ]);
     }
 }

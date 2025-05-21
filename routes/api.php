@@ -196,6 +196,8 @@ Route::get('generar-referencia/{letras}', [ReferenciaSecuenciaController::class,
 
 Route::post('pago/giro-bancario', [RemesaController::class, 'storeGiroBancario']);
 
+Route::post('pago/generar-xml-q-19', [RemesaController::class, 'generarQ19']);
+
 // COMPAÑIAS:
 
 Route::get('companies', [CompaniaController::class, 'getAll']);

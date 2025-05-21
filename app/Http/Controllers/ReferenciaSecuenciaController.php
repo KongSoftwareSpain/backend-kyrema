@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ReferenciaSecuencia;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Config;
 
 class ReferenciaSecuenciaController extends Controller
 {
@@ -17,13 +18,23 @@ class ReferenciaSecuenciaController extends Controller
             ['ultimo_producto' => 0]
         );
 
-        // Incrementar
-        $secuencia->ultimo_producto = ($secuencia->ultimo_producto + 1) % 1000000; // reinicia a 0 si llega a 999999
+        // Obtén el prefijo desde la configuración
+        $prefijo = strtolower(Config::get('app.prefijo_tipo_producto'));
+
+        // Elimina el prefijo del código
+        $letras = str_replace($prefijo, '', strtolower($letras));
+
+        // Incrementar el contador
+        $secuencia->ultimo_producto = ($secuencia->ultimo_producto + 1) % pow(10, 10 - strlen($letras));
         $secuencia->save();
 
-        // Formatear como string con ceros a la izquierda
-        $referencia = str_pad((string) $secuencia->ultimo_producto, 6, '0', STR_PAD_LEFT);
+        // Calcular longitud que debe ocupar el número
+        $longitudNumero = 10 - strlen($letras);
 
-        return response()->json($referencia);
+        // Rellenar con ceros a la izquierda
+        $numeroFormateado = str_pad((string) $secuencia->ultimo_producto, $longitudNumero, '0', STR_PAD_LEFT);
+
+        return response()->json($numeroFormateado, 200);
     }
 }
+

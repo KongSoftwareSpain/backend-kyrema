@@ -250,6 +250,7 @@ class ProductoController extends Controller
                         $table->unsignedBigInteger('sociedad_id')->nullable();
                         $table->unsignedBigInteger('tipo_de_pago_id')->nullable();
                         $table->unsignedBigInteger('comercial_id')->nullable();
+                        $table->unsignedBigInteger('pago_id')->nullable();
                         // Campo para saber si que comercial crea el producto en nombre de otro
                         $table->unsignedBigInteger('comercial_creador_id')->nullable();
                         $table->boolean('mediante_pagina_web')->nullable();
@@ -679,16 +680,6 @@ class ProductoController extends Controller
 
         // Obtener el último código de producto generado
         $tableDatePrefix = Carbon::now()->format('mY');
-        $lastProduct = DB::table($nombreTabla)
-            ->orderBy('id', 'desc')
-            ->first();
-
-        // Determinar la longitud del número secuencial basado en la longitud de letrasIdentificacion
-        $longitudSecuencia = strlen($letrasIdentificacion) === 4 ? 5 : 6;
-
-        // Calcular el siguiente número secuencial
-        $lastNumber = $lastProduct ? intval(substr($lastProduct->codigo_producto, -$longitudSecuencia)) : 0;
-        $newNumber = str_pad($lastNumber + 1, $longitudSecuencia, '0', STR_PAD_LEFT);
 
         // Obtén el prefijo desde la configuración
         $prefijo = strtolower(Config::get('app.prefijo_tipo_producto'));
@@ -697,7 +688,7 @@ class ProductoController extends Controller
         $codigoPorTipoProducto = str_replace($prefijo, '', strtolower($letrasIdentificacion));
 
         // Construir el nuevo código de producto
-        $newCodigoProducto = $tableDatePrefix . strtoupper($codigoPorTipoProducto) . $newNumber;
+        $newCodigoProducto = $tableDatePrefix . strtoupper($codigoPorTipoProducto) . $datos['referencia'];
 
 
         // Añadir el código de producto al array de datos
@@ -728,7 +719,7 @@ class ProductoController extends Controller
         $datos['hora_de_fin'] = $fechaFin->format('H:i:s');
         $datos['hora_de_emisión'] = $horaActual;
 
-        unset($datos['nombre_producto'], $datos['letras_identificacion'], $datos['categoria']);
+        unset($datos['nombre_producto'], $datos['letras_identificacion'], $datos['categoria'], $datos['referencia']);
         $id = DB::table($nombreTabla)->insertGetId($datos);
 
 

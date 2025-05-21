@@ -37,7 +37,6 @@ class TipoPagoProductoSociedadController extends Controller
 
     public function getTiposPagoPorSociedad($id_sociedad)
     {
-        // Corregido el nombre del parámetro
         $tiposPago = TipoPagoProductoSociedad::where('sociedad_id', $id_sociedad)->get();
         return response()->json($tiposPago);
     }
