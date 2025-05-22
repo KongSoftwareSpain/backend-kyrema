@@ -9,26 +9,37 @@ class GiroPagoExport implements PagoExportInterface
 {
     public function getPagos(int $sociedadId, ?string $desde = null, ?string $hasta = null): Collection
     {
-        $query = GiroBancario::with('cliente')
-            ->where('sociedad_id', $sociedadId);
+        $query = GiroBancario::with('pago')
+            ->whereHas('pago', function ($q) use ($sociedadId, $desde, $hasta) {
+                $q->where('sociedad_id', $sociedadId);
 
-        if ($desde) {
-            $query->whereDate('fecha_emision', '>=', $desde);
-        }
+                if ($desde) {
+                    $q->whereDate('fecha', '>=', $desde);
+                }
 
-        if ($hasta) {
-            $query->whereDate('fecha_emision', '<=', $hasta);
-        }
+                if ($hasta) {
+                    $q->whereDate('fecha', '<=', $hasta);
+                }
+            });
 
-        return $query->get()->map(function ($pago) {
+        return $query->get()->map(function ($giro) {
             return [
-                'ID' => $pago->id,
-                'Cliente' => $pago->cliente->nombre ?? 'N/A',
-                'Fecha de emisión' => $pago->fecha_emision->format('Y-m-d'),
-                'Importe' => number_format($pago->monto, 2, ',', '.'),
-                'IBAN Cliente' => $pago->iban,
-                'Estado' => ucfirst($pago->estado),
-                'Método' => 'Giro bancario',
+                'Referencia' => $giro->referencia,
+                'Tipo de pago' => $giro->pago->tipo_pago ?? 'N/A',
+                'Monto' => number_format($giro->pago->monto ?? 0, 2, ',', '.'),
+                'Fecha de creación' => optional($giro->pago->fecha)->format('Y-m-d'),
+
+                'Nombre del cliente' => $giro->nombre_cliente,
+                'DNI' => $giro->dni,
+                'Fecha firma mandato' => optional($giro->fecha_firma_mandato)->format('Y-m-d'),
+                'IBAN' => $giro->iban_cliente,
+                'Auxiliar' => $giro->auxiliar,
+                'Residente' => $giro->residente,
+                'Referencia mandato' => $giro->referencia_mandato,
+                'Fecha cobro' => optional($giro->fecha_cobro)->format('Y-m-d'),
+                'Referencia adeudo' => $giro->referencia_adeudo,
+                'Tipo de adeudo' => $giro->tipo_adeudo,
+                'Concepto' => $giro->concepto,
             ];
         });
     }

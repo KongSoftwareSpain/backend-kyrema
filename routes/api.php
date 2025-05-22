@@ -35,7 +35,7 @@ use App\Http\Controllers\ReferenciaSecuenciaController;
 use App\Http\Controllers\RemesaController;
 use App\Http\Controllers\SociedadComisionController;
 use App\Http\Controllers\TarifaAnexoController;
-use App\Models\RemesaDescarga;
+use App\Http\Controllers\PagoExportController;
 
 // Route::get('/productos/{letras_identificativas}', [ProductoController::class, 'getProductosPorTipo']);
 Route::post('password/email', [ForgotPasswordController::class, 'sendResetLinkEmail']);
@@ -222,6 +222,7 @@ Route::apiResource('escalado-anexos', EscaladoAnexoController::class);
 
 Route::get('/nav/{id_sociedad}/{responsable}', [NavController::class, 'getNavegacion']);
 Route::get('/nav-socio/{categoria}/socio/{socio_id}', [NavController::class, 'getNavegacionSocio']);
+Route::get('/exportar-pagos', [PagoExportController::class, 'exportarPagos']);
 
 //Pagos:
 Route::post('/payment/create', [PaymentController::class, 'createPayment']);
