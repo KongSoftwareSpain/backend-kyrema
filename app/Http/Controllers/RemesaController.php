@@ -57,10 +57,10 @@ class RemesaController extends Controller
             'referencia'            => $validated['referencia'],
             'letras_identificacion' => $validated['letras_identificacion'],
 
-            'tipo_pago'             => 'giro',
+            'tipo_pago'             => 'giro_bancario',
             'monto'                 => $validated['importe'],
             'fecha'                 => $validated['fecha'],
-            'estado'                => 'pending',
+            'estado'                => 'pendiente', // 'mandado' cuando se descarga el XML
             'sociedad_id'           => $validated['sociedad_id'] ?? null,
         ]);
 

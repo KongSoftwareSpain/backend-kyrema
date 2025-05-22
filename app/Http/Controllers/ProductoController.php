@@ -17,6 +17,7 @@ use App\Models\Socio;
 use App\Models\Comercial;
 use App\Models\TipoProducto;
 use App\Models\SocioProducto;
+use App\Services\ReferenceService;
 
 class ProductoController extends Controller
 {
@@ -686,6 +687,11 @@ class ProductoController extends Controller
 
         // Elimina el prefijo del código
         $codigoPorTipoProducto = str_replace($prefijo, '', strtolower($letrasIdentificacion));
+
+        if (!isset($datos['referencia']) || !$datos['referencia']) {
+            $referenciaService = new ReferenceService();
+            $datos['referencia'] = $referenciaService->generarReferencia($letrasIdentificacion);
+        }
 
         // Construir el nuevo código de producto
         $newCodigoProducto = $tableDatePrefix . strtoupper($codigoPorTipoProducto) . $datos['referencia'];
