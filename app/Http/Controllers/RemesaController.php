@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\GiroBancario;
-use App\Models\Pago;
+use App\Models\Payments\GiroBancario;
+use App\Models\Payments\Pago;
 use Illuminate\Http\Request;
 use App\Models\RemesaDescarga;
 use Carbon\Carbon;
@@ -67,6 +67,7 @@ class RemesaController extends Controller
         // Crear giro bancario asociado
         $giro = GiroBancario::create([
             'pago_id'               => $pago->id,
+            'referencia'            => $validated['referencia'],
             'nombre_cliente'        => $validated['nombre_cliente'],
             'dni'                   => $validated['dni'] ?? null,
             'importe'               => $validated['importe'],
@@ -89,18 +90,29 @@ class RemesaController extends Controller
 
     public function generarQ19(Request $request)
     {
-        $desde = $request->query('desde');
-        $hasta = $request->query('hasta');
-        $id_comercial = $request->query('id_comercial');
+        $validated = $request->validate([
+            'desde' => 'required|date',
+            'hasta' => 'required|date|after_or_equal:desde',
+            'sociedad_id' => 'required|exists:sociedad,id',
+            'tipo_pago_id' => 'required|exists:tipos_pago,id',
+            'comercial_id' => 'required|exists:comercial,id',
+        ]);
 
-        $giros = GiroBancario::whereBetween('created_at', [$desde, $hasta])
+        // Buscar giros relacionados a pagos filtrados por sociedad y tipo
+        $giros = GiroBancario::whereBetween('created_at', [
+            Carbon::parse($validated['desde'])->format('Y-m-d\TH:i:s'),
+            Carbon::parse($validated['hasta'])->addDay()->format('Y-m-d\TH:i:s')
+        ])
+            ->whereHas('pago', function ($query) use ($validated) {
+                $query->where('sociedad_id', $validated['sociedad_id']);
+            })
             ->get();
 
         if ($giros->isEmpty()) {
             return response()->json(['message' => 'No hay giros en ese rango'], 404);
         }
 
-        // DATOS DEL ACREEDOR (empresa)
+        // Datos del acreedor (empresa)
         $empresa = [
             'nombre' => 'Nombre SL',
             'iban' => 'ES9121000418450200051332',
@@ -111,23 +123,51 @@ class RemesaController extends Controller
         $referencia = 'REM_' . now()->format('YmdHis');
         $fechaCobro = $giros->first()->fecha_cobro;
 
-        $xml = app(Q19Generator::class)
-            ->generar($giros, $empresa, $referencia, $fechaCobro);
-
+        // Generar XML
+        $xml = app(Q19Generator::class)->generar($giros, $empresa, $referencia, $fechaCobro);
         $filename = "remesas/{$referencia}.xml";
         Storage::put($filename, $xml);
 
-        // Guardar la descarga
+        // Guardar registro de descarga
         RemesaDescarga::create([
             'ruta_xml' => $filename,
-            'fecha_inicio' => $desde,
-            'fecha_fin' => $hasta,
-            'descargado_en' => Carbon::now()->format('Y-m-d\TH:i:s'),
-            'id_comercial' => $id_comercial,
+            'fecha_inicio' => $validated['desde'],
+            'fecha_fin' => $validated['hasta'],
+            'descargado_en' => now()->format('Y-m-d\TH:i:s'),
+            'id_comercial' => $validated['comercial_id'],
         ]);
 
+        return response()->download(storage_path("app/{$filename}"), "{$referencia}.xml", [
+            'Content-Type' => 'application/xml',
+        ])->deleteFileAfterSend();
+    }
 
-        return response()->download(storage_path("app/{$filename}"))->deleteFileAfterSend();
+
+    public function guardarFechaCobro(Request $request)
+    {
+        $validated = $request->validate([
+            'fechaCobro' => 'required|date|after:today',
+            'filtro' => 'required|array',
+            'filtro.desde' => 'required|date',
+            'filtro.hasta' => 'required|date|after_or_equal:filtro.desde',
+            'filtro.sociedad_id' => 'required|exists:sociedad,id',
+            'filtro.tipo_pago_id' => 'required|exists:tipos_pago,id',
+        ]);
+
+        $updated = GiroBancario::whereBetween('created_at', [
+            Carbon::parse($validated['filtro']['desde'])->format('Y-m-d\TH:i:s'),
+            Carbon::parse($validated['filtro']['hasta'])->format('Y-m-d\TH:i:s'),
+        ])
+            ->whereHas('pago', function ($query) use ($validated) {
+                $query->where('sociedad_id', $validated['filtro']['sociedad_id']);
+            })
+            ->update(['fecha_cobro' => Carbon::parse($validated['fechaCobro'])]);
+
+
+        return response()->json([
+            'message' => 'Fecha de cobro actualizada correctamente.',
+            'registros_actualizados' => $updated,
+        ]);
     }
 
 

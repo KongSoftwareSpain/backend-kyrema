@@ -2,7 +2,7 @@
 
 namespace App\Exports;
 
-use App\Models\Transferencia;
+use App\Models\Payments\Transferencia;
 use Illuminate\Support\Collection;
 
 class TransferenciaPagoExport implements PagoExportInterface

@@ -4,6 +4,8 @@ namespace App\Services\Remesas;
 
 use SimpleXMLElement;
 
+use Carbon\Carbon;
+
 class Q19Generator implements GenerarRemesaInterface
 {
     public function generar($giros, array $empresa, string $referencia, string $fechaCobro, string $tipo = 'FRST'): string
@@ -37,13 +39,10 @@ class Q19Generator implements GenerarRemesaInterface
         $pmtInf->addChild('Cdtr')->addChild('Nm', substr($empresa['nombre'], 0, 70));
         $pmtInf->addChild('CdtrAcct')->addChild('Id')->addChild('IBAN', $empresa['iban']);
         $pmtInf->addChild('CdtrAgt')->addChild('FinInstnId')->addChild('BIC', $empresa['bic']);
-        $pmtInf->addChild('CdtrSchmeId')
-            ->addChild('Id')
-            ->addChild('PrvtId')
-            ->addChild('Othr')
-            ->addChild('Id', $empresa['identificador_sepa'])
-            ->addChild('SchmeNm')
-            ->addChild('Prtry', 'SEPA');
+
+        $cdtrSchmeId = $pmtInf->addChild('CdtrSchmeId')->addChild('Id')->addChild('PrvtId')->addChild('Othr');
+        $cdtrSchmeId->addChild('Id', $empresa['identificador_sepa']);
+        $cdtrSchmeId->addChild('SchmeNm')->addChild('Prtry', 'SEPA');
 
         foreach ($giros as $index => $op) {
             $tx = $pmtInf->addChild('DrctDbtTxInf');
@@ -52,7 +51,7 @@ class Q19Generator implements GenerarRemesaInterface
 
             $mandato = $tx->addChild('DrctDbtTx')->addChild('MndtRltdInf');
             $mandato->addChild('MndtId', $op->referencia_mandato);
-            $mandato->addChild('DtOfSgntr', $op->fecha_firma_mandato);
+            $mandato->addChild('DtOfSgntr', Carbon::parse($op->fecha_firma_mandato)->format('Y-m-d'));
 
             $tx->addChild('DbtrAgt')->addChild('FinInstnId')->addChild('BIC', $op->pago->auxiliar ?? 'UNKNOWN');
             $tx->addChild('Dbtr')->addChild('Nm', substr($op->nombre_cliente, 0, 70));

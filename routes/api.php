@@ -195,7 +195,9 @@ Route::post('sociedad/{sociedad_padre_id}/hija/{sociedad_hija_id}/tipos-pago', [
 Route::get('generar-referencia/{letras}', [ReferenciaSecuenciaController::class, 'generateReference']);
 
 Route::post('pago/giro-bancario', [RemesaController::class, 'storeGiroBancario']);
+Route::post('pago/giro-bancario/fecha-cobro', [RemesaController::class, 'guardarFechaCobro']);
 
+Route::post('pago/generate-csv', [PagoExportController::class, 'exportarPagos']);
 Route::post('pago/generar-xml-q-19', [RemesaController::class, 'generarQ19']);
 
 // COMPAÑIAS:

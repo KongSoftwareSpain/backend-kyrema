@@ -10,14 +10,14 @@ class PagoExportController extends Controller
     public function exportarPagos(Request $request, ExportPagosService $service)
     {
         $request->validate([
-            'tipo' => 'required|string',
-            'sociedad_id' => 'required|integer|exists:sociedades,id',
+            'tipo_pago_id' => 'required|string',
+            'sociedad_id' => 'required|integer|exists:sociedad,id',
             'desde' => 'nullable|date',
             'hasta' => 'nullable|date',
         ]);
 
         return $service->exportarCSV(
-            $request->tipo,
+            $request->tipo_pago_id,
             $request->sociedad_id,
             $request->desde,
             $request->hasta

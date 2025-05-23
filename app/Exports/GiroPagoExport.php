@@ -2,7 +2,7 @@
 
 namespace App\Exports;
 
-use App\Models\GiroBancario;
+use App\Models\Payments\GiroBancario;
 use Illuminate\Support\Collection;
 
 class GiroPagoExport implements PagoExportInterface

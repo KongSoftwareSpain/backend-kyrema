@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Models;
+namespace App\Models\Payments;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -30,7 +30,6 @@ class GiroBancario extends Model
 
     protected $casts = [
         'fecha_firma_mandato' => 'date',
-        'fecha_cobro' => 'date',
     ];
 
     /**
@@ -45,7 +44,7 @@ class GiroBancario extends Model
     public $timestamps = true;
 
     // Si necesitas formatear las fechas automáticamente
-    protected $dates = ['created_at', 'updated_at'];
+    protected $dates = ['created_at', 'updated_at', 'fecha_cobro'];
 
     // Personalizamos el formato de fechas para que SQL server lo pueda convertir de varchar a datetime
     protected $dateFormat = 'Y-m-d\TH:i:s';

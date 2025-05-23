@@ -1,10 +1,11 @@
 <?php
 
-namespace App\Models;
+namespace App\Models\Payments;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Support\Facades\DB;
+use App\Models\Sociedad;
 
 class Pago extends Model
 {

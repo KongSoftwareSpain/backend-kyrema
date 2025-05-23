@@ -39,20 +39,17 @@ class ExportPagosService
     {
         $handle = fopen('php://temp', 'r+');
 
-        if ($data->isNotEmpty()) {
-            // Escribir encabezados
-            fputcsv($handle, array_keys($data->first()));
+        // Añadir BOM para que Excel lo abra con UTF-8
+        fwrite($handle, chr(0xEF) . chr(0xBB) . chr(0xBF));
 
-            // Escribir filas
-            foreach ($data as $row) {
-                fputcsv($handle, $row);
+        if ($data->isNotEmpty()) {
+            fputcsv($handle, array_keys($data->first()), ';');
+            foreach ($data as $line) {
+                fputcsv($handle, $line, ';');
             }
         }
 
         rewind($handle);
-        $csv = stream_get_contents($handle);
-        fclose($handle);
-
-        return $csv;
+        return stream_get_contents($handle);
     }
 }
