@@ -29,7 +29,7 @@ class AuthController extends Controller
         }
 
         // Generar el token JWT para el comercial
-        $token = JWTAuth::fromUser($comercial);
+        $token = $comercial->createToken()->plainTextToken;
 
         // Retornar la información del comercial junto con el token
         return response()->json([
@@ -64,7 +64,7 @@ class AuthController extends Controller
         }
 
         // Generar el token JWT para el socio
-        $token = JWTAuth::fromUser($socio);
+        $token = $socio->createToken()->plainTextToken;
 
         // Retornar la información del socio junto con el token
         return response()->json([
@@ -106,7 +106,7 @@ class AuthController extends Controller
 
         $socio->save();
 
-        $token = JWTAuth::fromUser($socio);
+        $token = $socio->createToken()->plainTextToken;
 
         return response()->json([
             'socio' => $socio,

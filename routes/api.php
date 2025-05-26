@@ -40,6 +40,9 @@ use App\Http\Controllers\PagoExportController;
 // Route::get('/productos/{letras_identificativas}', [ProductoController::class, 'getProductosPorTipo']);
 Route::post('password/email', [ForgotPasswordController::class, 'sendResetLinkEmail']);
 Route::post('password/reset', [ResetPasswordController::class, 'reset']);
+Route::post('auth/login', [AuthController::class, 'login']);
+Route::post('auth/login/socio', [AuthController::class, 'loginSocio']);
+Route::post('auth/register/socio', [AuthController::class, 'registerSocio']);
 
 
 Route::get('productos/{letrasIdentificacion}', [ProductoController::class, 'getProductosByTipoAndSociedades']);
@@ -113,9 +116,6 @@ Route::post('comercial', [ComercialController::class, 'store']);
 Route::put('comercial/{id}', [ComercialController::class, 'update']);
 Route::delete('comercial/{id}', [ComercialController::class, 'destroy']);
 
-Route::post('auth/login', [AuthController::class, 'login']);
-Route::post('auth/login/socio', [AuthController::class, 'loginSocio']);
-Route::post('auth/register/socio', [AuthController::class, 'registerSocio']);
 Route::get('comercial/{id}', [ComercialController::class, 'show']);
 Route::put('comercial/{id}', [ComercialController::class, 'update']);
 Route::post('comercial', [ComercialController::class, 'store']);
@@ -199,6 +199,8 @@ Route::post('pago/giro-bancario/fecha-cobro', [RemesaController::class, 'guardar
 
 Route::post('pago/generate-csv', [PagoExportController::class, 'exportarPagos']);
 Route::post('pago/generar-xml-q-19', [RemesaController::class, 'generarQ19']);
+
+Route::get('pago/downloads/{tipoPago}', [RemesaController::class, 'getDescargas']);
 
 // COMPAÑIAS:
 

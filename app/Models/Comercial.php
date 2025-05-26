@@ -6,13 +6,15 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Tymon\JWTAuth\Contracts\JWTSubject;
 use App\Notifications\CustomResetPassword;
 use Illuminate\Support\Facades\DB;
+use Laravel\Sanctum\HasApiTokens;
+use Laravel\Sanctum\NewAccessToken;
+use Illuminate\Support\Str;
 
-class Comercial extends Authenticatable implements JWTSubject
+class Comercial extends Authenticatable
 {
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, HasApiTokens;
 
     protected $table = 'comercial';
     protected $primaryKey = 'id';
@@ -45,6 +47,25 @@ class Comercial extends Authenticatable implements JWTSubject
         'path_otros',
         'path_foto',
     ];
+
+    public function createToken(string $name = 'user', array $abilities = ['*'])
+    {
+        $plainTextToken = Str::random(40);
+
+        $now = now();
+
+        /** @var \Laravel\Sanctum\PersonalAccessToken $token */
+        $token = $this->tokens()->create([
+            'name' => $name,
+            'token' => hash('sha256', $plainTextToken),
+            'abilities' => $abilities,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        return new NewAccessToken($token, $token->getKey() . '|' . $plainTextToken);
+    }
+
     public function sendPasswordResetNotification($token)
     {
         $this->notify(new CustomResetPassword($token));
@@ -70,17 +91,10 @@ class Comercial extends Authenticatable implements JWTSubject
         return $comercial;
     }
 
-    public function getJWTIdentifier()
-    {
-        return $this->getKey();
-    }
 
-    public function getJWTCustomClaims()
-    {
-        return [];
-    }
 
-    public static function getComercialByProducto($letras_identificacion, $id) {
+    public static function getComercialByProducto($letras_identificacion, $id)
+    {
         $result = DB::table($letras_identificacion)
             ->select('comercial_id') // Especifica las columnas que quieres obtener
             ->where('id', $id) // Aplica el filtro por ID
@@ -90,11 +104,9 @@ class Comercial extends Authenticatable implements JWTSubject
     }
 
     // Funcion para ver si es responsable o no
-    public static function isResponsable($id_comercial) {
+    public static function isResponsable($id_comercial)
+    {
         $comercial = Comercial::find($id_comercial);
         return $comercial->responsable;
-    }   
-
-    
+    }
 }
-

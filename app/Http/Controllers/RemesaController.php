@@ -201,4 +201,12 @@ class RemesaController extends Controller
             'giro'    => $giro,
         ]);
     }
+
+    public function getDescargas() {
+        $descargas = RemesaDescarga::with('comercial')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json($descargas, 200);
+    }
 }
