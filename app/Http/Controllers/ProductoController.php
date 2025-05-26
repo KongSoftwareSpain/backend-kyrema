@@ -682,19 +682,13 @@ class ProductoController extends Controller
         // Obtener el último código de producto generado
         $tableDatePrefix = Carbon::now()->format('mY');
 
-        // Obtén el prefijo desde la configuración
-        $prefijo = strtolower(Config::get('app.prefijo_tipo_producto'));
-
-        // Elimina el prefijo del código
-        $codigoPorTipoProducto = str_replace($prefijo, '', strtolower($letrasIdentificacion));
-
         if (!isset($datos['referencia']) || !$datos['referencia']) {
             $referenciaService = new ReferenceService();
             $datos['referencia'] = $referenciaService->generarReferencia($letrasIdentificacion);
         }
 
         // Construir el nuevo código de producto
-        $newCodigoProducto = $tableDatePrefix . strtoupper($codigoPorTipoProducto) . $datos['referencia'];
+        $newCodigoProducto = $tableDatePrefix . $datos['referencia'];
 
 
         // Añadir el código de producto al array de datos
