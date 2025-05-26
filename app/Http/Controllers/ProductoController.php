@@ -17,6 +17,7 @@ use App\Models\Socio;
 use App\Models\Comercial;
 use App\Models\TipoProducto;
 use App\Models\SocioProducto;
+use App\Services\ReferenceService;
 
 class ProductoController extends Controller
 {
@@ -27,7 +28,7 @@ class ProductoController extends Controller
     {
         DB::beginTransaction();
 
-        try{
+        try {
             // Validar los datos recibidos
             $request->validate([
                 'nombreProducto' => 'required|string',
@@ -131,12 +132,12 @@ class ProductoController extends Controller
                 'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
             ]);
 
-            if($polizas && count($polizas) > 0){
+            if ($polizas && count($polizas) > 0) {
                 // Conectar las polizas con el tipo_producto
                 self::insertPolizas($polizas, $tipoProductoId);
             }
 
-            if($campos_logos && count($campos_logos) > 0){
+            if ($campos_logos && count($campos_logos) > 0) {
                 // Conectar las polizas con el tipo_producto
                 self::insertLogos($campos_logos, $tipoProductoId);
             }
@@ -165,27 +166,27 @@ class ProductoController extends Controller
             $duraciones = $request->input('duracion');
             self::insertDuracionEnCampos($duraciones, $tipoProductoId);
 
-            
+
             // Definir el nombre de la nueva tabla usando las letras de identificación
             $nombreTabla = strtolower($letrasIdentificacion);
 
             // Filtrar y quitar las COPIAS para que no se inserten en la tabla duplicados:
-            $campos = array_filter($campos, function($campo) {
+            $campos = array_filter($campos, function ($campo) {
                 return $campo['copia'] === false;
             });
 
-            $camposConOpciones = array_filter($camposConOpciones, function($campo) {
+            $camposConOpciones = array_filter($camposConOpciones, function ($campo) {
                 return $campo['copia'] === false;
             });
 
             // Si es un anexo (Es decir tiene tipo_producto_asociado) se crea la tabla solo con los campos
             // con grupo datos_anexo:
-            if($tipo_producto_asociado){
-                $campos = array_filter($campos, function($campo) {
+            if ($tipo_producto_asociado) {
+                $campos = array_filter($campos, function ($campo) {
                     return $campo['grupo'] === 'datos_anexo' || $campo['grupo'] === 'datos_fecha';
                 });
-                
-                $camposConOpciones = array_filter($camposConOpciones, function($campo) {
+
+                $camposConOpciones = array_filter($camposConOpciones, function ($campo) {
                     return $campo['grupo'] === 'datos_anexo' || $campo['grupo'] === 'datos_fecha';
                 });
             }
@@ -196,14 +197,14 @@ class ProductoController extends Controller
                 $nombreTablaPadre = DB::table('tipo_producto')->where('id', $padre_id)->value('letras_identificacion');
 
                 Log::info($nombreTablaPadre);
-            
+
                 // Verifica si la tabla existe antes de modificarla
                 if (Schema::hasTable($nombreTablaPadre)) {
                     Schema::table($nombreTablaPadre, function (Blueprint $table) use ($campos, $camposConOpciones) {
-                        if(!Schema::hasColumn($table->getTable(), 'subproducto')){
+                        if (!Schema::hasColumn($table->getTable(), 'subproducto')) {
                             $table->string('subproducto')->nullable();
                         }
-                        if(!Schema::hasColumn($table->getTable(), 'subproducto_codigo')){
+                        if (!Schema::hasColumn($table->getTable(), 'subproducto_codigo')) {
                             $table->string('subproducto_codigo')->nullable();
                         }
                         // Añadir los campos dinámicos desde $campos
@@ -229,7 +230,7 @@ class ProductoController extends Controller
                                 }
                             }
                         }
-            
+
                         // Añadir campos con opciones desde $camposConOpciones
                         foreach ($camposConOpciones as $campoConOpciones) {
                             $nombreCampo = strtolower(str_replace(' ', '_', $campoConOpciones['nombre']));
@@ -237,7 +238,6 @@ class ProductoController extends Controller
                                 $table->string($nombreCampo)->nullable();
                             }
                         }
-            
                     });
                 }
             } else {
@@ -246,11 +246,12 @@ class ProductoController extends Controller
                     $table->id();
 
                     // Estos campos solo se añaden al producto, no al anexo.
-                    if($tipo_producto_asociado == null){
+                    if ($tipo_producto_asociado == null) {
                         // Agregar campos adicionales
                         $table->unsignedBigInteger('sociedad_id')->nullable();
                         $table->unsignedBigInteger('tipo_de_pago_id')->nullable();
                         $table->unsignedBigInteger('comercial_id')->nullable();
+                        $table->unsignedBigInteger('pago_id')->nullable();
                         // Campo para saber si que comercial crea el producto en nombre de otro
                         $table->unsignedBigInteger('comercial_creador_id')->nullable();
                         $table->boolean('mediante_pagina_web')->nullable();
@@ -276,7 +277,7 @@ class ProductoController extends Controller
                     $table->string('duracion')->nullable();
                     // Booleano de si está anulado o no
                     $table->boolean('anulado')->default(false);
-                    
+
                     // Añadimos campos a la tabla
                     foreach ($campos as $campo) {
                         $nombreCampo = strtolower(str_replace(' ', '_', $campo['nombre']));
@@ -304,7 +305,7 @@ class ProductoController extends Controller
                         $nombreCampo = strtolower(str_replace(' ', '_', $campoConOpciones['nombre']));
                         $table->string($nombreCampo)->nullable();
                     }
-                    
+
                     $table->timestamps();
                 });
             }
@@ -316,20 +317,20 @@ class ProductoController extends Controller
 
                 $campoController->createCampoConOpciones($campoConOpciones, $tipoProductoId);
             }
-            
+
             DB::commit();
             return response()->json([
                 'message' => 'Producto creado con éxito',
                 'id' => $tipoProductoId
-            ], 200); 
-
+            ], 200);
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json(['error' => 'Error al crear el tipo de producto', 'message' => $e->getMessage()], 500);
         }
     }
 
-    private function insertLogos($campos_logos, $tipoProductoId){
+    private function insertLogos($campos_logos, $tipoProductoId)
+    {
         foreach ($campos_logos as $campo_logo) {
             DB::table('campos_logos')->insert([
                 'tipo_logo' => $campo_logo['tipo_logo'],
@@ -344,7 +345,8 @@ class ProductoController extends Controller
         }
     }
 
-    private function insertPolizas($polizas, $tipoProductoId){
+    private function insertPolizas($polizas, $tipoProductoId)
+    {
         foreach ($polizas as $poliza) {
             DB::table('tipo_producto_polizas')->insert([
                 'compania_id' => $poliza['compania_id'],
@@ -354,12 +356,13 @@ class ProductoController extends Controller
                 'page' => $poliza['page'] ?? null,
                 'font_size' => $poliza['font_size'] ?? null,
                 'columna' => $poliza['columna'] ?? null,
-                'copia' => $poliza['copia'] ?? false,   
+                'copia' => $poliza['copia'] ?? false,
             ]);
         }
     }
 
-    private function insertDuracionEnCampos($duraciones, $tipoProductoId){
+    private function insertDuracionEnCampos($duraciones, $tipoProductoId)
+    {
         foreach ($duraciones as $duracion) {
             DB::table('campos')->insert([
                 'nombre' => 'Duración',
@@ -376,7 +379,7 @@ class ProductoController extends Controller
                 'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
                 'grupo' => $duracion['grupo'] ?? null,
                 'copia' => $duracion['copia'] ?? false,
-            ]); 
+            ]);
         }
     }
 
@@ -384,8 +387,8 @@ class ProductoController extends Controller
     {
         // Borrar la plantilla anterior
         $tipoProducto = DB::table('tipo_producto')
-                            ->where('id', $id_tipo_producto)
-                            ->first();
+            ->where('id', $id_tipo_producto)
+            ->first();
 
         if ($request->hasFile('plantilla')) {
             $archivoPlantilla = $request->file('plantilla');
@@ -416,7 +419,7 @@ class ProductoController extends Controller
                 ->where('id', $id_tipo_producto)
                 ->update([$plantilla_path_name => $rutaArchivo]);
 
-            return response()->json(['message' => 'Plantilla:'. $page .'subida correctamente'], 200);
+            return response()->json(['message' => 'Plantilla:' . $page . 'subida correctamente'], 200);
         } else {
             return response()->json(['error' => 'No se recibió ninguna plantilla'], 400);
         }
@@ -426,7 +429,7 @@ class ProductoController extends Controller
     {
         // Obtener las sociedades del request
         $sociedades = $request->query('sociedades');
-        
+
         if ($sociedades) {
             $sociedades = explode(',', $sociedades);
         } else {
@@ -435,19 +438,19 @@ class ProductoController extends Controller
 
         // Convertir letras de identificación a nombre de tabla
         $nombreTabla = strtolower($letrasIdentificacion);
-        
+
         // Obtener la fecha y hora actual
         $fechaActual = Carbon::now()->format('Y-m-d\TH:i:s');
 
         // Obtener el tipo de producto por las letras de identificación
         $tipoProducto = DB::table('tipo_producto')
-                        ->where('letras_identificacion', $letrasIdentificacion)
-                        ->first();
+            ->where('letras_identificacion', $letrasIdentificacion)
+            ->first();
 
         // Obtener todas las tablas de anexos asociados al tipo de producto
         $anexos = DB::table('tipo_producto')
-                    ->where('tipo_producto_asociado', $tipoProducto->id)
-                    ->pluck('letras_identificacion'); // Solo letras de identificación para las tablas de anexos
+            ->where('tipo_producto_asociado', $tipoProducto->id)
+            ->pluck('letras_identificacion'); // Solo letras de identificación para las tablas de anexos
 
         // 1. Consulta principal: Obtener productos vigentes por fecha y sociedades
         $productosVigentes = DB::table($nombreTabla)
@@ -491,20 +494,20 @@ class ProductoController extends Controller
     {
         // Obtener el tipo de producto por las letras de identificación
         $tipoProducto = DB::table('tipo_producto')
-                        ->where('letras_identificacion', $letrasIdentificacion)
-                        ->first();
+            ->where('letras_identificacion', $letrasIdentificacion)
+            ->first();
 
         // Obtener todas las tablas de anexos asociados
         $anexos = DB::table('tipo_producto')
-                    ->where('tipo_producto_asociado', $tipoProducto->id)
-                    ->pluck('letras_identificacion'); // Obtener letras identificativas de las tablas de anexos
+            ->where('tipo_producto_asociado', $tipoProducto->id)
+            ->pluck('letras_identificacion'); // Obtener letras identificativas de las tablas de anexos
 
         // Convertir letras de identificación a nombre de tabla
         $nombreTabla = strtolower($letrasIdentificacion);
-        
+
         // Obtener la fecha y hora actual
         $fechaActual = Carbon::now()->format('Y-m-d\TH:i:s');
-        
+
         // Obtener los productos que están vigentes (fecha de fin >= fecha actual)
         $productosVigentes = DB::table($nombreTabla)
             ->where('comercial_id', $comercial_id)
@@ -548,15 +551,15 @@ class ProductoController extends Controller
         } else {
             $sociedades = [];
         }
-        
+
         // Convertir letras de identificación a nombre de tabla
         $nombreTabla = strtolower($letrasIdentificacion);
-        
+
         // Obtener la fecha y hora actual
-        $fechaActual = Carbon::now()->format('Y-m-d H:i:s');    
+        $fechaActual = Carbon::now()->format('Y-m-d\TH:i:s');
 
         Log::info('Fecha actual: ' . $fechaActual);
-        
+
         // Realizar consulta dinámica usando el nombre de la tabla
         $productos = DB::table($nombreTabla)
             ->when(count($sociedades) > 0, function ($query) use ($sociedades) {
@@ -565,25 +568,26 @@ class ProductoController extends Controller
             ->where('fecha_de_fin', '<', $fechaActual) // Filtrar productos con fecha_de_fin mayor que la fecha actual
             ->orderBy('updated_at', 'desc') // Ordenar por fecha de actualización de forma descendente
             ->get();
-        
+
         return response()->json($productos);
     }
 
 
-    public function getHistorialProductosByTipoAndComercial($letrasIdentificacion, $comercial_id){
-        
+    public function getHistorialProductosByTipoAndComercial($letrasIdentificacion, $comercial_id)
+    {
+
         // Convertir letras de identificación a nombre de tabla
         $nombreTabla = strtolower($letrasIdentificacion);
 
-        $fechaActual = Carbon::now()->format('Y-m-d H:i:s');   
-        
+        $fechaActual = Carbon::now()->format('Y-m-d\TH:i:s');
+
         // Realizar consulta dinámica usando el nombre de la tabla
         $productos = DB::table($nombreTabla)
             ->where('comercial_id', $comercial_id)
             ->where('fecha_de_fin', '<', $fechaActual)
             ->orderBy('updated_at', 'desc') // Ordenar por fecha de actualización de forma descendente
             ->get();
-        
+
         return response()->json($productos);
     }
 
@@ -592,8 +596,8 @@ class ProductoController extends Controller
     {
         // Obtener el id del tipo_producto basado en las letras_identificacion
         $tipoProducto = DB::table('tipo_producto')
-                        ->where('letras_identificacion', $letrasIdentificacion)
-                        ->first();
+            ->where('letras_identificacion', $letrasIdentificacion)
+            ->first();
 
 
         if (!$tipoProducto) {
@@ -602,23 +606,29 @@ class ProductoController extends Controller
 
         // Obtener la plantilla antes de gestionar el tipoProducto padre
         $plantillas_paths = [
-            $tipoProducto->plantilla_path_1 ?? null, $tipoProducto->plantilla_path_2 ?? null, $tipoProducto->plantilla_path_3 ?? null, $tipoProducto->plantilla_path_4 ?? null,
-            $tipoProducto->plantilla_path_5 ?? null, $tipoProducto->plantilla_path_6 ?? null, $tipoProducto->plantilla_path_7 ?? null, $tipoProducto->plantilla_path_8 ?? null
+            $tipoProducto->plantilla_path_1 ?? null,
+            $tipoProducto->plantilla_path_2 ?? null,
+            $tipoProducto->plantilla_path_3 ?? null,
+            $tipoProducto->plantilla_path_4 ?? null,
+            $tipoProducto->plantilla_path_5 ?? null,
+            $tipoProducto->plantilla_path_6 ?? null,
+            $tipoProducto->plantilla_path_7 ?? null,
+            $tipoProducto->plantilla_path_8 ?? null
         ];
 
         // Si el tipoProducto tiene padre, coger el tipoProducto padre para meter los datos en la tabla correspondiente
-        if($tipoProducto->padre_id != null){
+        if ($tipoProducto->padre_id != null) {
             $tipoProducto = DB::table('tipo_producto')
-                        ->where('id', $tipoProducto->padre_id)
-                        ->first();
+                ->where('id', $tipoProducto->padre_id)
+                ->first();
         }
 
         $tipoProductoId = $tipoProducto->id;
 
         // Obtener los campos relacionados con el tipo_producto_id
         $camposRelacionados = DB::table('campos')
-                                ->where('tipo_producto_id', $tipoProductoId)
-                                ->get();
+            ->where('tipo_producto_id', $tipoProductoId)
+            ->get();
 
         // Convertir letras de identificación a nombre de tabla
         $nombreTabla = strtolower($tipoProducto->letras_identificacion);
@@ -631,14 +641,14 @@ class ProductoController extends Controller
         // Cojo los datos del nuevo producto
         $datos = $request->input('nuevoProducto');
 
-        Log::info($datos);  
+        Log::info($datos);
 
         // Control por si se hace por pagina web para que el comercial que haya traido a un socio siga cobrando las comisiones pertinentes.
-        if($datos['mediante_pagina_web'] == true){
+        if ($datos['mediante_pagina_web'] == true) {
             $datos['mediante_pagina_web'] = 1;
             $ultimoProducto = Socio::getUltimoProducto($datos['socio_id']);
-            Log::info('Letras identificacion '. $ultimoProducto->letras_identificacion);
-            Log::info('ID: '. $ultimoProducto->id_producto);
+            Log::info('Letras identificacion ' . $ultimoProducto->letras_identificacion);
+            Log::info('ID: ' . $ultimoProducto->id_producto);
             $comercial_id = Comercial::getComercialByProducto($ultimoProducto->letras_identificacion, $ultimoProducto->id_producto);
 
             if ($comercial_id) {
@@ -671,25 +681,14 @@ class ProductoController extends Controller
 
         // Obtener el último código de producto generado
         $tableDatePrefix = Carbon::now()->format('mY');
-        $lastProduct = DB::table($nombreTabla)
-            ->orderBy('id', 'desc')
-            ->first();
 
-        // Determinar la longitud del número secuencial basado en la longitud de letrasIdentificacion
-        $longitudSecuencia = strlen($letrasIdentificacion) === 4 ? 5 : 6;
-
-        // Calcular el siguiente número secuencial
-        $lastNumber = $lastProduct ? intval(substr($lastProduct->codigo_producto, -$longitudSecuencia)) : 0;
-        $newNumber = str_pad($lastNumber + 1, $longitudSecuencia, '0', STR_PAD_LEFT);
-
-        // Obtén el prefijo desde la configuración
-        $prefijo = strtolower(Config::get('app.prefijo_tipo_producto'));
-
-        // Elimina el prefijo del código
-        $codigoPorTipoProducto = str_replace($prefijo, '', strtolower($letrasIdentificacion));
+        if (!isset($datos['referencia']) || !$datos['referencia']) {
+            $referenciaService = new ReferenceService();
+            $datos['referencia'] = $referenciaService->generarReferencia($letrasIdentificacion);
+        }
 
         // Construir el nuevo código de producto
-        $newCodigoProducto = $tableDatePrefix . strtoupper($codigoPorTipoProducto) . $newNumber;
+        $newCodigoProducto = $tableDatePrefix . $datos['referencia'];
 
 
         // Añadir el código de producto al array de datos
@@ -702,32 +701,29 @@ class ProductoController extends Controller
         $horaActual = Carbon::now()->format('H:i:s');
         $fechaHoy = Carbon::today();
 
+        // Compruebo si el seguro se ha comprado para hoy o para otro día más adelante.
+        // Creo los objetos con las fechas correspondientes dependiendo de si la fecha de inicio es mayor que hoy o no.
         if (Carbon::parse($datos['fecha_de_inicio'])->toDateString() > $fechaHoy->toDateString()) {
-            $datos['fecha_de_inicio'] = Carbon::parse($datos['fecha_de_inicio'])
-                ->setTime(0, 0, 0)
-                ->format('Y-m-d\TH:i:s');
-        
-            $datos['fecha_de_fin'] = Carbon::parse($datos['fecha_de_fin'])
-                ->setTime(0, 0, 0)
-                ->format('Y-m-d\TH:i:s');
+            $fechaInicio = Carbon::parse($datos['fecha_de_inicio'])->setTime(0, 0, 0);
+            $fechaFin = Carbon::parse($datos['fecha_de_fin'])->setTime(23, 59, 0);
         } else {
-            $datos['fecha_de_inicio'] = Carbon::parse($datos['fecha_de_inicio'])
-                ->setTimeFromTimeString($horaActual)
-                ->format('Y-m-d\TH:i:s');
-        
-            $datos['fecha_de_fin'] = Carbon::parse($datos['fecha_de_fin'])
-                ->setTimeFromTimeString($horaActual)
-                ->format('Y-m-d\TH:i:s');
+            $fechaInicio = Carbon::parse($datos['fecha_de_inicio'])->setTimeFromTimeString($horaActual);
+            $fechaFin = Carbon::parse($datos['fecha_de_fin'])->setTimeFromTimeString($horaActual);
         }
 
-        $datos['hora_de_inicio'] = $horaActual;
-        $datos['hora_de_fin'] = $horaActual;
+        // Asigno los datos de fecha y hora (strings a partir de object) al array de datos que se insertará en la base de datos 
+        $datos['fecha_de_inicio'] = $fechaInicio->format('Y-m-d\TH:i:s');
+        $datos['fecha_de_fin'] = $fechaFin->format('Y-m-d\TH:i:s');
+
+        $datos['hora_de_inicio'] = $fechaInicio->format('H:i:s');
+        $datos['hora_de_fin'] = $fechaFin->format('H:i:s');
         $datos['hora_de_emisión'] = $horaActual;
 
-        // Insertar los datos en la tabla correspondiente
+        unset($datos['nombre_producto'], $datos['letras_identificacion'], $datos['categoria'], $datos['referencia']);
         $id = DB::table($nombreTabla)->insertGetId($datos);
 
-        if(isset($datos['socio_id'])){
+
+        if (isset($datos['socio_id'])) {
             // Conectar el socio con el producto
             SocioProducto::connectSocioAndProducto($datos['socio_id'], $id, $nombreTabla);
         }
@@ -737,24 +733,25 @@ class ProductoController extends Controller
 
 
 
-    public function editarProducto($letrasIdentificacion, Request $request){
+    public function editarProducto($letrasIdentificacion, Request $request)
+    {
 
         // Obtener el id del tipo_producto basado en las letras_identificacion
         $tipoProducto = DB::table('tipo_producto')
-                        ->where('letras_identificacion', $letrasIdentificacion)
-                        ->first();
+            ->where('letras_identificacion', $letrasIdentificacion)
+            ->first();
 
 
         // Si el tipoProducto tiene padre, coger el tipoProducto padre para meter los datos en la tabla correspondiente
-        if($tipoProducto->padre_id != null){
+        if ($tipoProducto->padre_id != null) {
             $tipoProducto = DB::table('tipo_producto')
-                        ->where('id', $tipoProducto->padre_id)
-                        ->first();
+                ->where('id', $tipoProducto->padre_id)
+                ->first();
         }
 
         // Convertir letras de identificación a nombre de tabla
         $nombreTabla = strtolower($tipoProducto->letras_identificacion);
-        
+
         // Coger el resto de datos de la request excepto el id:
         $datos = $request->input('productoEditado');
 
@@ -764,34 +761,38 @@ class ProductoController extends Controller
         unset($datos['id']);
 
         $datos['updated_at'] = Carbon::now()->format('Y-m-d\TH:i:s');
-        
+
         // Actualizar los datos en la tabla correspondiente
         DB::table($nombreTabla)
             ->where('id', $id)
             ->update($datos);
-        
-        return response()->json(['message' => 'Producto actualizado con éxito',
-        'id' => $id], 200);
+
+        return response()->json([
+            'message' => 'Producto actualizado con éxito',
+            'id' => $id
+        ], 200);
     }
 
-    public function eliminarProducto($letrasIdentificacion, Request $request){
+    public function eliminarProducto($letrasIdentificacion, Request $request)
+    {
         // Convertir letras de identificación a nombre de tabla
         $nombreTabla = strtolower($letrasIdentificacion);
 
         $id = $request->input('id');
-        
+
         // Eliminar el producto de la tabla correspondiente
         DB::table($nombreTabla)->where('id', $id)->delete();
-        
+
         return response()->json(['message' => 'Producto eliminado con éxito'], 200);
     }
 
-    public function anularProducto($letrasIdentificacion, Request $request){
+    public function anularProducto($letrasIdentificacion, Request $request)
+    {
         // Convertir letras de identificación a nombre de tabla
         $nombreTabla = strtolower($letrasIdentificacion);
 
         $id = $request->input('id');
-        
+
         // Actualizar el campo 'anulado' a true en la tabla correspondiente
         DB::table($nombreTabla)
             ->where('id', $id)
@@ -809,23 +810,23 @@ class ProductoController extends Controller
             'producto_id' => $id,
             'codigo_producto' => $request->input('codigo_producto')
         ]);
-        
+
         return response()->json(['message' => 'Producto anulado con éxito'], 200);
     }
 
-    public function getDuraciones($nombreTabla){
+    public function getDuraciones($nombreTabla)
+    {
 
         // Coger todos los datos de la tabla $nombreTabla:
         $datos = DB::table($nombreTabla)->get();
 
         return response()->json($datos);
-
     }
 
-    public function getPlantillaBase64(String $path){
+    public function getPlantillaBase64(String $path)
+    {
         $file = Storage::disk('public')->get($path);
         $base64 = base64_encode($file);
         return response()->json(['base64' => $base64]);
     }
-    
 }

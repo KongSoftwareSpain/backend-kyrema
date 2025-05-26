@@ -31,11 +31,11 @@ use App\Http\Controllers\PolizaController;
 use App\Http\Controllers\SocioController;
 use Illuminate\Support\Facades\Mail;
 use App\Http\Controllers\CategoriaController;
+use App\Http\Controllers\ReferenciaSecuenciaController;
+use App\Http\Controllers\RemesaController;
 use App\Http\Controllers\SociedadComisionController;
 use App\Http\Controllers\TarifaAnexoController;
-
-
-
+use App\Http\Controllers\PagoExportController;
 
 // Route::get('/productos/{letras_identificativas}', [ProductoController::class, 'getProductosPorTipo']);
 Route::post('password/email', [ForgotPasswordController::class, 'sendResetLinkEmail']);
@@ -190,6 +190,16 @@ Route::get('tipo_pago_producto_sociedad/sociedad/{id_sociedad}', [TipoPagoProduc
 Route::get('tipo_pago_producto_sociedad/sociedad/{sociedad_id}/tipo-producto/{tipo_producto_id}', [TipoPagoProductoSociedadController::class, 'getTiposPagoPorSociedadYTipoProducto']);
 Route::post('sociedad/{sociedad_padre_id}/hija/{sociedad_hija_id}/tipos-pago', [TipoPagoProductoSociedadController::class, 'transferirTiposPago']);
 
+// PAGOS:
+// GENERAR LA REFERENCIA DURANTE EL PAGO (No puede haber un producto 'sin pagar')
+Route::get('generar-referencia/{letras}', [ReferenciaSecuenciaController::class, 'generateReference']);
+
+Route::post('pago/giro-bancario', [RemesaController::class, 'storeGiroBancario']);
+Route::post('pago/giro-bancario/fecha-cobro', [RemesaController::class, 'guardarFechaCobro']);
+
+Route::post('pago/generate-csv', [PagoExportController::class, 'exportarPagos']);
+Route::post('pago/generar-xml-q-19', [RemesaController::class, 'generarQ19']);
+
 // COMPAÑIAS:
 
 Route::get('companies', [CompaniaController::class, 'getAll']);
@@ -214,6 +224,7 @@ Route::apiResource('escalado-anexos', EscaladoAnexoController::class);
 
 Route::get('/nav/{id_sociedad}/{responsable}', [NavController::class, 'getNavegacion']);
 Route::get('/nav-socio/{categoria}/socio/{socio_id}', [NavController::class, 'getNavegacionSocio']);
+Route::get('/exportar-pagos', [PagoExportController::class, 'exportarPagos']);
 
 //Pagos:
 Route::post('/payment/create', [PaymentController::class, 'createPayment']);

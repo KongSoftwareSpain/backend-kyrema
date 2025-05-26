@@ -111,7 +111,7 @@ class SociedadController extends Controller
     public function getSociedadesHijas($id)
     {
         $sociedad = Sociedad::findOrFail($id); // Obtener la sociedad inicial
-        $sociedadesHijas = $sociedad->getSociedadesHijasRecursivo($id);
+        $sociedadesHijas = $sociedad->getSociedadesHijasDesde($id);
 
         $sociedadesCompletas = array_merge([$sociedad], $sociedadesHijas);
 
@@ -121,7 +121,7 @@ class SociedadController extends Controller
     public static function getArrayIdSociedadesHijas($id)
     {
         $sociedad = Sociedad::findOrFail($id); // Obtener la sociedad inicial
-        $sociedadesHijas = $sociedad->getSociedadesHijasRecursivo($id);
+        $sociedadesHijas = $sociedad->getsoci($id);
 
         // Combinar la sociedad inicial con sus hijas
         $sociedadesCompletas = array_merge([$sociedad], $sociedadesHijas);
@@ -141,7 +141,7 @@ class SociedadController extends Controller
         $sociedad = Sociedad::findOrFail($sociedad_id);
 
         // Obtener las sociedades hijas
-        $sociedadesHijas = $sociedad->getSociedadesHijasRecursivo($sociedad_id);
+        $sociedadesHijas = $sociedad->getSociedadesHijasDesde($sociedad_id);
 
         // Combinar la sociedad principal con las sociedades hijas en una colección
         $sociedadesCompletas = collect(array_merge([$sociedad], $sociedadesHijas));

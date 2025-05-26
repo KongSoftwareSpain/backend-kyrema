@@ -10,10 +10,11 @@ use App\Models\SocioComercial;
 use App\Models\Categoria;
 
 class NavController extends Controller
-{   
+{
     const SOCIEDAD_ADMIN_ID = 1;
 
-    public function getNavegacionSocio($categoria, $socio_id){
+    public function getNavegacionSocio($categoria, $socio_id)
+    {
         $tiposProducto = TipoProducto::where('categoria_id', $categoria)->get();
 
         $navegacion = [];
@@ -30,7 +31,7 @@ class NavController extends Controller
             "label" => "Mis Productos",
             "children" => []
         ];
-        
+
         $tiposProducto = TipoProducto::activos()
             ->where('categoria_id', $categoria)
             ->whereNull('padre_id')
@@ -39,17 +40,17 @@ class NavController extends Controller
 
         $comercial_id = SocioComercial::where('id_socio', $socio_id)->pluck('id_comercial')->first();
 
-        if(!$comercial_id){
+        if (!$comercial_id) {
             $comercial_id = Categoria::findOrFail($categoria)->comercial_responsable_id;
         }
-        
-        $navegacion[1]["children"] = $tiposProducto->map(function($tipoProducto) use ($comercial_id){
+
+        $navegacion[1]["children"] = $tiposProducto->map(function ($tipoProducto) use ($comercial_id) {
             return [
                 "label" => 'Contratar - ' . $tipoProducto->nombre,
                 "link" => "/contratacion/" . strtolower($tipoProducto->letras_identificacion) . '/' . $comercial_id
             ];
         })->toArray();
-        $navegacion[2]["children"] = $tiposProducto->map(function($tipoProducto){
+        $navegacion[2]["children"] = $tiposProducto->map(function ($tipoProducto) {
             return [
                 "label" => $tipoProducto->nombre,
                 "link" => "/mis-productos/" . strtolower($tipoProducto->letras_identificacion)
@@ -60,7 +61,8 @@ class NavController extends Controller
     }
 
     // Para coger las distintas rutas de la aplicación
-    public function getNavegacion($id_sociedad, $responsable){
+    public function getNavegacion($id_sociedad, $responsable)
+    {
         // Coger los tipos de producto asociados con la sociedad
         $tipoProductoIds = TipoProductoSociedad::where('id_sociedad', $id_sociedad)->pluck('id_tipo_producto');
 
@@ -71,57 +73,6 @@ class NavController extends Controller
             ->whereNull('tipo_producto_asociado')
             ->get();
 
-        //Devolver la navegación con el siguiente formato:
-        
-        // [
-        //     {
-        //         "label": "Administración",
-        //         "children": [
-        //             {
-        //                 "label": "Informes seguros combinados",
-        //                 "link": "/informes/sc"
-        //             },
-        //             {
-        //                 "label": "Informes seguros eventos",
-        //                 "link": "/informes/se"
-        //             },
-        //          ]
-        //     },
-        //     {
-        //         "label": "Gestión",
-        //         "children": [
-        //             {
-        //                 "label": "Sociedades",
-        //                 "link": "/sociedades"
-        //             },
-        //             {
-        //                 "label": "Tarifas",
-        //                 "link": "/tarifas"
-        //             },
-        //             {
-        //                 "label": "Comisiones",
-        //                 "link": "/comisiones"
-        //             },
-        //             {
-        //                 "label": "Productos",
-        //                 "link": "/gestion-productos"
-        //             }
-        //         ]
-        //     },
-        //     {
-        //         "label": "Productos",
-        //         "children": [
-        //             {
-        //                 "label": "Seguros combinados",
-        //                 "link": "/operaciones/sc"
-        //             },
-        //             {
-        //                 "label": "Seguros eventos",
-        //                 "link": "/operaciones/se"
-        //             },
-        //         ]
-        //     }
-        // ]
 
         $navegacion = [];
         $navegacion[] = [
@@ -138,7 +89,7 @@ class NavController extends Controller
         ];
 
 
-        $navegacion[0]["children"] = $tiposProducto->map(function($tipoProducto){
+        $navegacion[0]["children"] = $tiposProducto->map(function ($tipoProducto) {
             return [
                 "label" => "Informes " . $tipoProducto->nombre,
                 "link" => "/informes/" . $tipoProducto->letras_identificacion
@@ -172,9 +123,9 @@ class NavController extends Controller
             [
                 "label" => "Socios",
                 "link" => "/socios"
-            ]            
+            ]
         ];
-        $navegacion[2]["children"] = $tiposProducto->map(function($tipoProducto){
+        $navegacion[2]["children"] = $tiposProducto->map(function ($tipoProducto) {
             return [
                 "label" => $tipoProducto->nombre,
                 "link" => "/operaciones/" . strtolower($tipoProducto->letras_identificacion)
@@ -186,28 +137,24 @@ class NavController extends Controller
         $sociedad = Sociedad::find($id_sociedad);
         $sociedadPadreId = $sociedad->sociedad_padre_id;
 
-        // Condición para eliminar la parte de gestión solo si ambas condiciones se cumplen
-        // if ($id_sociedad != self::SOCIEDAD_ADMIN_ID && $sociedadPadreId != self::SOCIEDAD_ADMIN_ID) {
-        //     //Cambiar el navegacion[2] por el 1 y quitar el 2:
-        //     if (isset($navegacion[2])) {
-        //         $navegacion[1] = $navegacion[2];
-        //         unset($navegacion[2]);
-        //     }
-        // }
-
         // Condición para filtrar las opciones en el array de navegación
         if ($sociedadPadreId == env('SOCIEDAD_ADMIN_ID') && isset($navegacion[2])) {
-            $navegacion[1]["children"] = array_values(array_filter($navegacion[1]["children"], function($child) {
+            $navegacion[1]["children"] = array_values(array_filter($navegacion[1]["children"], function ($child) {
                 return in_array($child["label"], ["Sociedades", "Comisiones", "Socios"]);
             }));
         }
 
         // Si no es responsable
-        if($responsable != 1){
+        if ($responsable != 1) {
             // Quitar el apartado de Gestión excepto Socios.
-            $navegacion[1]["children"] = array_values(array_filter($navegacion[1]["children"], function($child) {
+            $navegacion[1]["children"] = array_values(array_filter($navegacion[1]["children"], function ($child) {
                 return in_array($child["label"], ["Socios"]);
             }));
+        } else {
+            array_unshift($navegacion[0]["children"], [
+                "label" => "Gestión de pagos",
+                "link" => "/gestion-pagos"
+            ]);
         }
 
         return response()->json($navegacion);

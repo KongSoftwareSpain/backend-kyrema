@@ -14,23 +14,50 @@ class Sociedad extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'nombre', 'cif', 'correo_electronico', 'tipo_sociedad', 'direccion', 
-        'poblacion', 'pais', 'codigo_postal', 'codigo_sociedad', 'telefono', 
-        'fax', 'movil', 'iban', 'banco', 'sucursal', 'dc', 'numero_cuenta', 
-        'swift', 'dominio', 'observaciones', 'logo', 'sociedad_padre_id'
+        'nombre',
+        'cif',
+        'correo_electronico',
+        'tipo_sociedad',
+        'direccion',
+        'poblacion',
+        'pais',
+        'codigo_postal',
+        'codigo_sociedad',
+        'telefono',
+        'fax',
+        'movil',
+        'iban',
+        'razon_social',
+        'bic',
+        'id_acreedor_remesas',
+        'banco',
+        'sucursal',
+        'dc',
+        'numero_cuenta',
+        'swift',
+        'dominio',
+        'observaciones',
+        'logo',
+        'sociedad_padre_id'
     ];
-    
-    public function getSociedadesHijasRecursivo($id, &$results = [])
-    {
-        $sociedades = Sociedad::where('sociedad_padre_id', $id)->get();
 
-        foreach ($sociedades as $sociedad) {
-            $results[] = $sociedad;
-            $this->getSociedadesHijasRecursivo($sociedad->id, $results);
+    public function getSociedadesHijasDesde($idBase)
+    {
+        $todas = Sociedad::all(); // Una sola consulta
+        return $this->filtrarHijasRecursivo($idBase, $todas);
+    }
+
+    private function filtrarHijasRecursivo($padreId, $todas, &$resultado = [])
+    {
+        foreach ($todas as $sociedad) {
+            if ($sociedad->sociedad_padre_id === $padreId) {
+                $resultado[] = $sociedad;
+                $this->filtrarHijasRecursivo($sociedad->id, $todas, $resultado);
+            }
         }
 
-        return $results;
-    }   
+        return $resultado;
+    }
 
     public function tipoProductoSociedades()
     {
@@ -59,7 +86,7 @@ class Sociedad extends Model
         }
 
         $path = storage_path('app/public/logos/' . $this->logo);
-        
+
         if (!file_exists($path)) {
             return null;
         }

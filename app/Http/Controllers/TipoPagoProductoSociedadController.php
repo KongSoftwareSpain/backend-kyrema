@@ -37,7 +37,6 @@ class TipoPagoProductoSociedadController extends Controller
 
     public function getTiposPagoPorSociedad($id_sociedad)
     {
-        // Corregido el nombre del parámetro
         $tiposPago = TipoPagoProductoSociedad::where('sociedad_id', $id_sociedad)->get();
         return response()->json($tiposPago);
     }
@@ -63,18 +62,20 @@ class TipoPagoProductoSociedadController extends Controller
 
     public function getTiposPagoPorSociedadYTipoProducto($sociedad_id, $tipo_producto_id)
     {
-        $tiposPago = TipoPagoProductoSociedad::where('sociedad_id', $sociedad_id)
+        $tiposPago = TipoPagoProductoSociedad::with('tipoPago') // carga la relación
+            ->where('sociedad_id', $sociedad_id)
             ->where('tipo_producto_id', $tipo_producto_id)
-            ->get();
-        // Con este formato {id:string, nombre:string}:
-        $tiposPago = $tiposPago->map(function ($item) {
-            return [
-                'id' => $item->tipo_pago_id,
-                'nombre' => TipoPago::find($item->tipo_pago_id)->nombre,
-            ];
-        });
-        return response()->json($tiposPago);
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'id' => $item->tipo_pago_id,
+                    'nombre' => $item->tipoPago->nombre,
+                    'codigo' => $item->tipoPago->codigo,
+                ];
+            });
 
+        return response()->json($tiposPago);
     }
+
 
 }
