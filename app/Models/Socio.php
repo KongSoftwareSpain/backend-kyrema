@@ -3,13 +3,16 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Support\Facades\DB;
-use Tymon\JWTAuth\Contracts\JWTSubject;
+use Laravel\Sanctum\HasApiTokens;
+use Laravel\Sanctum\NewAccessToken;
+use Illuminate\Support\Str;
+use Illuminate\Notifications\Notifiable;
 
-class Socio extends Model implements JWTSubject
+class Socio extends Authenticatable
 {
-    use HasFactory;
+    use HasFactory, HasApiTokens, Notifiable;
 
     // Definir la tabla asociada al modelo
     protected $table = 'socios';
@@ -38,16 +41,6 @@ class Socio extends Model implements JWTSubject
             ->where('id_socio', $id_socio)
             ->orderBy('created_at', 'desc')
             ->first();
-    }
-
-    public function getJWTIdentifier()
-    {
-        return $this->getKey();
-    }
-
-    public function getJWTCustomClaims()
-    {
-        return [];
     }
 
     // Nos aseguramos que los timestamps estén habilitados

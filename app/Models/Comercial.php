@@ -48,24 +48,6 @@ class Comercial extends Authenticatable
         'path_foto',
     ];
 
-    public function createToken(string $name = 'user', array $abilities = ['*'])
-    {
-        $plainTextToken = Str::random(40);
-
-        $now = now();
-
-        /** @var \Laravel\Sanctum\PersonalAccessToken $token */
-        $token = $this->tokens()->create([
-            'name' => $name,
-            'token' => hash('sha256', $plainTextToken),
-            'abilities' => $abilities,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
-
-        return new NewAccessToken($token, $token->getKey() . '|' . $plainTextToken);
-    }
-
     public function sendPasswordResetNotification($token)
     {
         $this->notify(new CustomResetPassword($token));
