@@ -54,7 +54,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('anulados/{letrasIdentificacion}', [AnuladosController::class, 'getAnulados']);
 
 
-
     Route::post('crear-producto/{letrasIdentificacion}', [ProductoController::class, 'crearProducto']);
     Route::post('editar-producto/{letrasIdentificacion}', [ProductoController::class, 'editarProducto']);
     Route::post('anular-producto/{letrasIdentificacion}', [ProductoController::class, 'anularProducto']);
