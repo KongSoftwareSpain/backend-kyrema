@@ -10,6 +10,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Storage;
 use App\Services\Remesas\Q19Generator;
 use Illuminate\Support\Facades\Config;
+use App\Models\Sociedad;
 
 
 class RemesaController extends Controller
@@ -26,6 +27,7 @@ class RemesaController extends Controller
             'fecha_firma_mandato'   => 'required|date',
             'iban_cliente'          => 'required|string',
             'auxiliar'              => 'nullable|string',
+            'sociedad'              => 'nullable|string',
             'residente'             => 'nullable|string|in:S,N',
             'referencia_mandato'    => 'required|string',
             'referencia_adeudo'     => 'required|string',
@@ -93,7 +95,7 @@ class RemesaController extends Controller
         $validated = $request->validate([
             'desde' => 'required|date',
             'hasta' => 'required|date|after_or_equal:desde',
-            'sociedad_id' => 'required|exists:sociedad,id',
+            'sociedad_id' => 'required',
             'tipo_pago_id' => 'required|exists:tipos_pago,id',
             'comercial_id' => 'required|exists:comercial,id',
         ]);
@@ -104,7 +106,9 @@ class RemesaController extends Controller
             Carbon::parse($validated['hasta'])->addDay()->format('Y-m-d\TH:i:s')
         ])
             ->whereHas('pago', function ($query) use ($validated) {
-                $query->where('sociedad_id', $validated['sociedad_id']);
+                if ($validated['sociedad_id'] != 0) {
+                    $query->where('sociedad_id', $validated['sociedad_id']);
+                }
             })
             ->get();
 
@@ -150,7 +154,7 @@ class RemesaController extends Controller
             'filtro' => 'required|array',
             'filtro.desde' => 'required|date',
             'filtro.hasta' => 'required|date|after_or_equal:filtro.desde',
-            'filtro.sociedad_id' => 'required|exists:sociedad,id',
+            'filtro.sociedad_id' => 'required',
             'filtro.tipo_pago_id' => 'required|exists:tipos_pago,id',
         ]);
 
@@ -202,7 +206,8 @@ class RemesaController extends Controller
         ]);
     }
 
-    public function getDescargas() {
+    public function getDescargas()
+    {
         $descargas = RemesaDescarga::with('comercial')
             ->orderBy('created_at', 'desc')
             ->get();

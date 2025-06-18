@@ -20,6 +20,7 @@ class GiroBancario extends Model
         'fecha_firma_mandato',
         'iban_cliente',
         'auxiliar',
+        'sociedad',
         'residente',
         'referencia_mandato',
         'fecha_cobro',
