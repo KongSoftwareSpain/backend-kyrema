@@ -36,6 +36,7 @@ use App\Http\Controllers\RemesaController;
 use App\Http\Controllers\SociedadComisionController;
 use App\Http\Controllers\TarifaAnexoController;
 use App\Http\Controllers\PagoExportController;
+use App\Http\Controllers\Health\HealthController;
 
 // Route::get('/productos/{letras_identificativas}', [ProductoController::class, 'getProductosPorTipo']);
 Route::post('password/email', [ForgotPasswordController::class, 'sendResetLinkEmail']);
@@ -43,6 +44,8 @@ Route::post('password/reset', [ResetPasswordController::class, 'reset']);
 Route::post('auth/login', [AuthController::class, 'login']);
 Route::post('auth/login/socio', [AuthController::class, 'loginSocio']);
 Route::post('auth/register/socio', [AuthController::class, 'registerSocio']);
+
+Route::get('health', [HealthController::class, 'check']);
 
 Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('productos/{letrasIdentificacion}', [ProductoController::class, 'getProductosByTipoAndSociedades']);
