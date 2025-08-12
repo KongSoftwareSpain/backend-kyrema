@@ -6,8 +6,6 @@ use Illuminate\Http\Request;
 use App\Models\Comercial;
 use App\Models\Socio;
 use Illuminate\Support\Facades\Hash;
-use Tymon\JWTAuth\Facades\JWTAuth;
-use Illuminate\Support\Facades\Log;
 
 class AuthController extends Controller
 {
@@ -28,8 +26,8 @@ class AuthController extends Controller
             return response()->json(['error' => 'Unauthorized'], 401);
         }
 
-        // Generar el token JWT para el comercial
-        $token = JWTAuth::fromUser($comercial);
+        // Generar el token
+        $token = $comercial->createToken('comercial')->plainTextToken;
 
         // Retornar la información del comercial junto con el token
         return response()->json([
@@ -63,8 +61,8 @@ class AuthController extends Controller
             return response()->json(['error' => 'La contraseña es incorrecta.'], 401);
         }
 
-        // Generar el token JWT para el socio
-        $token = JWTAuth::fromUser($socio);
+        // Generar el token
+        $token = $socio->createToken('socio')->plainTextToken;
 
         // Retornar la información del socio junto con el token
         return response()->json([
@@ -106,7 +104,8 @@ class AuthController extends Controller
 
         $socio->save();
 
-        $token = JWTAuth::fromUser($socio);
+        // Generar el token
+        $token = $socio->createToken('socio')->plainTextToken;
 
         return response()->json([
             'socio' => $socio,

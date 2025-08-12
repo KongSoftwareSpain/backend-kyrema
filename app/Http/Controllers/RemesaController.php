@@ -10,6 +10,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Storage;
 use App\Services\Remesas\Q19Generator;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Log;
 
 
 class RemesaController extends Controller
@@ -26,6 +27,7 @@ class RemesaController extends Controller
             'fecha_firma_mandato'   => 'required|date',
             'iban_cliente'          => 'required|string',
             'auxiliar'              => 'nullable|string',
+            'sociedad'              => 'nullable|string',
             'residente'             => 'nullable|string|in:S,N',
             'referencia_mandato'    => 'required|string',
             'referencia_adeudo'     => 'required|string',
@@ -74,6 +76,7 @@ class RemesaController extends Controller
             'fecha_firma_mandato'   => $validated['fecha_firma_mandato'],
             'iban_cliente'          => $validated['iban_cliente'],
             'auxiliar'              => $validated['auxiliar'] ?? null,
+            'sociedad'              => $validated['sociedad'] ?? null,
             'residente'             => $validated['residente'] ?? 'S',
             'referencia_mandato'    => $validated['referencia_mandato'],
             'referencia_adeudo'     => $validated['referencia_adeudo'],
@@ -93,7 +96,7 @@ class RemesaController extends Controller
         $validated = $request->validate([
             'desde' => 'required|date',
             'hasta' => 'required|date|after_or_equal:desde',
-            'sociedad_id' => 'required|exists:sociedad,id',
+            'sociedad_id' => 'required',
             'tipo_pago_id' => 'required|exists:tipos_pago,id',
             'comercial_id' => 'required|exists:comercial,id',
         ]);
@@ -104,7 +107,9 @@ class RemesaController extends Controller
             Carbon::parse($validated['hasta'])->addDay()->format('Y-m-d\TH:i:s')
         ])
             ->whereHas('pago', function ($query) use ($validated) {
-                $query->where('sociedad_id', $validated['sociedad_id']);
+                if ($validated['sociedad_id'] != 0) {
+                    $query->where('sociedad_id', $validated['sociedad_id']);
+                }
             })
             ->get();
 
@@ -150,19 +155,26 @@ class RemesaController extends Controller
             'filtro' => 'required|array',
             'filtro.desde' => 'required|date',
             'filtro.hasta' => 'required|date|after_or_equal:filtro.desde',
-            'filtro.sociedad_id' => 'required|exists:sociedad,id',
+            'filtro.sociedad_id' => 'required',
             'filtro.tipo_pago_id' => 'required|exists:tipos_pago,id',
         ]);
 
-        $updated = GiroBancario::whereBetween('created_at', [
-            Carbon::parse($validated['filtro']['desde'])->format('Y-m-d\TH:i:s'),
-            Carbon::parse($validated['filtro']['hasta'])->format('Y-m-d\TH:i:s'),
-        ])
-            ->whereHas('pago', function ($query) use ($validated) {
-                $query->where('sociedad_id', $validated['filtro']['sociedad_id']);
+        Log::info('Guardar fecha de cobro', [
+            'fechaCobro' => $validated['fechaCobro'],
+            'filtro' => $validated['filtro'], 
+        ]);
+
+        $desde = Carbon::parse($validated['filtro']['desde'])->format('Y-m-d\TH:i:s');
+        $hasta = Carbon::parse($validated['filtro']['hasta'])->format('Y-m-d\TH:i:s');
+        $sociedadId = $validated['filtro']['sociedad_id'];
+
+        $updated = GiroBancario::whereBetween('created_at', [$desde, $hasta])
+            ->whereHas('pago', function ($query) use ($sociedadId) {
+                if ($sociedadId != 0) {
+                    $query->where('sociedad_id', $sociedadId);
+                }
             })
             ->update(['fecha_cobro' => Carbon::parse($validated['fechaCobro'])]);
-
 
         return response()->json([
             'message' => 'Fecha de cobro actualizada correctamente.',
@@ -200,5 +212,14 @@ class RemesaController extends Controller
             'pago'    => $pago,
             'giro'    => $giro,
         ]);
+    }
+
+    public function getDescargas()
+    {
+        $descargas = RemesaDescarga::with('comercial')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json($descargas, 200);
     }
 }

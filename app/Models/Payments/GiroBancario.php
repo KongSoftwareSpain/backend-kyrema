@@ -20,6 +20,7 @@ class GiroBancario extends Model
         'fecha_firma_mandato',
         'iban_cliente',
         'auxiliar',
+        'sociedad',
         'residente',
         'referencia_mandato',
         'fecha_cobro',
@@ -30,6 +31,7 @@ class GiroBancario extends Model
 
     protected $casts = [
         'fecha_firma_mandato' => 'date',
+        'fecha_cobro' => 'date',
     ];
 
     /**
@@ -44,7 +46,7 @@ class GiroBancario extends Model
     public $timestamps = true;
 
     // Si necesitas formatear las fechas automáticamente
-    protected $dates = ['created_at', 'updated_at', 'fecha_cobro'];
+    protected $dates = ['created_at', 'updated_at'];
 
     // Personalizamos el formato de fechas para que SQL server lo pueda convertir de varchar a datetime
     protected $dateFormat = 'Y-m-d\TH:i:s';

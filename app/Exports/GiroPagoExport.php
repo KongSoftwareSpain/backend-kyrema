@@ -11,7 +11,9 @@ class GiroPagoExport implements PagoExportInterface
     {
         $query = GiroBancario::with('pago')
             ->whereHas('pago', function ($q) use ($sociedadId, $desde, $hasta) {
-                $q->where('sociedad_id', $sociedadId);
+                if ($sociedadId !== 0) {
+                    $q->where('sociedad_id', $sociedadId);
+                }
 
                 if ($desde) {
                     $q->whereDate('fecha', '>=', $desde);
@@ -34,6 +36,7 @@ class GiroPagoExport implements PagoExportInterface
                 'Fecha firma mandato' => optional($giro->fecha_firma_mandato)->format('Y-m-d'),
                 'IBAN' => $giro->iban_cliente,
                 'Auxiliar' => $giro->auxiliar,
+                'Sociedad' => $giro->sociedad,
                 'Residente' => $giro->residente,
                 'Referencia mandato' => $giro->referencia_mandato,
                 'Fecha cobro' => optional($giro->fecha_cobro)->format('Y-m-d'),

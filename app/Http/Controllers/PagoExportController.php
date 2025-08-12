@@ -11,7 +11,7 @@ class PagoExportController extends Controller
     {
         $request->validate([
             'tipo_pago_id' => 'required|string',
-            'sociedad_id' => 'required|integer|exists:sociedad,id',
+            'sociedad_id' => 'required',
             'desde' => 'nullable|date',
             'hasta' => 'nullable|date',
         ]);

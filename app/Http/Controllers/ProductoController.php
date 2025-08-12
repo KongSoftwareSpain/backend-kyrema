@@ -757,10 +757,18 @@ class ProductoController extends Controller
 
         $id = $datos['id'];
 
-        // Quitar el id de los datos:
-        unset($datos['id']);
+        // Quitar el id y otros datos que no se deben de guardar en BDD:
+        unset($datos['id'], $datos['nombre_producto'], $datos['letras_identificacion'], $datos['categoria'], $datos['referencia']);
 
-        $datos['updated_at'] = Carbon::now()->format('Y-m-d\TH:i:s');
+        // Formato ISO-8601 con la T intermedia
+        $isoFormat = 'Y-m-d\TH:i:s';
+
+        // Normalizar fechas
+        foreach (['fecha_de_inicio', 'fecha_de_fin', 'updated_at'] as $campo) {
+            if (!empty($datos[$campo])) {
+                $datos[$campo] = Carbon::parse($datos[$campo])->format($isoFormat);
+            }
+        }   
 
         // Actualizar los datos en la tabla correspondiente
         DB::table($nombreTabla)
