@@ -15,6 +15,12 @@ class ComercialController extends Controller
         return response()->json($comerciales);
     }
 
+    public function getResponsables()
+    {
+        $comerciales = Comercial::where('responsable', '1')->get();
+        return response()->json($comerciales);
+    }
+
     public function isComercialPaginaWeb($id_comercial){
         $comercial = Comercial::find($id_comercial);
         return response()->json($comercial->pagina_web == '1');
@@ -25,6 +31,7 @@ class ComercialController extends Controller
         $request->validate([
             'nombre' => 'required|string|max:255',
             'id_sociedad' => 'required|numeric|exists:sociedad,id',
+            'comercial_responsable_categoria' => 'nullable|boolean',
             'usuario' => 'required|string|max:255',
             'email' => 'required|string|max:255',
             'responsable' => 'nullable|string|max:255',
@@ -107,6 +114,7 @@ class ComercialController extends Controller
         $request->validate([
             'nombre' => 'required|string|max:255',
             'id_sociedad' => 'required|numeric|exists:sociedad,id',
+            'comercial_responsable_categoria' => 'nullable|boolean',
             'usuario' => 'required|string|max:255',
             'email' => 'required|string|max:255',
             'responsable' => 'nullable|boolean',

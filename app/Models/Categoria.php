@@ -13,7 +13,11 @@ class Categoria extends Model
     protected $table = 'categorias';
 
     // Campos que pueden ser asignados de forma masiva
-    protected $fillable = ['nombre'];
+    protected $fillable = [
+        'nombre',
+        'comercial_responsable_id',
+        'logo',
+    ];
 
     // Desactivar timestamps
     public $timestamps = false;

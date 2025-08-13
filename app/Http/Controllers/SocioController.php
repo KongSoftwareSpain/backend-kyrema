@@ -8,6 +8,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Models\Comercial;
 use App\Models\Sociedad;
+use App\Models\TipoProducto;
+use App\Models\SocioProducto;
+use Illuminate\Support\Facades\Schema;
 
 class SocioController extends Controller
 {
@@ -34,7 +37,7 @@ class SocioController extends Controller
 
             $sociedad = Sociedad::find($comercial->id_sociedad);
 
-            $sociedades = $sociedad->getSociedadesHijasRecursivo($comercial->id_sociedad);
+            $sociedades = $sociedad->getSociedadesHijasDesde($comercial->id_sociedad);
 
             // Coger solo los ids de las sociedades
             $sociedades = array_map(function($sociedad){
@@ -98,7 +101,7 @@ class SocioController extends Controller
             ]);
         }
 
-        $socio = DB::table('socios')->insertGetId($request->except(['id_comercial']));
+        $socio = DB::table('socios')->insertGetId($request->except(['id_comercial','id']));
 
         SocioComercial::create([
             'id_comercial' => $request->id_comercial,
@@ -123,22 +126,24 @@ class SocioController extends Controller
 
         $socio_comercial = SocioComercial::where('id_socio', $id)->first();
 
-        // Si el socio no estaba conectado con nadie previamente, conectarlo con el comercial
-        if (!$socio_comercial) {
-            SocioComercial::create([
-                'id_comercial' => $request->id_comercial,
-                'id_socio' => $id
-            ]);
-        } else {
-
-            // Si ya existe la conexion con ese mismo comercial, no hacer nada
-            // si el comercial es distinto añadirlo.
-            if ($socio_comercial->id_comercial != $request->id_comercial) {
-                $socio_comercial->update([
-                    'id_comercial' => $request->id_comercial
+        if($request->id_comercial){
+            // Si el socio no estaba conectado con nadie previamente, conectarlo con el comercial
+            if (!$socio_comercial) {
+                SocioComercial::create([
+                    'id_comercial' => $request->id_comercial,
+                    'id_socio' => $id
                 ]);
-            }
+            } else {
 
+                // Si ya existe la conexion con ese mismo comercial, no hacer nada
+                // si el comercial es distinto añadirlo.
+                if ($socio_comercial->id_comercial != $request->id_comercial) {
+                    $socio_comercial->update([
+                        'id_comercial' => $request->id_comercial
+                    ]);
+                }
+
+            }
         }
 
         return response()->json($socio);
@@ -151,4 +156,43 @@ class SocioController extends Controller
         $socio->delete();
         return response()->json(null, 204);
     }
+
+    public function getProductosBySocio($id, $id_tipo_producto)
+    {
+        // 1️⃣ Obtener el tipo de producto por su ID
+        $tipoProducto = TipoProducto::find($id_tipo_producto);
+
+        if (!$tipoProducto) {
+            return response()->json(['error' => 'Tipo de producto no encontrado'], 404);
+        }
+
+        // 2️⃣ Obtener las letras de identificación
+        $letrasIdentificacion = $tipoProducto->letras_identificacion;
+
+        if (!$letrasIdentificacion) {
+            return response()->json(['error' => 'El tipo de producto no tiene letras de identificación'], 400);
+        }
+
+        // 3️⃣ Verificar si la tabla con el nombre de las letras_identificacion existe
+        if (!Schema::hasTable($letrasIdentificacion)) {
+            return response()->json([]); // Si no existe, devolvemos un array vacío
+        }
+
+        // 4️⃣ Obtener los registros de la tabla SocioProducto para el socio y tipo de producto
+        $socioProductos = SocioProducto::where('id_socio', $id)
+            ->where('letras_identificacion', $letrasIdentificacion)
+            ->get();
+
+        if ($socioProductos->isEmpty()) {
+            return response()->json([]); // Si no hay registros, devolvemos un array vacío
+        }
+
+        // 5️⃣ Obtener los productos de la tabla dinámica con los IDs de SocioProducto
+        $productos = DB::table($letrasIdentificacion)
+            ->whereIn('id', $socioProductos->pluck('id_producto'))
+            ->get();
+
+        return response()->json($productos);
+    }
+
 }
