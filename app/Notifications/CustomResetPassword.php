@@ -23,7 +23,7 @@ class CustomResetPassword extends ResetPasswordNotification
             ->action('Restablecer contraseña', url(config('app.reset_pwd_url').route('password.reset', ['token' => $this->token, 'email' => $notifiable->email], false)))
             ->line('Este enlace para restablecer la contraseña expirará en 60 minutos.')
             ->line('Si no solicitaste un restablecimiento de contraseña, no se requiere ninguna acción adicional.')
-            ->salutation('Saludos, Canama')
+            ->salutation('Saludos, Cánama')
             ->line('Si tienes problemas para hacer clic en el botón "Restablecer contraseña", copia y pega la URL de abajo en tu navegador:')
             ->line(url(config('app.reset_pwd_url').route('password.reset', ['token' => $this->token, 'email' => $notifiable->email], false)));
     }

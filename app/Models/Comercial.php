@@ -9,8 +9,6 @@ use Illuminate\Notifications\Notifiable;
 use App\Notifications\CustomResetPassword;
 use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\HasApiTokens;
-use Laravel\Sanctum\NewAccessToken;
-use Illuminate\Support\Str;
 
 class Comercial extends Authenticatable
 {
