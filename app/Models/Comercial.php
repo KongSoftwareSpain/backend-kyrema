@@ -7,12 +7,13 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use App\Notifications\CustomResetPassword;
+use Illuminate\Auth\Passwords\CanResetPassword;
 use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\HasApiTokens;
 
 class Comercial extends Authenticatable
 {
-    use HasFactory, Notifiable, HasApiTokens;
+    use HasFactory, Notifiable, HasApiTokens, CanResetPassword;
 
     protected $table = 'comercial';
     protected $primaryKey = 'id';
