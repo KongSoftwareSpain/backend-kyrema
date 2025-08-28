@@ -50,6 +50,8 @@ Route::get('sociedad/comercial/{comercial_id}', [SociedadController::class, 'get
 Route::get('comercial/{id}', [ComercialController::class, 'show']);
 Route::get('tipo-producto/{letras}', [TipoProductoController::class, 'getByLetras']);
 Route::get('campos', [CampoController::class, 'getByTipoProducto']);
+// Tarifa por tipoProducto y Sociedad
+Route::get('tarifas-producto/sociedad/{id_sociedad}', [TarifaProductoController::class, 'getTarifaPorSociedadAndTipoProducto']);
 
 Route::get('opciones/{id_campo}', [CampoController::class, 'getOpcionesPorCampo']);
 Route::get('sociedad/{sociedad_id}/hijas/tipo-producto/{letras_identificacion}', [SociedadController::class, 'getSociedadesHijasPorTipoProducto']);
@@ -174,8 +176,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     // Todas las tarifas por sociedad
     Route::get('tarifas/sociedad/{id_sociedad}', [TarifaProductoController::class, 'getTarifaPorSociedad']);
-    // Tarifa por tipoProducto y Sociedad
-    Route::get('tarifas-producto/sociedad/{id_sociedad}', [TarifaProductoController::class, 'getTarifaPorSociedadAndTipoProducto']);
     // Set tarifa por sociedad y tipoProducto
     Route::post('tarifa-producto/sociedad', [TarifaProductoController::class, 'store']);
 
