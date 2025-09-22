@@ -37,6 +37,7 @@ return [
 
     'mailers' => [
 
+        // Podemos configurar distintos correos para distintos usos.
         'smtp' => [
             'transport' => 'smtp',
             'url' => env('MAIL_URL'),
@@ -47,6 +48,14 @@ return [
             'password' => env('MAIL_PASSWORD'),
             'timeout' => null,
             'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url(env('APP_URL', 'http://localhost'), PHP_URL_HOST)),
+        ],
+        'noreply' => [
+            'transport' => 'smtp',
+            'host' => env('MAIL_NOREPLY_HOST'),
+            'port' => env('MAIL_NOREPLY_PORT'),
+            'encryption' => env('MAIL_NOREPLY_ENCRYPTION'),
+            'username' => env('MAIL_NOREPLY_USERNAME'),
+            'password' => env('MAIL_NOREPLY_PASSWORD'),
         ],
 
         'ses' => [

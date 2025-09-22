@@ -11,6 +11,8 @@ use App\Models\Sociedad;
 use App\Models\TipoProducto;
 use App\Models\SocioProducto;
 use Illuminate\Support\Facades\Schema;
+use App\Notifications\SetInitialPasswordNotification;
+use App\Models\Categoria;
 
 class SocioController extends Controller
 {
@@ -107,6 +109,20 @@ class SocioController extends Controller
             'id_comercial' => $request->id_comercial,
             'id_socio' => $socio
         ]);
+
+        $socio = Socio::find($socio);
+
+        // 2) Genera token de set/reset
+        $token = $socio->createToken('socio')->plainTextToken;
+
+        // 3) Notifica (queue)
+        $socio->notify(new SetInitialPasswordNotification(
+            token: $token,
+            email: $socio->email,
+            categoryName: Categoria::find($categoria_id)->nombre,
+            displayName: $socio->name,
+            productHint: 'Desde aquí podrás crear tu contraseña y ver tus productos contratados.'
+        ));
 
         return response()->json($socio, 201);
     }
