@@ -1,9 +1,7 @@
 <?php
 
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\CampoController;
-use App\Http\Controllers\ValorController;
 use App\Http\Controllers\TipoProductoController;
 use App\Http\Controllers\SociedadController;
 use App\Http\Controllers\TipoProductoSociedadController;
@@ -11,10 +9,8 @@ use App\Http\Controllers\ComercialController;
 use App\Http\Controllers\ComercialComisionController;
 use App\Http\Controllers\TipoAnexoController;
 use App\Http\Controllers\CampoAnexoController;
-use App\Http\Controllers\ValorAnexoController;
 use App\Http\Controllers\TarifaProductoController;
 use App\Http\Controllers\EscaladoAnexoController;
-use App\Http\Controllers\NavegacionController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ProductoController;
 use App\Http\Controllers\ExportController;
@@ -29,7 +25,6 @@ use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\CompaniaController;
 use App\Http\Controllers\PolizaController;
 use App\Http\Controllers\SocioController;
-use Illuminate\Support\Facades\Mail;
 use App\Http\Controllers\CategoriaController;
 use App\Http\Controllers\ReferenciaSecuenciaController;
 use App\Http\Controllers\RemesaController;
@@ -37,6 +32,7 @@ use App\Http\Controllers\SociedadComisionController;
 use App\Http\Controllers\TarifaAnexoController;
 use App\Http\Controllers\PagoExportController;
 use App\Http\Controllers\Health\HealthController;
+use App\Http\Controllers\Notifications\NotificationsController;
 
 // Route::get('/productos/{letras_identificativas}', [ProductoController::class, 'getProductosPorTipo']);
 Route::post('password/email', [ForgotPasswordController::class, 'sendResetLinkEmail']);
@@ -46,6 +42,23 @@ Route::post('auth/login/socio', [AuthController::class, 'loginSocio']);
 Route::post('auth/register/socio', [AuthController::class, 'registerSocio']);
 
 Route::get('health', [HealthController::class, 'check']);
+
+// Para poder obtener el logo de la categoría para el login
+Route::get('categorias/{id}', [CategoriaController::class, 'show']);
+
+// Para obtener los datos de los productos para pagina sin autenticación
+Route::get('sociedad/comercial/{comercial_id}', [SociedadController::class, 'getSociedadPorComercial']);
+Route::get('comercial/{id}', [ComercialController::class, 'show']);
+Route::get('tipo-producto/{letras}', [TipoProductoController::class, 'getByLetras']);
+Route::get('campos', [CampoController::class, 'getByTipoProducto']);
+// Tarifa por tipoProducto y Sociedad
+Route::get('tarifas-producto/sociedad/{id_sociedad}', [TarifaProductoController::class, 'getTarifaPorSociedadAndTipoProducto']);
+
+Route::get('opciones/{id_campo}', [CampoController::class, 'getOpcionesPorCampo']);
+Route::get('sociedad/{sociedad_id}/hijas/tipo-producto/{letras_identificacion}', [SociedadController::class, 'getSociedadesHijasPorTipoProducto']);
+Route::get('tipo_pago_producto_sociedad/sociedad/{sociedad_id}/tipo-producto/{tipo_producto_id}', [TipoPagoProductoSociedadController::class, 'getTiposPagoPorSociedadYTipoProducto']);
+Route::get('comerciales/sociedad/{id_sociedad}', [ComercialController::class, 'getComercialesPorSociedad']);
+
 
 Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('productos/{letrasIdentificacion}', [ProductoController::class, 'getProductosByTipoAndSociedades']);
@@ -59,7 +72,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     Route::post('crear-producto/{letrasIdentificacion}', [ProductoController::class, 'crearProducto']);
     Route::post('editar-producto/{letrasIdentificacion}', [ProductoController::class, 'editarProducto']);
-    Route::post('anular-producto/{letrasIdentificacion}', [ProductoController::class, 'anularProducto']);
+    Route::post('anular-producto/{letrasIdentificacion}', [AnuladosController::class, 'anularProducto']);
     Route::delete('eliminar-producto/{letrasIdentificacion}', [ProductoController::class, 'eliminarProducto']);
     Route::get('duraciones/{nombreTabla}', [ProductoController::class, 'getDuraciones']);
 
@@ -71,20 +84,15 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('descargar-plantilla/{letrasIdentificacion}', [ExportController::class, 'exportToPdf']);
     Route::get('plantilla-base64', [ExportController::class, 'getPlantillaBase64']);
 
-
-    Route::apiResource('campos', CampoController::class);
-    Route::get('campos', [CampoController::class, 'getByTipoProducto']);
     Route::put('campos-update/{id_tipo_producto}', [CampoController::class, 'updatePorTipoProducto']);
     Route::post('add-campos/{id_tipo_producto}', [CampoController::class, 'addCampos']);
     Route::post('create-campo-opciones/{id_tipo_producto}', [CampoController::class, 'createCampoConOpcionesHTTP']);
     Route::put('update-campo-opciones/{id}', [CampoController::class, 'updateCampoConOpciones']);
-    Route::get('opciones/{id_campo}', [CampoController::class, 'getOpcionesPorCampo']);
     Route::get('campos-certificado/{id}', [CampoController::class, 'getCamposCertificado']);
     Route::get('logos/tipo-producto/{id}', [CampoController::class, 'getCamposLogos']);
 
     Route::get('tipos-producto/sociedad/{id_sociedad}', [TipoProductoController::class, 'getTiposProductoPorSociedad']);
     Route::get('tipos-producto/all', [TipoProductoController::class, 'index']);
-    Route::get('tipo-producto/{letras}', [TipoProductoController::class, 'getByLetras']);
     Route::get('tipo-producto/show/{id}', [TipoProductoController::class, 'show']);
     Route::put('tipo-producto/{id}', [TipoProductoController::class, 'update']);
     Route::put('tipo-producto/edit/{id}', [TipoProductoController::class, 'updateTipoProducto']);
@@ -97,14 +105,13 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('sociedad/{id}', [SociedadController::class, 'show']);
     Route::get('sociedad/{id_sociedad}/segundo-nivel', [SociedadController::class, 'getSocietySecondLevel']);
     Route::get('sociedad/hijas/{id}', [SociedadController::class, 'getSociedadesHijas']);
-    Route::get('sociedad/{sociedad_id}/hijas/tipo-producto/{letras_identificacion}', [SociedadController::class, 'getSociedadesHijasPorTipoProducto']);
     Route::post('sociedad', [SociedadController::class, 'store']);
     Route::delete('sociedad/{id}', [SociedadController::class, 'destroy']);
     Route::put('sociedad/{id}', [SociedadController::class, 'update']);
     Route::put('sociedad/{id}/permisos', [SociedadController::class, 'updatePermisos']);
     Route::get('sociedades/padres', [SociedadController::class, 'getSociedadesPadres']);
     Route::get('sociedades', [SociedadController::class, 'index']);
-    Route::get('sociedad/comercial/{comercial_id}', [SociedadController::class, 'getSociedadPorComercial']);
+    
 
 
     // Gestiona todas las solicitudes de la conexion entre TipoProducto y Sociedad
@@ -112,13 +119,12 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('sociedad/{sociedad_padre_id}/hija/{sociedad_hija_id}', [TipoProductoSociedadController::class, 'transferirTiposProductos']);
 
     Route::get('comerciales/all', [ComercialController::class, 'getAllUsers']);
-    Route::get('comerciales/sociedad/{id_sociedad}', [ComercialController::class, 'getComercialesPorSociedad']);
     Route::get('comerciales/responsables', [ComercialController::class, 'getResponsables']);
     Route::post('comercial', [ComercialController::class, 'store']);
     Route::put('comercial/{id}', [ComercialController::class, 'update']);
     Route::delete('comercial/{id}', [ComercialController::class, 'destroy']);
 
-    Route::get('comercial/{id}', [ComercialController::class, 'show']);
+
     Route::put('comercial/{id}', [ComercialController::class, 'update']);
     Route::post('comercial', [ComercialController::class, 'store']);
 
@@ -171,8 +177,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     // Todas las tarifas por sociedad
     Route::get('tarifas/sociedad/{id_sociedad}', [TarifaProductoController::class, 'getTarifaPorSociedad']);
-    // Tarifa por tipoProducto y Sociedad
-    Route::get('tarifas-producto/sociedad/{id_sociedad}', [TarifaProductoController::class, 'getTarifaPorSociedadAndTipoProducto']);
     // Set tarifa por sociedad y tipoProducto
     Route::post('tarifa-producto/sociedad', [TarifaProductoController::class, 'store']);
 
@@ -189,7 +193,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('tipos-pago/all', [TipoPagoController::class, 'index']);
     Route::post('tipo_pago_producto_sociedad', [TipoPagoProductoSociedadController::class, 'store']);
     Route::get('tipo_pago_producto_sociedad/sociedad/{id_sociedad}', [TipoPagoProductoSociedadController::class, 'getTiposPagoPorSociedad']);
-    Route::get('tipo_pago_producto_sociedad/sociedad/{sociedad_id}/tipo-producto/{tipo_producto_id}', [TipoPagoProductoSociedadController::class, 'getTiposPagoPorSociedadYTipoProducto']);
     Route::post('sociedad/{sociedad_padre_id}/hija/{sociedad_hija_id}/tipos-pago', [TipoPagoProductoSociedadController::class, 'transferirTiposPago']);
 
     // PAGOS:
@@ -248,9 +251,12 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // CATEGORIAS:
     Route::get('categorias', [CategoriaController::class, 'index']);
     Route::post('categorias', [CategoriaController::class, 'store']);
-    Route::get('categorias/{id}', [CategoriaController::class, 'show']);
     Route::post('categorias/{id}', [CategoriaController::class, 'update']);
 
     // INFORMES:
     Route::get('reports', [ExportController::class, 'getReportData']);
+
+
+    // NOTIFICACIONES:
+    Route::post('/notify-product-change', [NotificationsController::class, 'notifyProductChange']);
 });

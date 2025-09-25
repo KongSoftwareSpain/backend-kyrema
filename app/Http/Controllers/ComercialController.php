@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreComercialRequest;
 use Illuminate\Support\Facades\Hash;
 use App\Models\Comercial;
 use Illuminate\Http\Request;
@@ -26,34 +27,8 @@ class ComercialController extends Controller
         return response()->json($comercial->pagina_web == '1');
     }
     
-    public function store(Request $request)
+    public function store(StoreComercialRequest $request)
     {
-        $request->validate([
-            'nombre' => 'required|string|max:255',
-            'id_sociedad' => 'required|numeric|exists:sociedad,id',
-            'comercial_responsable_categoria' => 'nullable|boolean',
-            'usuario' => 'required|string|max:255',
-            'email' => 'required|string|max:255',
-            'responsable' => 'nullable|string|max:255',
-            'dni' => 'nullable|string|max:255',
-            'sexo' => 'nullable|string|max:10',
-            'fecha_nacimiento' => 'nullable|date',
-            'fecha_alta' => 'nullable|date',
-            'referido' => 'nullable|string|max:255',
-            'direccion' => 'nullable|string|max:255',
-            'poblacion' => 'nullable|string|max:255',
-            'provincia' => 'nullable|string|max:255',
-            'cod_postal' => 'nullable|string|max:10',
-            'telefono' => 'nullable|string|max:20',
-            'fax' => 'nullable|string|max:20',
-            'path_licencia_cazador' => 'nullable|string|max:255',
-            'path_dni' => 'nullable|string|max:255',
-            'path_justificante_iban' => 'nullable|string|max:255',
-            'path_otros' => 'nullable|string|max:255',
-            'path_foto' => 'nullable|file|mimes:jpeg,png,jpg,gif|max:4096',
-        ]);
-        
-
 
         // Cambiar el formato de las fechas 'Y-m-d\TH:i:s'
         if ($request->fecha_nacimiento) {
@@ -80,7 +55,7 @@ class ComercialController extends Controller
         // Hashear la contraseña
         $data['contraseña'] = Hash::make($request->contraseña);
         $data['dni'] == null ? $data['dni'] = '' : $data['dni']; 
-    
+
         // Crear el comercial usando los datos modificados
         $comercial = Comercial::create($data);
 

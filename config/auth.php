@@ -47,7 +47,10 @@ return [
             'driver' => 'eloquent',
             'model' => App\Models\Comercial::class,
         ],
-        
+        'socios' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\Socio::class,
+        ],
     ],
 
     /*
@@ -70,9 +73,15 @@ return [
     */
 
     'passwords' => [
-        'users' => [
+        'comerciales' => [
             'provider' => 'comercial',
-            'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
+            'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset'),
+            'expire' => 60,
+            'throttle' => 60,
+        ],
+        'socios' => [
+            'provider' => 'socios',
+            'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset'),
             'expire' => 60,
             'throttle' => 60,
         ],

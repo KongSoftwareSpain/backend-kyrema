@@ -6,10 +6,8 @@ use App\Http\Controllers\Controller;
 use Illuminate\Foundation\Auth\ResetsPasswords;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
-use App\Models\Comercial;
-use Illuminate\Support\Facades\DB;
-use Carbon\Carbon;
+use Illuminate\Support\Facades\Hash;    
+use Illuminate\Support\Str;
 
 class ResetPasswordController extends Controller
 {
@@ -26,62 +24,44 @@ class ResetPasswordController extends Controller
 
     use ResetsPasswords;
 
-    /**
-     * Where to redirect users after resetting their password.
-     *
-     * @var string
-     */
-    protected $redirectTo = '/home';
-
     public function reset(Request $request)
     {
         $request->validate([
-            'token' => 'required',
             'email' => 'required|email',
             'password' => 'required|confirmed|min:8',
+            'token' => 'required',
+            'categoria' => 'nullable|string' // o integer si esperas un id numérico
         ]);
 
-        // Buscar al usuario en la tabla 'comercial'
-        $user = Comercial::where('email', $request->email)->first();
+        $credentials = $request->only('email', 'password', 'password_confirmation', 'token');
 
-        // Comprobar si el usuario existe y si el token es válido
-        if (!$user) {
-            return response()->json(['msg' => 'El usuario no existe.'], 400);
+        // elegir broker en función de la categoria
+        if ($request->filled('categoria')) {
+            // MODO SOCIO
+            $response = Password::broker('socios')->reset(
+                $credentials,
+                function ($user, $password) {
+                    $user->forceFill([
+                        'password' => Hash::make($password),
+                        'remember_token' => Str::random(60),
+                    ])->save();
+                }
+            );
+        } else {
+            // MODO COMERCIAL
+            $response = Password::broker('comerciales')->reset(
+                $credentials,
+                function ($user, $password) {
+                    $user->forceFill([
+                        'password' => Hash::make($password),
+                        'remember_token' => Str::random(60),
+                    ])->save();
+                }
+            );
         }
 
-        // Obtener el token y el email del request
-        $email = $user->email;
-        $token = $request->token;
-
-        // Verificar si hay un registro en la tabla password_resets para el correo dado
-        $passwordReset = DB::table('password_resets')->where('email', $email)->first();
-
-        if (!$passwordReset) {
-            return response()->json(['msg' => 'No se encontró un registro para este correo.'], 400);
-        }
-
-        // Verificar si el token proporcionado coincide con el hasheado
-        if (!Hash::check($token, $passwordReset->token)) {
-            return response()->json(['msg' => 'El token no es válido.'], 400);
-        }
-
-        // Verificar si el token ha expirado (opcional, normalmente 60 minutos)
-        $tokenExpiration = Carbon::parse($passwordReset->created_at)->addMinutes(60);
-
-        if (Carbon::now()->lessThan($tokenExpiration)) {
-            $differenceInMinutes = Carbon::now()->diffInMinutes($tokenExpiration);
-        
-            return response()->json([
-                'msg' => 'El token ha expirado hace ' . $differenceInMinutes . ' minutos.'
-            ], 400);
-        }
-
-
-        // Restablecer la contraseña
-        $user->contraseña = Hash::make($request->password);
-        $user->save();
-
-        return response()->json(['msg' => 'Tu contraseña ha sido restablecida.']);
+        return $response === Password::PASSWORD_RESET
+            ? response()->json(['msg' => 'Contraseña restablecida correctamente.'])
+            : response()->json(['msg' => 'El restablecimiento de contraseña ha fallado.'], 422);
     }
-
 }

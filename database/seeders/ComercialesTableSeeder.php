@@ -18,9 +18,9 @@ class ComercialesTableSeeder extends Seeder
         // Definir datos del comercial de prueba
         $comercialData = [
             'nombre' => 'Pedro',
-            'usuario' => 'admin@admin.com', // Puede ser un email u otro identificador único
-            'email' => 'pericomarytb@gmail.com',
-            'contraseña' => Hash::make('admin@'), // Hashear la contraseña
+            'usuario' => 'pericoagario@gmail.com', // Puede ser un email u otro identificador único
+            'email' => 'pericoagario@gmail.com',
+            'contraseña' => Hash::make('admin@C1'), // Hashear la contraseña
             'id_sociedad' => 1, // ID de la sociedad a la que pertenece el comercial
             'dni' => '12345678A',
             // Otros campos según tu estructura de la tabla Comercial

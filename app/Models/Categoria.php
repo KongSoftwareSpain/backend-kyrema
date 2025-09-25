@@ -21,4 +21,9 @@ class Categoria extends Model
 
     // Desactivar timestamps
     public $timestamps = false;
+
+    public function comercialResponsable()
+    {
+        return $this->belongsTo(Comercial::class, 'comercial_responsable_id');
+    }
 }

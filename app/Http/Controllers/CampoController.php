@@ -15,14 +15,6 @@ use Illuminate\Support\Facades\Config;
 
 class CampoController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
-    {
-        $campos = Campos::all();
-        return response()->json($campos);
-    }
 
     public function getByTipoProducto(Request $request)
     {

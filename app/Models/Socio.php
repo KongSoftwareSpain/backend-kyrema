@@ -2,17 +2,17 @@
 
 namespace App\Models;
 
+use Illuminate\Auth\Passwords\CanResetPassword;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\HasApiTokens;
-use Laravel\Sanctum\NewAccessToken;
-use Illuminate\Support\Str;
 use Illuminate\Notifications\Notifiable;
+use App\Notifications\CustomResetPassword;
 
 class Socio extends Authenticatable
 {
-    use HasFactory, HasApiTokens, Notifiable;
+    use HasFactory, HasApiTokens, Notifiable, CanResetPassword;
 
     // Definir la tabla asociada al modelo
     protected $table = 'socios';
@@ -35,6 +35,11 @@ class Socio extends Authenticatable
     ];
 
     protected $hidden = ['password'];
+
+    public function sendPasswordResetNotification($token)
+    {
+        $this->notify(new CustomResetPassword($token));
+    }
 
     public static function getUltimoProducto($id_socio){
         return DB::table('socios_productos')

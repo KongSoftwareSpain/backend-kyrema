@@ -794,34 +794,6 @@ class ProductoController extends Controller
         return response()->json(['message' => 'Producto eliminado con éxito'], 200);
     }
 
-    public function anularProducto($letrasIdentificacion, Request $request)
-    {
-        // Convertir letras de identificación a nombre de tabla
-        $nombreTabla = strtolower($letrasIdentificacion);
-
-        $id = $request->input('id');
-
-        // Actualizar el campo 'anulado' a true en la tabla correspondiente
-        DB::table($nombreTabla)
-            ->where('id', $id)
-            ->update(['anulado' => true]);
-
-        // Meter la anulación a la tabla de anulaciones
-        $anulacionId = DB::table('anulaciones')->insertGetId([
-            'fecha' => Carbon::now()->format('Y-m-d\TH:i:s'),
-            'sociedad_id' => $request->input('sociedad_id'),
-            'comercial_id' => $request->input('comercial_id'),
-            'sociedad_nombre' => $request->input('sociedad_nombre'),
-            'comercial_nombre' => $request->input('comercial_nombre'),
-            'causa' => $request->input('causa'),
-            'letrasIdentificacion' => $letrasIdentificacion,
-            'producto_id' => $id,
-            'codigo_producto' => $request->input('codigo_producto')
-        ]);
-
-        return response()->json(['message' => 'Producto anulado con éxito'], 200);
-    }
-
     public function getDuraciones($nombreTabla)
     {
 
