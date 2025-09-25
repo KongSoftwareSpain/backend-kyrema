@@ -44,115 +44,81 @@ class AnuladosController extends Controller
         return response()->json($anulados);
     }
 
-    public function anularProducto($letrasIdentificacion, Request $request)
+    public function anularProducto(string $letrasIdentificacion, Request $request)
     {
-        // 1) Validación
+        // Validar campos ANTES anidados dentro de desc_anulacion + sendEmail suelto
         $validated = $request->validate([
-            'id'               => ['required', 'integer'],
-            'sociedad_id'      => ['required', 'integer'],
-            'sociedad_nombre'  => ['required', 'string'],
-            'comercial_id'     => ['required', 'integer', Rule::exists('comercial', 'id')],
-            'comercial_nombre' => ['required', 'string'],
-            'causa'            => ['required', 'string', 'min:16'],
-            'codigo_producto'  => ['nullable', 'string', 'max:255'],
-            // opcional si ya la traes desde el front:
-            'socio_id'         => ['nullable', 'integer', Rule::exists('socios', 'id')],
-            'sendEmail'        => ['sometimes', 'boolean'],
+            'desc_anulacion.id'               => ['required', 'integer'],
+            'desc_anulacion.sociedad_id'      => ['required', 'integer'],
+            'desc_anulacion.sociedad_nombre'  => ['required', 'string'],
+            'desc_anulacion.comercial_id'     => ['required', 'integer', Rule::exists('comercial', 'id')],
+            'desc_anulacion.comercial_nombre' => ['required', 'string'],
+            'desc_anulacion.causa'            => ['required', 'string', 'min:16'],
+            'desc_anulacion.codigo_producto'  => ['nullable', 'string', 'max:255'],
+            'desc_anulacion.socio_id'         => ['nullable', 'integer', Rule::exists('socios', 'id')],
+            'sendEmail'                       => ['sometimes', 'boolean'],
         ]);
 
+        // Payload ya validado
+        $p = $validated['desc_anulacion'];
+        $sendEmail = (bool)($validated['sendEmail'] ?? false);
+
         $tabla = strtolower($letrasIdentificacion);
-        $id    = (int) $validated['id'];
+        $id    = (int) $p['id'];
 
-        // 2) Transacción: anular + registrar anulación
-        $anulacionId = DB::transaction(function () use ($tabla, $id, $validated, $letrasIdentificacion) {
+        $anulacionId = DB::transaction(function () use ($tabla, $id, $p, $letrasIdentificacion) {
+            $row = DB::table($tabla)->where('id', $id)->first();
+            if (!$row) abort(404, 'Producto no encontrado.');
 
-            // 2.1) Verificar que el producto existe (y de paso obtener datos para el mail)
-            $productoRow = DB::table($tabla)->where('id', $id)->first();
-            if (!$productoRow) {
-                abort(404, 'Producto no encontrado.');
-            }
-
-            // 2.2) Marcar como anulado
             DB::table($tabla)->where('id', $id)->update(['anulado' => true]);
 
-            // 2.3) Insertar en tabla de anulaciones
             return DB::table('anulaciones')->insertGetId([
-                'fecha'               => Carbon::now()->format('Y-m-d\TH:i:s'),
-                'sociedad_id'         => $validated['sociedad_id'],
-                'comercial_id'        => $validated['comercial_id'],
-                'sociedad_nombre'     => $validated['sociedad_nombre'],
-                'comercial_nombre'    => $validated['comercial_nombre'],
-                'causa'               => $validated['causa'],
+                'fecha'                => Carbon::now()->format('Y-m-d\TH:i:s'),
+                'sociedad_id'          => $p['sociedad_id'],
+                'comercial_id'         => $p['comercial_id'],
+                'sociedad_nombre'      => $p['sociedad_nombre'],
+                'comercial_nombre'     => $p['comercial_nombre'],
+                'causa'                => $p['causa'],
                 'letrasIdentificacion' => $letrasIdentificacion,
-                'producto_id'         => $id,
-                'codigo_producto'     => $validated['codigo_producto'] ?? ($productoRow->codigo ?? $productoRow->codigo_producto ?? null),
+                'producto_id'          => $id,
+                'codigo_producto'      => $p['codigo_producto'] ?? ($row->codigo ?? $row->codigo_producto ?? null),
             ]);
         });
 
-        // 3) Resolver modelos y datos para la notificación
-        $sender = Comercial::find($validated['comercial_id']); // Comercial que anula (requerido por tu Notification)
-        if (!$sender) {
-            // fallback defensivo (no debería ocurrir por la validación)
-            return response()->json(['message' => 'Comercial no encontrado.'], 422);
-        }
+        // Notificación (si procede)
+        $emailSent = false;
+        if ($sendEmail) {
+            $sender       = Comercial::find($p['comercial_id']);
+            $tipoProducto = TipoProducto::where('letras_identificacion', $letrasIdentificacion)->first()
+                ?? new TipoProducto(['nombre' => $letrasIdentificacion]);
+            $product      = (array)(DB::table($tabla)->where('id', $id)->first() ?? []);
+            $socio        = !empty($p['socio_id']) ? Socio::find($p['socio_id']) : null;
+            $socioEmail   = $socio?->email ?? ($product['email'] ?? null);
 
-        // TipoProducto por letras_identificacion (ajusta si tu columna se llama distinto)
-        $tipoProducto = TipoProducto::where('letras_identificacion', $letrasIdentificacion)->first();
-        if (!$tipoProducto) {
-            // Creamos un "contenedor" mínimo para no romper tipos
-            $tipoProducto = new TipoProducto(['nombre' => $letrasIdentificacion]);
-        }
-
-        // Producto crudo para payload de notificación
-        $productPayload = (array) (DB::table($tabla)->where('id', $id)->first() ?? []);
-
-        // 4) Localizar destinatario (Socio) o su email
-        $socio = null;
-        if (!empty($validated['socio_id'])) {
-            $socio = Socio::find($validated['socio_id']);
-        }
-
-
-        if ($validated['sendEmail'] ?? false) {
-            // Si sin socio, intenta con email suelto en la fila o request
-            $socioEmail = null;
-            if (!$socio) {
-                $socioEmail = $productPayload['email'] ?? null;
-            }
-
-            // 5) Enviar notificación
-            $emailSent = false;
             if ($socio) {
-                // Canal mail + database (Socio debe usar Notifiable)
-                $socio->notify(
-                    new ProductCancellationNotice(
-                        sender: $sender,
-                        product: $productPayload,
-                        tipoProducto: $tipoProducto,
-                        causa: $validated['causa']
-                    )
-                );
+                $socio->notify(new ProductCancellationNotice(
+                    sender: $sender,
+                    product: $product,
+                    tipoProducto: $tipoProducto,
+                    causa: $p['causa']
+                ));
                 $emailSent = true;
             } elseif ($socioEmail) {
-                // Solo mail (con AnonymousNotifiable; no guarda en database)
-                Notification::route('mail', $socioEmail)->notify(
-                    new ProductCancellationNotice(
-                        sender: $sender,
-                        product: $productPayload,
-                        tipoProducto: $tipoProducto,
-                        causa: $validated['causa']
-                    )
-                );
+                Notification::route('mail', $socioEmail)->notify(new ProductCancellationNotice(
+                    sender: $sender,
+                    product: $product,
+                    tipoProducto: $tipoProducto,
+                    causa: $p['causa']
+                ));
                 $emailSent = true;
             }
         }
 
         return response()->json([
-            'ok'               => true,
-            'message'          => 'Producto anulado con éxito',
-            'anulacion_id'     => $anulacionId,
-            'email_sent'       => $emailSent ?? false,
-            'notified_via'     => $socio ? 'model+db' : ($socioEmail ? 'email-only' : 'none'),
-        ], 200);
+            'ok'           => true,
+            'message'      => 'Producto anulado con éxito',
+            'anulacion_id' => $anulacionId,
+            'email_sent'   => $emailSent,
+        ]);
     }
 }
