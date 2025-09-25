@@ -13,6 +13,7 @@ use App\Models\SocioProducto;
 use Illuminate\Support\Facades\Schema;
 use App\Notifications\SetInitialPasswordNotification;
 use App\Models\Categoria;
+use Carbon\Carbon;
 
 class SocioController extends Controller
 {
@@ -23,7 +24,8 @@ class SocioController extends Controller
         return response()->json($socios);
     }
 
-    public function getAsegurado($dni, $categoria_id){
+    public function getAsegurado($dni, $categoria_id)
+    {
         $socio = Socio::where('dni', $dni)->where('categoria_id', $categoria_id)->first();
         if (!$socio) {
             return response()->json(['message' => 'Socio not found.'], 404);
@@ -31,10 +33,11 @@ class SocioController extends Controller
         return response()->json($socio);
     }
 
-    public function getSociosByComercial($id_comercial){
+    public function getSociosByComercial($id_comercial)
+    {
         // Recoger el Comercial, ver si es comercial responsable, si lo es devolver todos los socios conectados a los comerciales de su sociedad
         // y las sociedades por debajo, si no lo es devolver solo los socios conectados a él.
-        if(Comercial::isResponsable($id_comercial)){
+        if (Comercial::isResponsable($id_comercial)) {
             $comercial = Comercial::find($id_comercial);
 
             $sociedad = Sociedad::find($comercial->id_sociedad);
@@ -42,7 +45,7 @@ class SocioController extends Controller
             $sociedades = $sociedad->getSociedadesHijasDesde($comercial->id_sociedad);
 
             // Coger solo los ids de las sociedades
-            $sociedades = array_map(function($sociedad){
+            $sociedades = array_map(function ($sociedad) {
                 return $sociedad->id;
             }, $sociedades);
 
@@ -50,11 +53,10 @@ class SocioController extends Controller
             $sociedades[] = $comercial->id_sociedad;
 
             $socios = Socio::join('socios_comerciales', 'socios.id', '=', 'socios_comerciales.id_socio')
-            ->join('comercial', 'socios_comerciales.id_comercial', '=', 'comercial.id')
-            ->whereIn('comercial.id_sociedad', $sociedades)
-            ->select('socios.*')
-            ->get();
-        
+                ->join('comercial', 'socios_comerciales.id_comercial', '=', 'comercial.id')
+                ->whereIn('comercial.id_sociedad', $sociedades)
+                ->select('socios.*')
+                ->get();
         } else {
             $socios = Socio::join('socios_comerciales', 'socios.id', '=', 'socios_comerciales.id_socio')
                 ->where('socios_comerciales.id_comercial', $id_comercial)
@@ -67,62 +69,82 @@ class SocioController extends Controller
 
     public function store(Request $request, $categoria_id)
     {
-        $request->validate([
-            'id_comercial' => 'required|string',
-            'dni' => 'required|string',
-            'nombre_socio' => 'required|string',
-            'apellido_1' => 'nullable|string',
-            'apellido_2' => 'nullable|string',
-            'email' => 'required|email',
-            'telefono' => 'nullable|string',
-            'fecha_de_nacimiento' => 'required|date',
-            'sexo' => 'nullable|string',
-            'direccion' => 'nullable|string',
-            'poblacion' => 'nullable|string',
-            'provincia' => 'nullable|string',
-            'codigo_postal' => 'nullable|string'
+        $data = $request->validate([
+            'asegurado' => 'required|array',
+            'sendEmail' => 'sometimes|boolean', // o 'required|boolean' si es obligatorio
+
+            'asegurado.id_comercial'       => 'required|string',
+            'asegurado.dni'                => 'required|string',
+            'asegurado.nombre_socio'       => 'required|string',
+            'asegurado.apellido_1'         => 'nullable|string',
+            'asegurado.apellido_2'         => 'nullable|string',
+            'asegurado.email'              => 'required|email',
+            'asegurado.telefono'           => 'nullable|string',
+            'asegurado.fecha_de_nacimiento' => 'required|date',
+            'asegurado.sexo'               => 'nullable|string',
+            'asegurado.direccion'          => 'nullable|string',
+            'asegurado.poblacion'          => 'nullable|string',
+            'asegurado.provincia'          => 'nullable|string',
+            'asegurado.codigo_postal'      => 'nullable|string',
         ], [
-            'email.email' => 'El formato del correo electrónico no es correcto.'
+            'asegurado.email.email' => 'El formato del correo electrónico no es correcto.',
         ]);
 
-        $request->merge([
-            'categoria_id' => $categoria_id
-        ]);
+        $asegurado = $data['asegurado'];
+        $sendEmail = $request->boolean('sendEmail'); // false si no viene
 
         // Validar si el DNI ya existe en la misma categoría
-        if (DB::table('socios')
-         ->where('dni', $request->dni)
-         ->where('categoria_id', $categoria_id)
-         ->exists()) {
+        $exists = Socio::query()
+            ->where('dni', $asegurado['dni'])
+            ->where('categoria_id', $categoria_id)
+            ->exists();
+
+        if ($exists) {
             return response()->json(['message' => 'El DNI ya está en uso en esta categoría.'], 409);
         }
 
-        if ($request->fecha_nacimiento) {
-            $request->merge([
-                'fecha_nacimiento' => date('Y-m-d\TH:i:s', strtotime($request->fecha_nacimiento)),
-            ]);
-        }
+        $payload = [
+            'categoria_id'        => $categoria_id,
+            'dni'                 => trim($asegurado['dni']),
+            'nombre_socio'        => $asegurado['nombre_socio'],
+            'apellido_1'          => $asegurado['apellido_1'] ?? null,
+            'apellido_2'          => $asegurado['apellido_2'] ?? null,
+            'email'               => $asegurado['email'],
+            'telefono'            => $asegurado['telefono'] ?? null,
+            'sexo'                => $asegurado['sexo'] ?? null,
+            'direccion'           => $asegurado['direccion'] ?? null,
+            'poblacion'           => $asegurado['poblacion'] ?? null,
+            'provincia'           => $asegurado['provincia'] ?? null,
+            'codigo_postal'       => $asegurado['codigo_postal'] ?? null,
+            'fecha_de_nacimiento' => Carbon::parse($asegurado['fecha_de_nacimiento'])->format('Y-m-d\TH:i:s'),
+        ];
 
-        $socio = DB::table('socios')->insertGetId($request->except(['id_comercial','id']));
+        $socio = DB::transaction(function () use ($payload, $sendEmail) {
+            // Crear socio con Eloquent
+            $socio = Socio::create($payload);
+
+            // 2) Genera token de set/reset
+            $token = $socio->createToken('socio')->plainTextToken;
+
+            if(!$sendEmail){
+                return $socio;
+            }
+            // 3) Notifica (queue)
+            $socio->notify(new SetInitialPasswordNotification(
+                token: $token,
+                email: $socio->email,
+                categoryName: Categoria::find($payload['categoria_id'])->nombre,
+                displayName: $socio->nombre,
+                productHint: 'Desde aquí podrás crear tu contraseña y ver tus productos contratados.'
+            ));
+
+            return $socio;
+        });
 
         SocioComercial::create([
-            'id_comercial' => $request->id_comercial,
-            'id_socio' => $socio
+            'id_comercial' => $asegurado['id_comercial'],
+            'id_socio' => $socio->id
         ]);
-
-        $socio = Socio::find($socio);
-
-        // 2) Genera token de set/reset
-        $token = $socio->createToken('socio')->plainTextToken;
-
-        // 3) Notifica (queue)
-        $socio->notify(new SetInitialPasswordNotification(
-            token: $token,
-            email: $socio->email,
-            categoryName: Categoria::find($categoria_id)->nombre,
-            displayName: $socio->name,
-            productHint: 'Desde aquí podrás crear tu contraseña y ver tus productos contratados.'
-        ));
 
         return response()->json($socio, 201);
     }
@@ -142,7 +164,7 @@ class SocioController extends Controller
 
         $socio_comercial = SocioComercial::where('id_socio', $id)->first();
 
-        if($request->id_comercial){
+        if ($request->id_comercial) {
             // Si el socio no estaba conectado con nadie previamente, conectarlo con el comercial
             if (!$socio_comercial) {
                 SocioComercial::create([
@@ -158,7 +180,6 @@ class SocioController extends Controller
                         'id_comercial' => $request->id_comercial
                     ]);
                 }
-
             }
         }
 
@@ -210,5 +231,4 @@ class SocioController extends Controller
 
         return response()->json($productos);
     }
-
 }

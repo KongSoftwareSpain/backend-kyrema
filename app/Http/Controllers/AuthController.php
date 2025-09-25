@@ -57,12 +57,16 @@ class AuthController extends Controller
             ->first();
 
         if (!$socio) {
-            return response()->json(['error' => 'El usuario no existe o la categoría es incorrecta.'], 422);
+            return response()->json(['message' => 'El usuario no existe o la categoría es incorrecta.'], 422);
         }
 
+        // Si no tiene contraseña asignada mensaje de que su cuenta fue creada por su comercial y debe añadir la contraseña
+        if($socio->password === null) {
+            return response()->json(['message' => 'Tu cuenta fue creada por tu comercial. Por favor, crea una contraseña para poder acceder desde  el botón "¿Has olvidado tu contraseña?".'], 422);
+        }
 
         if (!Hash::check($credentials['contraseña'], $socio->password)) {
-            return response()->json(['error' => 'La contraseña es incorrecta.'], 422);
+            return response()->json(['message' => 'La contraseña es incorrecta.'], 422);
         }
 
         // Generar el token

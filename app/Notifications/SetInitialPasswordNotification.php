@@ -17,7 +17,9 @@ class SetInitialPasswordNotification extends Notification implements ShouldQueue
         public readonly string $categoryName, // p.e Kyrema, Cánama, Amigos24...
         public readonly ?string $displayName = null, // opcional
         public readonly ?string $productHint = null   // opcional, p.e. “accede a tus productos…”
-    ) {}
+    ) {
+        $this->afterCommit = true;
+    }
 
     public function via($notifiable): array
     {
@@ -26,17 +28,20 @@ class SetInitialPasswordNotification extends Notification implements ShouldQueue
 
     public function toMail($notifiable): MailMessage
     {
-        // URL de tu frontend para el reset (Angular/NX/etc.)
-        // Asegúrate de URL-encodear email si lo montas tú en el front.
-        $url = config('app.front_reset_url')  // p.e. https://app.tudominio.com/reset-password
-            . '?token='.$this->token.'&email='.urlencode($this->email);
+        $frontend = rtrim(config('app.reset_pwd_url'), '/');
+        $token = $this->token;
+        $email = urlencode($notifiable->email);
 
-        $name = $this->displayName ?: ($notifiable->name ?? ''); 
+        $path = "/{$notifiable->categoria_id}/password/reset/{$token}";
+
+        $url = "{$frontend}{$path}?email={$email}";
+
+        $name = $this->displayName ?: ($notifiable->nombre_socio ?? ''); 
 
         return (new MailMessage)
             ->subject('Bienvenido — crea tu contraseña')
-            ->greeting($name ? "Hola {$name}" : 'Hola')
-            ->line('Tu cuenta ha sido creada por tu comercial.')
+            ->greeting($name ? "Buenas {$name}" : 'Buenas')
+            ->line("Tu cuenta para acceder a {$this->categoryName} ha sido creada por tu comercial.")
             ->line($this->productHint ?: 'Desde el siguiente enlace podrás crear tu contraseña y acceder a tus productos.')
             ->action('Crear contraseña', $url)
             ->line('Si no esperabas este correo, puedes ignorarlo.')

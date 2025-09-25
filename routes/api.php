@@ -32,6 +32,7 @@ use App\Http\Controllers\SociedadComisionController;
 use App\Http\Controllers\TarifaAnexoController;
 use App\Http\Controllers\PagoExportController;
 use App\Http\Controllers\Health\HealthController;
+use App\Http\Controllers\Notifications\NotificationsController;
 
 // Route::get('/productos/{letras_identificativas}', [ProductoController::class, 'getProductosPorTipo']);
 Route::post('password/email', [ForgotPasswordController::class, 'sendResetLinkEmail']);
@@ -71,7 +72,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     Route::post('crear-producto/{letrasIdentificacion}', [ProductoController::class, 'crearProducto']);
     Route::post('editar-producto/{letrasIdentificacion}', [ProductoController::class, 'editarProducto']);
-    Route::post('anular-producto/{letrasIdentificacion}', [ProductoController::class, 'anularProducto']);
+    Route::post('anular-producto/{letrasIdentificacion}', [AnuladosController::class, 'anularProducto']);
     Route::delete('eliminar-producto/{letrasIdentificacion}', [ProductoController::class, 'eliminarProducto']);
     Route::get('duraciones/{nombreTabla}', [ProductoController::class, 'getDuraciones']);
 
@@ -254,4 +255,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     // INFORMES:
     Route::get('reports', [ExportController::class, 'getReportData']);
+
+
+    // NOTIFICACIONES:
+    Route::post('/notify-product-change', [NotificationsController::class, 'notifyProductChange']);
 });

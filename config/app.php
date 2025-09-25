@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'locale' => 'es',
     // Otros ajustes
     'reset_pwd_url' => env('RESET_PWD_URL', 'http://localhost:4200/reset-password'),
     'prefijo_tipo_producto' => 'PRODUCTO_',
