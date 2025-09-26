@@ -11,6 +11,7 @@ use App\Http\Controllers\SociedadController;
 use Illuminate\Support\Facades\Schema; // Importar el facade para el esquema
 use App\Models\Sociedad;
 use App\Models\Compania;
+use Carbon\Carbon;
 
 class ExportController extends Controller
 {
@@ -24,63 +25,84 @@ class ExportController extends Controller
             'fecha_hasta' => 'required|date',
             'sociedad_id' => 'nullable|integer',
         ]);
-    
+
         // Obtener los parámetros
         $tipoProductoId = $request->input('tipo_producto_id');
         $fechaDesde = $request->input('fecha_desde');
         $fechaHasta = $request->input('fecha_hasta');
         $sociedadId = $request->input('sociedad_id');
-    
+
         $sociedades = SociedadController::getArrayIdSociedadesHijas($sociedadId);
-    
+
         // Obtener las letras de identificación del tipo de producto
         $tipoProducto = DB::table('tipo_producto')->where('id', $tipoProductoId)->first();
-    
+
         if (!$tipoProducto) {
             return response()->json(['error' => 'Tipo de producto no encontrado'], 404);
         }
-    
+
         // Verificar si la tabla y la columna 'subproducto' existen
         $tableName = $tipoProducto->letras_identificacion;
         $hasSubproductoColumn = Schema::hasColumn($tableName, 'subproducto');
-    
-        // Query principal
-        $data = DB::table($tableName . ' as pc')
-            ->select(
-                DB::raw("pc.nombre_socio + ' ' + pc.apellido_1 + ' ' + pc.apellido_2 as nombre_completo"),
+
+        // Rango [desde, hasta+1) para no liarte con horas
+        $desde = Carbon::parse($fechaDesde)->toDateString();          // 'YYYY-MM-DD'
+        $hasta = Carbon::parse($fechaHasta)->addDay()->toDateString(); // día siguiente
+
+        // Estilo de fecha según cómo guardes la columna NVARCHAR:
+        // - ISO 8601 con 'T'  -> 126 (p.ej. 2025-09-25T09:57:26)
+        // - 'YYYY-MM-DD hh:mm:ss' -> 120
+        $style = 126; // ajusta a 120 si tu formato no lleva 'T'
+
+        $query = DB::table($tableName . ' as pc')
+            ->selectRaw(
+                // Evita que NULL anule la concatenación: usa CONCAT/ISNULL
+                "CONCAT(pc.nombre_socio,' ',pc.apellido_1,' ',ISNULL(pc.apellido_2,'')) as nombre_completo"
+            )
+            ->addSelect([
                 'pc.dni',
                 'pc.codigo_producto',
-                'pc.fecha_de_emisión',
-                'pc.fecha_de_inicio',
-                DB::raw(
-                    $hasSubproductoColumn 
-                        ? "CASE WHEN pc.subproducto IS NOT NULL THEN '". $tipoProducto->nombre ."' + ' - ' + pc.subproducto_codigo ELSE '". $tipoProducto->nombre ."' END as producto" 
-                        : "'". $tipoProducto->nombre ."' as producto"
-                ),
+            ])
+            // Si quieres devolver también las fechas ya convertidas:
+            ->selectRaw("TRY_CONVERT(datetime2, pc.[fecha_de_emisión], {$style}) as fecha_de_emision")
+            ->selectRaw("TRY_CONVERT(datetime2, pc.[fecha_de_inicio], {$style})  as fecha_de_inicio")
+            ->addSelect([
                 'pc.sociedad',
                 'pc.tipo_de_pago',
-                DB::raw("CASE 
-                            WHEN pc.comercial_creador_id IS NOT NULL THEN c.nombre
-                            ELSE NULL 
-                        END as referidos")
-            )
-            ->leftJoin('comercial as c', 'pc.comercial_creador_id', '=', 'c.id') // JOIN con la tabla comercial
-            ->whereBetween('pc.fecha_de_emisión', [$fechaDesde, $fechaHasta]);
-    
+            ])
+            ->leftJoin('comercial as c', 'pc.comercial_creador_id', '=', 'c.id')
+            ->selectRaw("CASE WHEN pc.comercial_creador_id IS NOT NULL THEN c.nombre ELSE NULL END as referidos");
+
+        // Producto (con bindings, nada de concatenar PHP dentro del SQL)
+        if ($hasSubproductoColumn) {
+            $query->selectRaw(
+                "CASE WHEN pc.subproducto IS NOT NULL THEN ? + ' - ' + pc.subproducto_codigo ELSE ? END as producto",
+                [$tipoProducto->nombre, $tipoProducto->nombre]
+            );
+        } else {
+            $query->selectRaw("? as producto", [$tipoProducto->nombre]);
+        }
+
+        // Filtro de fechas con conversión explícita + rango semiclosed
+        $query->whereRaw(
+            "TRY_CONVERT(datetime2, pc.[fecha_de_emisión], {$style}) >= ? AND TRY_CONVERT(datetime2, pc.[fecha_de_emisión], {$style}) < ?",
+            [$desde, $hasta]
+        );
+
         // Filtrar por sociedad si se proporciona
         if (!empty($sociedadId)) {
-            $data->whereIn('pc.sociedad_id', $sociedades);
+            $query->whereIn('pc.sociedad_id', $sociedades);
         }
-    
+
         // Ejecutar la consulta
-        $results = $data->get();
-    
+        $results = $query->get();
+
         if (!$hasSubproductoColumn) {
             $counts = collect([
                 [
                     'tipo_producto' => $tipoProducto->nombre,
                     'cantidad' => DB::table($tableName)
-                        ->whereBetween('fecha_de_emisión', [$fechaDesde, $fechaHasta])
+                        ->whereBetween('fecha_de_emisión', [$desde, $hasta])
                         ->count(),
                 ]
             ]);
@@ -88,172 +110,171 @@ class ExportController extends Controller
             // Obtener la cantidad de productos por tipo diferenciando subproductos
             $counts = DB::table($tableName)
                 ->select(
-                    DB::raw( "CASE 
+                    DB::raw(
+                        "CASE 
                                     WHEN subproducto IS NOT NULL THEN CONCAT('{$tipoProducto->nombre}', ' - ', subproducto_codigo) 
                                     ELSE '{$tipoProducto->nombre}' 
-                            END as tipo_producto" 
+                            END as tipo_producto"
                     ),
                     DB::raw('COUNT(*) as cantidad')
                 )
-                ->whereBetween('fecha_de_emisión', [$fechaDesde, $fechaHasta])
+                ->whereBetween('fecha_de_emisión', [$desde, $hasta])
                 ->groupBy(
                     DB::raw("CASE 
                                     WHEN subproducto IS NOT NULL THEN CONCAT('{$tipoProducto->nombre}', ' - ', subproducto_codigo) 
                                     ELSE '{$tipoProducto->nombre}' 
-                            END") 
+                            END")
                 )
                 ->get();
         }
 
 
-    
+
         return response()->json(['data' => $results, 'counts' => $counts]);
     }
-    
+
 
 
     public function exportToPdf($letrasIdentificacion, Request $request)
-        {
-            
-            try {
+    {
 
-                $id = $request->input('id');
+        try {
 
-                Log::info($id);
+            $id = $request->input('id');
 
-                if(!$id){
-                    return response()->json(['error' => 'ID no proporcionado'], 400);
+            Log::info($id);
+
+            if (!$id) {
+                return response()->json(['error' => 'ID no proporcionado'], 400);
+            }
+
+            // VALORES DEL PRODUCTO
+            $valores = DB::table($letrasIdentificacion)->where('id', $id)->first();
+
+            if (!$valores) {
+                return response()->json(['error' => 'Valores no encontrados'], 404);
+            }
+
+            // Comprobar que $valores no tiene el campo 'subproducto'
+            if (property_exists($valores, 'subproducto')) {
+                $tipoProducto = DB::table('tipo_producto')->where('id', $valores->subproducto)->first();
+            } else {
+                // TIPO PRODUCTO
+                $tipoProducto = DB::table('tipo_producto')->where('letras_identificacion', $letrasIdentificacion)->first();
+            }
+
+            if (!$tipoProducto) {
+                return response()->json(['error' => 'Tipo de producto no encontrado'], 404);
+            }
+
+            $plantillasBase64 = [];
+
+            // Lista de posibles plantillas
+            $plantillaPaths = [
+                $valores->plantilla_path_1,
+                $valores->plantilla_path_2,
+                $valores->plantilla_path_3,
+                $valores->plantilla_path_4,
+                $valores->plantilla_path_5,
+                $valores->plantilla_path_6,
+                $valores->plantilla_path_7,
+                $valores->plantilla_path_8,
+            ];
+
+            Log::info($plantillaPaths);
+
+            foreach ($plantillaPaths as $path) {
+                if ($path !== null) { // Verifica si no es nulo
+                    $fullPath = storage_path('app/public/' . $path); // Ruta completa
+
+                    if (file_exists($fullPath)) { // Verifica si el archivo existe
+                        $imageData = base64_encode(file_get_contents($fullPath));
+                        $mimeType = mime_content_type($fullPath);
+                        $plantillasBase64[] = "data:{$mimeType};base64,{$imageData}"; // Agrega la plantilla en base64
+                    } else {
+                        return response()->json(['error' => 'Plantilla no encontrada: ' . $fullPath], 404);
+                    }
                 }
-                
-                // VALORES DEL PRODUCTO
-                $valores = DB::table($letrasIdentificacion)->where('id', $id)->first();
+            }
 
-                if (!$valores) {
-                    return response()->json(['error' => 'Valores no encontrados'], 404);
-                }
+            // Obtener los campos del tipo de producto con columna y fila no nulos
+            $campos = CampoController::fetchCamposCertificado($tipoProducto->id);
 
-                // Comprobar que $valores no tiene el campo 'subproducto'
-                if (property_exists($valores, 'subproducto')) {
-                    $tipoProducto = DB::table('tipo_producto')->where('id', $valores->subproducto)->first();
+            // LOGOS
+            $camposLogos = CampoController::fetchCamposLogos($tipoProducto->id);
+
+            foreach ($camposLogos as $campoLogo) {
+                if ($campoLogo->tipo_logo == 'sociedad') {
+                    if ($valores->sociedad_id == env('SOCIEDAD_ADMIN_ID')) {
+                        $campoLogo->url = 'logos/logo_18.png';
+                    } else {
+                        $campoLogo->url = $valores->logo_sociedad_path;
+                    }
                 } else {
-                    // TIPO PRODUCTO
-                    $tipoProducto = DB::table('tipo_producto')->where('letras_identificacion', $letrasIdentificacion)->first();
-                }
-                
-                if (!$tipoProducto) {
-                    return response()->json(['error' => 'Tipo de producto no encontrado'], 404);
+                    $campoLogo->url = Compania::find($campoLogo->entidad_id)->logo;
                 }
 
-                $plantillasBase64 = [];
+                $logoPath = public_path('storage/' . $campoLogo->url);
+                Log::info($logoPath);
 
-                // Lista de posibles plantillas
-                $plantillaPaths = [
-                    $valores->plantilla_path_1,
-                    $valores->plantilla_path_2,
-                    $valores->plantilla_path_3,
-                    $valores->plantilla_path_4,
-                    $valores->plantilla_path_5,
-                    $valores->plantilla_path_6,
-                    $valores->plantilla_path_7,
-                    $valores->plantilla_path_8,
-                ];
+                if (file_exists($logoPath)) {
 
-                Log::info($plantillaPaths);
-
-                foreach ($plantillaPaths as $path) {
-                    if ($path !== null) { // Verifica si no es nulo
-                        $fullPath = storage_path('app/public/' . $path); // Ruta completa
-                        
-                        if (file_exists($fullPath)) { // Verifica si el archivo existe
-                            $imageData = base64_encode(file_get_contents($fullPath));
-                            $mimeType = mime_content_type($fullPath);
-                            $plantillasBase64[] = "data:{$mimeType};base64,{$imageData}"; // Agrega la plantilla en base64
-                        } else {
-                            return response()->json(['error' => 'Plantilla no encontrada: ' . $fullPath], 404);
-                        }
-                    }
+                    $logoData = base64_encode(file_get_contents($logoPath));
+                    $logoMimeType = mime_content_type($logoPath);
+                    $campoLogo->base64 = "data:{$logoMimeType};base64,{$logoData}";
+                } else {
+                    $campoLogo->base64 = '';
                 }
+            }
 
-                // Obtener los campos del tipo de producto con columna y fila no nulos
-                $campos = CampoController::fetchCamposCertificado($tipoProducto->id);
-
-                // LOGOS
-                $camposLogos = CampoController::fetchCamposLogos($tipoProducto->id);
-
-                foreach($camposLogos as $campoLogo){
-                    if($campoLogo->tipo_logo == 'sociedad'){
-                        if($valores->sociedad_id == env('SOCIEDAD_ADMIN_ID')){
-                            $campoLogo->url = 'logos/logo_18.png';
-                        } else {
-                            $campoLogo->url = $valores->logo_sociedad_path;
-                        }        
-                    } else {
-                        $campoLogo->url = Compania::find($campoLogo->entidad_id)->logo;
-                    }
-
-                    $logoPath = public_path('storage/' . $campoLogo->url);
-                    Log::info($logoPath);
-
-                    if(file_exists($logoPath)){
-                        
-                        $logoData = base64_encode(file_get_contents($logoPath));
-                        $logoMimeType = mime_content_type($logoPath);
-                        $campoLogo->base64 = "data:{$logoMimeType};base64,{$logoData}";
-                    } else {
-                        $campoLogo->base64 = '';
-                    }
-                }
-
-                // Obtener y colocar los datos de tipo_producto_polizas y las pólizas relacionadas
-                $polizasTipoProducto = DB::table('tipo_producto_polizas')
+            // Obtener y colocar los datos de tipo_producto_polizas y las pólizas relacionadas
+            $polizasTipoProducto = DB::table('tipo_producto_polizas')
                 ->where('tipo_producto_id', $tipoProducto->id)
                 ->get();
 
-                $polizas = DB::table('polizas')
+            $polizas = DB::table('polizas')
                 ->whereIn('id', $polizasTipoProducto->pluck('poliza_id'))
                 ->get();
 
 
-                // Generar un objeto con tipo de producto, valores, campos y base64 de la plantilla
-                $data = [
-                    'tipoProducto' => $tipoProducto,
-                    'valores' => $valores,
-                    'campos' => $campos,
-                    'polizas_tipo_producto' => $polizasTipoProducto,
-                    'polizas' => $polizas,
-                    'base64Plantillas' => $plantillasBase64,
-                    'logos' => $camposLogos
-                ];
+            // Generar un objeto con tipo de producto, valores, campos y base64 de la plantilla
+            $data = [
+                'tipoProducto' => $tipoProducto,
+                'valores' => $valores,
+                'campos' => $campos,
+                'polizas_tipo_producto' => $polizasTipoProducto,
+                'polizas' => $polizas,
+                'base64Plantillas' => $plantillasBase64,
+                'logos' => $camposLogos
+            ];
 
-                return response()->json($data);
+            return response()->json($data);
+        } catch (\ErrorException $e) {
 
-
-            } catch (\ErrorException $e) {
-
-                return response()->json(['error' => $e->getMessage()], 500);
-
-            }catch (\Exception $e) {
-                Log::info($e);
-                return response()->json(['error' => $e->getMessage()], 500);
-            }
+            return response()->json(['error' => $e->getMessage()], 500);
+        } catch (\Exception $e) {
+            Log::info($e);
+            return response()->json(['error' => $e->getMessage()], 500);
         }
+    }
 
-    public function exportAnexoExcelToPdf($tipoAnexoId , Request $request){
+    public function exportAnexoExcelToPdf($tipoAnexoId, Request $request)
+    {
         // Obtener el id del request
         $id = $request->input('id');
 
         // Obtener el tipoAnexo desde las letrasIdentificacion (Para coger la plantilla)
         $tipoAnexo = DB::table('tipo_producto')
-        ->where('id', $tipoAnexoId)
-        ->first();
+            ->where('id', $tipoAnexoId)
+            ->first();
 
 
         $letrasIdentificacionAnexo = $tipoAnexo->letras_identificacion;
 
         // NECESITAMOS TAMBIEN LOS DATOS DEL PRODUCTO PARA RELLENAR LOS CAMPOS DE LA PLANTILLA
         $tipoProducto = DB::table('tipo_producto')
-        ->where('id', $tipoAnexo->tipo_producto_asociado)
-        ->first();
+            ->where('id', $tipoAnexo->tipo_producto_asociado)
+            ->first();
 
         $valores = DB::table($tipoProducto->letras_identificacion)->where('id', $id)->first();
 
@@ -274,7 +295,7 @@ class ExportController extends Controller
         foreach ($plantillaPaths as $path) {
             if ($path !== null) { // Verifica si no es nulo
                 $fullPath = storage_path('app/public/' . $path); // Ruta completa
-                
+
                 if (file_exists($fullPath)) { // Verifica si el archivo existe
                     $imageData = base64_encode(file_get_contents($fullPath));
                     $mimeType = mime_content_type($fullPath);
@@ -285,7 +306,7 @@ class ExportController extends Controller
             }
         }
 
-                
+
         // Coger los anexos relacionados con el id del producto de la tabla con el nombre $letrasIdentificacionAnexo
         $anexos = DB::table($letrasIdentificacionAnexo)->where('producto_id', $id)->get();
 
@@ -301,19 +322,19 @@ class ExportController extends Controller
             ->whereNotNull('columna')
             ->whereNotNull('fila')
             ->whereIn('grupo', ['datos_anexo', 'datos_precio'])
-            ->get();    
+            ->get();
 
 
         // LOGOS
         $camposLogos = CampoController::fetchCamposLogos($tipoProducto->id);
 
-        foreach($camposLogos as $campoLogo){
-            if($campoLogo->tipo_logo == 'sociedad'){
-                if($valores->sociedad_id == env('SOCIEDAD_ADMIN_ID')){
+        foreach ($camposLogos as $campoLogo) {
+            if ($campoLogo->tipo_logo == 'sociedad') {
+                if ($valores->sociedad_id == env('SOCIEDAD_ADMIN_ID')) {
                     $campoLogo->url = 'logos/logo_18.png';
                 } else {
                     $campoLogo->url = $valores->logo_sociedad_path;
-                }        
+                }
             } else {
                 $campoLogo->url = Compania::find($campoLogo->entidad_id)->logo;
             }
@@ -321,8 +342,8 @@ class ExportController extends Controller
             $logoPath = public_path('storage/' . $campoLogo->url);
             Log::info($logoPath);
 
-            if(file_exists($logoPath)){
-                
+            if (file_exists($logoPath)) {
+
                 $logoData = base64_encode(file_get_contents($logoPath));
                 $logoMimeType = mime_content_type($logoPath);
                 $campoLogo->base64 = "data:{$logoMimeType};base64,{$logoData}";
@@ -333,12 +354,12 @@ class ExportController extends Controller
 
         // Obtener y colocar los datos de tipo_producto_polizas y las pólizas relacionadas
         $polizasTipoProducto = DB::table('tipo_producto_polizas')
-        ->where('tipo_producto_id', $tipoAnexoId)
-        ->get();
+            ->where('tipo_producto_id', $tipoAnexoId)
+            ->get();
 
         $polizas = DB::table('polizas')
-        ->whereIn('id', $polizasTipoProducto->pluck('poliza_id'))
-        ->get();
+            ->whereIn('id', $polizasTipoProducto->pluck('poliza_id'))
+            ->get();
 
 
         // Agregar el logo y número de póliza de cada compañía en las celdas correspondientes
@@ -363,7 +384,8 @@ class ExportController extends Controller
     }
 
 
-    public function getPlantillaBase64(Request $request){
+    public function getPlantillaBase64(Request $request)
+    {
         //Coger la ruta
         $path = $request->input('path');
         $file = Storage::disk('public')->get($path);
@@ -373,7 +395,7 @@ class ExportController extends Controller
 
     public function getLogoBase64($tipoLogo, $entidad_id)
     {
-        if($entidad_id == null){
+        if ($entidad_id == null) {
             $entidad = Sociedad::find(env('SOCIEDAD_ADMIN_ID'));
         }
 
@@ -394,7 +416,7 @@ class ExportController extends Controller
         }
 
         $path = public_path('storage/' . $entidad->logo);
-        
+
         Log::info($path);
 
         if (!file_exists($path)) {
@@ -408,7 +430,4 @@ class ExportController extends Controller
 
         return response()->json($imageData);
     }
-
-
-
 }

@@ -9,13 +9,10 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log; // Importar la clase Log
-use App\Models\Anulacion; // Importar el modelo Anulacion
-// Usar CampoController;
 use App\Http\Controllers\CampoController;
 use Illuminate\Support\Facades\Config;
 use App\Models\Socio;
 use App\Models\Comercial;
-use App\Models\TipoProducto;
 use App\Models\SocioProducto;
 use App\Services\ReferenceService;
 
@@ -222,7 +219,7 @@ class ProductoController extends Controller
                                         $table->integer($nombreCampo)->nullable();
                                         break;
                                     case 'date':
-                                        $table->datetime($nombreCampo)->nullable();
+                                        $table->dateTime($nombreCampo)->nullable();
                                         break;
                                     default:
                                         $table->string($nombreCampo)->nullable();
