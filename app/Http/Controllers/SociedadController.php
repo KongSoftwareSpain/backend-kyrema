@@ -121,7 +121,7 @@ class SociedadController extends Controller
     public static function getArrayIdSociedadesHijas($id)
     {
         $sociedad = Sociedad::findOrFail($id); // Obtener la sociedad inicial
-        $sociedadesHijas = $sociedad->getsoci($id);
+        $sociedadesHijas = $sociedad->getSociedadesHijasDesde($id);
 
         // Combinar la sociedad inicial con sus hijas
         $sociedadesCompletas = array_merge([$sociedad], $sociedadesHijas);

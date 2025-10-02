@@ -81,7 +81,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('subir-plantilla/{id_tipo_producto}/{page}', [ProductoController::class, 'subirPlantilla']);
 
 
-    Route::get('descargar-plantilla/{letrasIdentificacion}', [ExportController::class, 'exportToPdf']);
+    Route::get('descargar-plantilla/{letrasIdentificacion}/id/{id}', [ExportController::class, 'exportToPdf']);
     Route::get('plantilla-base64', [ExportController::class, 'getPlantillaBase64']);
 
     Route::put('campos-update/{id_tipo_producto}', [CampoController::class, 'updatePorTipoProducto']);
