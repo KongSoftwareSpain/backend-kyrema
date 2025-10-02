@@ -156,7 +156,7 @@ class ExportController extends Controller
             }
 
             // Comprobar que $valores no tiene el campo 'subproducto'
-            if (property_exists($valores, 'subproducto')) {
+            if (property_exists($valores, 'subproducto') && $valores->subproducto !== null) {
                 $tipoProducto = DB::table('tipo_producto')->where('id', $valores->subproducto)->first();
             } else {
                 // TIPO PRODUCTO

@@ -212,9 +212,6 @@ class ProductoController extends Controller
                                     case 'text':
                                         $table->string($nombreCampo)->nullable();
                                         break;
-                                    case 'decimal':
-                                        $table->decimal($nombreCampo, 8, 2)->nullable();
-                                        break;
                                     case 'number':
                                         $table->integer($nombreCampo)->nullable();
                                         break;
