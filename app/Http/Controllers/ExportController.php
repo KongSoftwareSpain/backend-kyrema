@@ -135,14 +135,10 @@ class ExportController extends Controller
 
 
 
-    public function exportToPdf($letrasIdentificacion, Request $request)
+    public function exportToPdf($letrasIdentificacion, $id)
     {
 
         try {
-
-            $id = $request->input('id');
-
-            Log::info($id);
 
             if (!$id) {
                 return response()->json(['error' => 'ID no proporcionado'], 400);
