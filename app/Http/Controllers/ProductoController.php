@@ -15,6 +15,7 @@ use App\Models\Socio;
 use App\Models\Comercial;
 use App\Models\SocioProducto;
 use App\Services\ReferenceService;
+use App\Support\Dni;
 
 class ProductoController extends Controller
 {
@@ -246,8 +247,12 @@ class ProductoController extends Controller
                         $table->unsignedBigInteger('tipo_de_pago_id')->nullable();
                         $table->unsignedBigInteger('comercial_id')->nullable();
                         $table->unsignedBigInteger('pago_id')->nullable();
-                        // Campo para saber si que comercial crea el producto en nombre de otro
+                        // Campo para saber si el comercial crea el producto en nombre de otro
                         $table->unsignedBigInteger('comercial_creador_id')->nullable();
+
+                        // Define si se ha contratado mediante un comercial con tipo_comercial 'Pagina Web' 
+                        // Se usa por si una sociedad tiene venta directa por la web se le crea un comercial tipo 'Pagina Web' para 
+                        // no relacionar las ventas directas de la web con un comercial real.
                         $table->boolean('mediante_pagina_web')->nullable();
                         $table->unsignedBigInteger('socio_id')->nullable();
                         $table->string('logo_sociedad_path')->nullable();
@@ -271,6 +276,7 @@ class ProductoController extends Controller
                     $table->string('duracion')->nullable();
                     // Booleano de si está anulado o no
                     $table->boolean('anulado')->default(false);
+                    $table->string('blob_name')->nullable();
 
                     // Añadimos campos a la tabla
                     foreach ($campos as $campo) {
@@ -280,7 +286,7 @@ class ProductoController extends Controller
                                 $table->string($nombreCampo)->nullable();
                                 break;
                             case 'decimal':
-                                $table->decimal($nombreCampo, 8, 2)->nullable();  // Cambié a decimal en lugar de string para manejar mejor los números decimales
+                                $table->decimal($nombreCampo, 8, 2)->nullable();
                                 break;
                             case 'number':
                                 $table->integer($nombreCampo)->nullable();
@@ -306,7 +312,6 @@ class ProductoController extends Controller
 
             // Crear campos con opciones recorriendo el array de camposConOpciones
             foreach ($camposConOpciones as $campoConOpciones) {
-                // Crear el campo con opciones
                 $campoController = new CampoController();
 
                 $campoController->createCampoConOpciones($campoConOpciones, $tipoProductoId);
@@ -714,15 +719,44 @@ class ProductoController extends Controller
         $datos['hora_de_emisión'] = $horaActual;
 
         unset($datos['nombre_producto'], $datos['letras_identificacion'], $datos['categoria'], $datos['referencia']);
-        $id = DB::table($nombreTabla)->insertGetId($datos);
+        $registro = DB::transaction(function () use ($nombreTabla, $datos) {
+            $id = DB::table($nombreTabla)->insertGetId($datos);
+            // Si la PK no se llama "id", ajusta el campo:
+            return DB::table($nombreTabla)->where('id', $id)->first();
+        });
 
 
-        if (isset($datos['socio_id'])) {
+        if (isset($datos['socio_id']) && isset($datos['dni']) && Dni::equals($datos['dni'], Socio::findOrFail($datos['socio_id'])->dni)) {
             // Conectar el socio con el producto
-            SocioProducto::connectSocioAndProducto($datos['socio_id'], $id, $nombreTabla);
+            SocioProducto::connectSocioAndProducto($datos['socio_id'], $registro->id, $nombreTabla);
         }
 
-        return response()->json(['id' => $id], 201);
+        return response()->json($registro, 201);
+    }
+
+
+    public function setBlobNameForProductId($letras_identificacion, $id, Request $request)
+    {
+        $data = $request->validate([
+            'blob_name' => ['required','string','max:300','regex:/^[A-Za-z0-9._\-\/]+\.pdf$/'],
+            'is_anexo' => ['required','boolean'] 
+        ], [
+            'regex' => 'El nombre del blob solo puede contener letras, números, punto, guion, guion bajo y barras (/).',
+        ]);
+
+        $nombreTabla = strtolower($letras_identificacion);
+
+        if ($data['is_anexo']) {
+            DB::table($nombreTabla)
+                ->where('producto_id', $id)
+                ->update(['blob_name' => $data['blob_name']]);
+        } else {
+            DB::table($nombreTabla)
+                ->where('id', $id)
+                ->update(['blob_name' => $data['blob_name']]);
+        }
+
+        return response()->json(['message' => 'Nombre del blob actualizado correctamente']);
     }
 
 
@@ -762,7 +796,7 @@ class ProductoController extends Controller
             if (!empty($datos[$campo])) {
                 $datos[$campo] = Carbon::parse($datos[$campo])->format($isoFormat);
             }
-        }   
+        }
 
         // Actualizar los datos en la tabla correspondiente
         DB::table($nombreTabla)

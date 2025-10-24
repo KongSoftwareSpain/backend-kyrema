@@ -27,12 +27,15 @@ use App\Http\Controllers\PolizaController;
 use App\Http\Controllers\SocioController;
 use App\Http\Controllers\CategoriaController;
 use App\Http\Controllers\ReferenciaSecuenciaController;
-use App\Http\Controllers\RemesaController;
+use App\Http\Controllers\Payments\RemesaController;
 use App\Http\Controllers\SociedadComisionController;
 use App\Http\Controllers\TarifaAnexoController;
 use App\Http\Controllers\PagoExportController;
 use App\Http\Controllers\Health\HealthController;
 use App\Http\Controllers\Notifications\NotificationsController;
+use App\Http\Controllers\BlobController;
+use App\Http\Controllers\Payments\RedsysWebhookController;
+use App\Http\Controllers\Payments\RedsysController;
 
 // Route::get('/productos/{letras_identificativas}', [ProductoController::class, 'getProductosPorTipo']);
 Route::post('password/email', [ForgotPasswordController::class, 'sendResetLinkEmail']);
@@ -195,17 +198,32 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('tipo_pago_producto_sociedad/sociedad/{id_sociedad}', [TipoPagoProductoSociedadController::class, 'getTiposPagoPorSociedad']);
     Route::post('sociedad/{sociedad_padre_id}/hija/{sociedad_hija_id}/tipos-pago', [TipoPagoProductoSociedadController::class, 'transferirTiposPago']);
 
+    
+
     // PAGOS:
     // GENERAR LA REFERENCIA DURANTE EL PAGO (No puede haber un producto 'sin pagar')
     Route::get('generar-referencia/{letras}', [ReferenciaSecuenciaController::class, 'generateReference']);
 
+    // Giro bancario
     Route::post('pago/giro-bancario', [RemesaController::class, 'storeGiroBancario']);
     Route::post('pago/giro-bancario/fecha-cobro', [RemesaController::class, 'guardarFechaCobro']);
-
-    Route::post('pago/generate-csv', [PagoExportController::class, 'exportarPagos']);
     Route::post('pago/generar-xml-q-19', [RemesaController::class, 'generarQ19']);
 
     Route::get('pago/downloads/{tipoPago}', [RemesaController::class, 'getDescargas']);
+
+    // Redsys
+    Route::post('/payments/redsys/start', [RedsysController::class, 'start'])->name('redsys.start');
+    Route::get ('/payments/redsys/redirect/{pago}', [RedsysController::class, 'redirect'])->name('redsys.redirect');
+    Route::get ('/payments/{pago}/status', [RedsysController::class, 'status'])->name('payments.status');
+
+    // InSite
+    Route::post('/payments/redsys/insite/start',   [RedsysController::class, 'insiteStart'])->name('redsys.insite.start');
+    
+    Route::post('/payments/redsys/insite/confirm', [RedsysController::class, 'insiteConfirm'])->name('redsys.insite.confirm');
+
+
+
+    Route::post('pago/generate-csv', [PagoExportController::class, 'exportarPagos']);
 
     // COMPAÑIAS:
 
@@ -233,9 +251,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/nav-socio/{categoria}/socio/{socio_id}', [NavController::class, 'getNavegacionSocio']);
     Route::get('/exportar-pagos', [PagoExportController::class, 'exportarPagos']);
 
-    //Pagos:
-    Route::post('/payment/create', [PaymentController::class, 'createPayment']);
-
 
     // SOCIOS:
     Route::get('socios', [SocioController::class, 'index']);
@@ -259,4 +274,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     // NOTIFICACIONES:
     Route::post('/notify-product-change', [NotificationsController::class, 'notifyProductChange']);
+
+    // BLOBS AZURE SAS:
+    Route::match(['get','post'], '/blob/upload-sas', [BlobController::class, 'getPdfUploadSasForProduct']);
+    Route::get('/blob/read-url', [BlobController::class, 'getReadSasByBlobName']);
+    Route::get('/blob/read-url/anexo', [BlobController::class, 'getReadSasForAnexoByBlobName']);
+    Route::post('/producto/{letras_identificacion}/id/{id}/documento', [ProductoController::class, 'setBlobNameForProductId']);
 });

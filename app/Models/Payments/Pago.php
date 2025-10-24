@@ -6,25 +6,73 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Support\Facades\DB;
 use App\Models\Sociedad;
+use Creagia\LaravelRedsys\Contracts\RedsysPayable;
+use App\Models\Payments\PaymentGatewayLink;
+use Creagia\LaravelRedsys\Concerns\CanCreateRedsysRequests;
 
-class Pago extends Model
+class Pago extends Model implements RedsysPayable
 {
     use HasFactory;
+    use CanCreateRedsysRequests; 
 
+    protected $table = 'pagos';
+
+    // Añadimos los nuevos campos “fillable”
     protected $fillable = [
         'referencia',
         'letras_identificacion',
         'producto_id',
         'tipo_pago',
         'monto',
+        'amount_cents',
+        'currency',
         'fecha',
         'estado',
         'sociedad_id',
     ];
 
     protected $casts = [
-        'fecha' => 'date',
+        'fecha'           => 'datetime',
     ];
+
+    public $timestamps = true;
+
+    protected $dates = ['created_at', 'updated_at'];
+
+    // Formato compatible con SQL Server que ya usabas
+    protected $dateFormat = 'Y-m-d\TH:i:s';
+
+    protected function serializeDate(\DateTimeInterface $date)
+    {
+        return $date->format('Y-m-d\TH:i:s');
+    }
+
+    public function getTotalAmount(): int
+    {
+        return (int)$this->amount_cents; // céntimos
+    }
+
+    public function paidWithRedsys(): void
+    {
+        $this->estado = self::STATUS_PAID;
+        $this->save();
+        // aquí puedes disparar tu propia lógica post-pago (factura, etc.)
+    }
+
+    // Estados tipificados
+    public const STATUS_PENDING = 'pendiente';
+    public const STATUS_PAID    = 'pagado';
+    public const STATUS_FAILED  = 'fallido';
+
+    public function sociedad()
+    {
+        return $this->belongsTo(Sociedad::class);
+    }
+
+    public function gatewayLinks()
+    {
+        return $this->hasMany(PaymentGatewayLink::class, 'pago_id');
+    }
 
     /**
      * Devuelve el registro relacionado desde la tabla dinámica.
@@ -34,27 +82,26 @@ class Pago extends Model
         if (!$this->letras_identificacion || !$this->producto_id) {
             return null;
         }
-
         return DB::table($this->letras_identificacion)->find($this->producto_id);
     }
 
-    // Nos aseguramos que los timestamps estén habilitados
-    public $timestamps = true;
-
-    // Si necesitas formatear las fechas automáticamente
-    protected $dates = ['created_at', 'updated_at'];
-
-    // Personalizamos el formato de fechas para que SQL server lo pueda convertir de varchar a datetime
-    protected $dateFormat = 'Y-m-d\TH:i:s';
-
-    // Esto es para personalizar el formato de fechas a la hora de serializar (por ejemplo, para JSON)
-    protected function serializeDate(\DateTimeInterface $date)
+    /** Helpers para céntimos ↔ euros */
+    public function setMontoAttribute($value): void
     {
-        return $date->format('Y-m-d\TH:i:s');
+        $this->attributes['monto'] = $value;
+        // si viene en euros, rellena amount_cents si está vacío
+        if (!isset($this->attributes['amount_cents']) && is_numeric($value)) {
+            $this->attributes['amount_cents'] = (int) round($value * 100);
+        }
     }
 
-    public function sociedad()
+    public function setAmountCentsAttribute($value): void
     {
-        return $this->belongsTo(Sociedad::class);
+        $this->attributes['amount_cents'] = (int) $value;
+        // espejo a monto si es decimal
+        if (!isset($this->attributes['monto']) || $this->attributes['monto'] === null) {
+            $this->attributes['monto'] = $value / 100;
+        }
     }
 }
+
