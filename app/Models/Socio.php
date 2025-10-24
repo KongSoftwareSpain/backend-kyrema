@@ -62,4 +62,5 @@ class Socio extends Authenticatable
     {
         return $date->format('Y-m-d\TH:i:s');
     }
+
 }

@@ -158,7 +158,7 @@ class PolizaController extends Controller
             return response()->json(['error' => 'No se encontró el documento adjunto'], 404);
         }
 
-        return Storage::disk('public')->download($rutaArchivo);
+        return response()->download(storage_path('app/public/' . $rutaArchivo));
     }
 
     public function getPolizasByTipoProducto($id){

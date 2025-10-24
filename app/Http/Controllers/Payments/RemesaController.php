@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Payments;
 
 use App\Models\Payments\GiroBancario;
 use App\Models\Payments\Pago;
@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Storage;
 use App\Services\Remesas\Q19Generator;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
+use App\Http\Controllers\Controller;
 
 
 class RemesaController extends Controller
