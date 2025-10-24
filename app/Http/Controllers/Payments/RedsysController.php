@@ -54,10 +54,7 @@ class RedsysController extends Controller
         ]);
 
         // 4) Devolver URL del iframe + order al front
-        $iframeUrl = route('redsys.insite.iframe', [
-            'pago'  => $pago->id,
-            'order' => $merchantOrder,
-        ]);
+        $iframeUrl = secure_url(route('redsys.insite.iframe', ['pago' => $pago->id, 'order' => $merchantOrder], false));
 
         return response()->json([
             'iframeUrl'     => $iframeUrl,
