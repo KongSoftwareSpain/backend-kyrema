@@ -13,22 +13,24 @@ use Creagia\LaravelRedsys\Concerns\CanCreateRedsysRequests;
 class Pago extends Model implements RedsysPayable
 {
     use HasFactory;
-    use CanCreateRedsysRequests; 
+    use CanCreateRedsysRequests;
 
     protected $table = 'pagos';
 
     // Añadimos los nuevos campos “fillable”
     protected $fillable = [
         'referencia',
-        'letras_identificacion',
-        'producto_id',
         'tipo_pago',
         'monto',
         'amount_cents',
         'currency',
         'fecha',
         'estado',
+        'letras_identificacion',
         'sociedad_id',
+        'auth_code',
+        'response_code',
+        'response_message',
     ];
 
     protected $casts = [
@@ -104,4 +106,3 @@ class Pago extends Model implements RedsysPayable
         }
     }
 }
-
