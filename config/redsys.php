@@ -19,6 +19,17 @@ return [
         'key' => env('REDSYS_KEY'), // Default test key: sq7HjrUOBfKmC576ILgskD5srU870gJ7
     ],
 
+    'notify_route_name' => 'redsys.notify',
+
+    // Frontend bridge (donde aterriza el iframe tras pagar)
+    'frontend' => [
+        // p.ej. https://app.tu-dominio.com  (sin / al final)
+        'base_url'    => env('FRONTEND_BASE_URL', 'http://localhost:4200'),
+        // p.ej. /redsys/bridge
+        'bridge_path' => env('REDSYS_BRIDGE_PATH', '/redsys/bridge'),
+    ],
+
+
     /**
      * Prefix used by the package routes. 'redsys' by default.
      */

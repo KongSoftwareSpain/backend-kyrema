@@ -35,7 +35,7 @@ use App\Http\Controllers\Health\HealthController;
 use App\Http\Controllers\Notifications\NotificationsController;
 use App\Http\Controllers\BlobController;
 use App\Http\Controllers\Payments\RedsysWebhookController;
-use App\Http\Controllers\Payments\RedsysController;
+use App\Http\Controllers\Payments\RedsysInsiteController;
 
 // Route::get('/productos/{letras_identificativas}', [ProductoController::class, 'getProductosPorTipo']);
 Route::post('password/email', [ForgotPasswordController::class, 'sendResetLinkEmail']);
@@ -61,6 +61,13 @@ Route::get('opciones/{id_campo}', [CampoController::class, 'getOpcionesPorCampo'
 Route::get('sociedad/{sociedad_id}/hijas/tipo-producto/{letras_identificacion}', [SociedadController::class, 'getSociedadesHijasPorTipoProducto']);
 Route::get('tipo_pago_producto_sociedad/sociedad/{sociedad_id}/tipo-producto/{tipo_producto_id}', [TipoPagoProductoSociedadController::class, 'getTiposPagoPorSociedadYTipoProducto']);
 Route::get('comerciales/sociedad/{id_sociedad}', [ComercialController::class, 'getComercialesPorSociedad']);
+
+// Redsys
+// 2️⃣ Notificación del TPV (webhook)
+// Redsys llama automáticamente a esta URL (no el usuario)
+// Es importante que sea accesible públicamente por HTTPS
+Route::post('/payments/redsys/notify', [RedsysInsiteController::class, 'notify'])
+    ->name('redsys.notify');
 
 
 Route::middleware(['auth:sanctum'])->group(function () {
@@ -114,7 +121,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::put('sociedad/{id}/permisos', [SociedadController::class, 'updatePermisos']);
     Route::get('sociedades/padres', [SociedadController::class, 'getSociedadesPadres']);
     Route::get('sociedades', [SociedadController::class, 'index']);
-    
+
 
 
     // Gestiona todas las solicitudes de la conexion entre TipoProducto y Sociedad
@@ -198,7 +205,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('tipo_pago_producto_sociedad/sociedad/{id_sociedad}', [TipoPagoProductoSociedadController::class, 'getTiposPagoPorSociedad']);
     Route::post('sociedad/{sociedad_padre_id}/hija/{sociedad_hija_id}/tipos-pago', [TipoPagoProductoSociedadController::class, 'transferirTiposPago']);
 
-    
+
 
     // PAGOS:
     // GENERAR LA REFERENCIA DURANTE EL PAGO (No puede haber un producto 'sin pagar')
@@ -212,15 +219,28 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('pago/downloads/{tipoPago}', [RemesaController::class, 'getDescargas']);
 
     // Redsys
-    Route::post('/payments/redsys/start', [RedsysController::class, 'start'])->name('redsys.start');
-    Route::get ('/payments/redsys/redirect/{pago}', [RedsysController::class, 'redirect'])->name('redsys.redirect');
-    Route::get ('/payments/{pago}/status', [RedsysController::class, 'status'])->name('payments.status');
+    Route::prefix('payments')->group(function () {
+        // ===========================================================
+        // REDSYS InSite
+        // ===========================================================
+        Route::prefix('redsys')->group(function () {
 
-    // InSite
-    Route::post('/payments/redsys/insite/start',   [RedsysController::class, 'insiteStart'])->name('redsys.insite.start');
-    
-    Route::post('/payments/redsys/insite/confirm', [RedsysController::class, 'insiteConfirm'])->name('redsys.insite.confirm');
+            // 1️⃣ Iniciar pago: el frontend llama a esta ruta
+            // Devuelve: iframeAction + inputs (3 campos Ds_*)
+            Route::post('/insite/start', [RedsysInsiteController::class, 'start'])
+                ->name('redsys.insite.start');
 
+            // 3️⃣ (Opcional) Rutas de OK / KO (no las usarás en InSite)
+            // Redsys las usa solo si trabajas con redirección tradicional
+            // Puedes dejarlas para evitar errores si Redsys las requiere, aunque no redirijas al usuario.
+            Route::get('/ok', fn() => response()->json(['status' => 'ok']))->name('redsys.ok');
+            Route::get('/ko', fn() => response()->json(['status' => 'ko']))->name('redsys.ko');
+        });
+    });
+
+    Route::get('/payments/{pago}/status', function(App\Models\Payments\Pago $pago) {
+        return response()->json(['estado' => $pago->estado]);
+    });
 
 
     Route::post('pago/generate-csv', [PagoExportController::class, 'exportarPagos']);
@@ -276,7 +296,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/notify-product-change', [NotificationsController::class, 'notifyProductChange']);
 
     // BLOBS AZURE SAS:
-    Route::match(['get','post'], '/blob/upload-sas', [BlobController::class, 'getPdfUploadSasForProduct']);
+    Route::match(['get', 'post'], '/blob/upload-sas', [BlobController::class, 'getPdfUploadSasForProduct']);
     Route::get('/blob/read-url', [BlobController::class, 'getReadSasByBlobName']);
     Route::get('/blob/read-url/anexo', [BlobController::class, 'getReadSasForAnexoByBlobName']);
     Route::post('/producto/{letras_identificacion}/id/{id}/documento', [ProductoController::class, 'setBlobNameForProductId']);
