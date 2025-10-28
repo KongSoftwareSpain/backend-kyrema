@@ -49,7 +49,7 @@ class RedsysInsiteController extends Controller
         Log::info($descripcion);
 
         // 1) Order (único). Usa tu helper/modelo actual.
-        $order = (string) (now()->format('ymdHis') . rand(10, 99)); 
+        $order = substr(now()->format('ymdHis') . rand(10,99), 0, 12);
 
         // 2) Crea tu pago local (usa tus modelos/estados)
         $pago = Pago::create([
