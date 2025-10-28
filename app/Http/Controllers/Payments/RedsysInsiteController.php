@@ -48,7 +48,10 @@ class RedsysInsiteController extends Controller
 
         Log::info($descripcion);
 
-        // 1) Crea tu pago local (usa tus modelos/estados)
+        // 1) Order (único). Usa tu helper/modelo actual.
+        $order = (string) (now()->format('ymdHis') . rand(10, 99)); 
+
+        // 2) Crea tu pago local (usa tus modelos/estados)
         $pago = Pago::create([
             'referencia'   => $data['referencia'] ?? null,
             'tipo_pago'    => 'tarjeta',
@@ -62,8 +65,6 @@ class RedsysInsiteController extends Controller
             'descripcion'  => $descripcion,
         ]);
 
-        // 2) Order (único). Usa tu helper/modelo actual.
-        $order = $data['referencia'];
 
         PaymentGatewayLink::create([
             'pago_id'           => $pago->id,
