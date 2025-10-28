@@ -78,7 +78,7 @@ class RedsysInsiteController extends Controller
         $payload = $this->insite->buildIframePostPayload(
             amountCents: $data['amount'],
             order: $order,
-            description: $data['description'] ?? null
+            description: $descripcion ?? null
         );
 
         return response()->json([
