@@ -48,9 +48,9 @@ class RedsysInsiteService
         $urlKo = $frontendBase . $bridgePath . '?status=ko&order=' . urlencode($order);
 
         // merchantUrl = webhook del backend (route name del config)
-        $merchantUrl = route(config('redsys.notify_route_name'));
+        $merchantUrl = route('redsys.notify', [], true);
 
-        Log::info('📡 merchantUrl', ['url' => route('redsys.notify')]);
+        Log::info('📡 merchantUrl', ['url' => $merchantUrl]);
 
 
         $parameters = new RequestParameters(
