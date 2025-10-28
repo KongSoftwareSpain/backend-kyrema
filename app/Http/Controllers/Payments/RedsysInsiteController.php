@@ -32,6 +32,14 @@ class RedsysInsiteController extends Controller
             'fecha_fin'   => 'nullable|string',
         ]);
 
+        $cfg = [
+            'env'     => config('redsys.environment'),
+            'code'    => config('redsys.tpv.merchantCode'),
+            'term'    => config('redsys.tpv.terminal'),
+            'has_key' => !!config('redsys.tpv.key'),
+        ];
+        Log::info('🔧 Redsys cfg', $cfg);
+
         $nombreProducto = TipoProducto::query()
             ->where('letras_identificacion', $data['letras_identificacion'] ?? '')
             ->value('nombre');
@@ -85,9 +93,9 @@ class RedsysInsiteController extends Controller
         // Crear client igual que en RedsysInsiteService
         $client = new RedsysClient(
             merchantCode: config('redsys.tpv.merchantCode'),
-            secretKey:    config('redsys.tpv.key'),
-            terminal:     (int) config('redsys.tpv.terminal', 1),
-            environment:  config('redsys.environment') === 'production'
+            secretKey: config('redsys.tpv.key'),
+            terminal: (int) config('redsys.tpv.terminal', 1),
+            environment: config('redsys.environment') === 'production'
                 ? \Creagia\Redsys\Enums\Environment::Production
                 : \Creagia\Redsys\Enums\Environment::Test,
         );
@@ -121,7 +129,7 @@ class RedsysInsiteController extends Controller
                     'estado'          => $ok ? Pago::STATUS_PAID : Pago::STATUS_FAILED,
                     'auth_code'       => $params['Ds_AuthorisationCode'] ?? null,
                     'response_code'   => $params['Ds_Response'] ?? null,
-                    'response_message'=> $ok ? 'OK' : 'KO',
+                    'response_message' => $ok ? 'OK' : 'KO',
                 ]);
 
                 $link->update(['gateway_status' => $ok ? 'ok' : 'ko']);
@@ -136,10 +144,9 @@ class RedsysInsiteController extends Controller
                     'status'             => 'received',
                 ]);
             });
-
         } catch (DeniedRedsysPaymentResponseException $e) {
             // firma incorrecta o pago rechazado
-            logger()->warning('Redsys KO: '.$e->getMessage(), $request->post());
+            logger()->warning('Redsys KO: ' . $e->getMessage(), $request->post());
         }
 
         // Redsys sólo necesita un 200 OK para dejar de reenviar
