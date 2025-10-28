@@ -48,7 +48,7 @@ class RedsysInsiteService
         $urlKo = $frontendBase . $bridgePath . '?status=ko&order=' . urlencode($order);
 
         // merchantUrl = webhook del backend (route name del config)
-        $merchantUrl = route('redsys.notify', [], true);
+        $merchantUrl = 'https://backend-canama-hbd2e7a7gdfueqce.spaincentral-01.azurewebsites.net/api/payments/redsys/notify';
 
         Log::info('📡 merchantUrl', ['url' => $merchantUrl]);
 
