@@ -61,6 +61,8 @@ return [
             'account_key'     => env('AZURE_STORAGE_KEY'),
             'container'       => env('AZURE_STORAGE_CONTAINER', 'documentos'),
             'endpoint_suffix' => env('AZURE_STORAGE_ENDPOINT_SUFFIX', 'core.windows.net'),
+            'protocol'        => env('AZURE_STORAGE_PROTOCOL', 'https'),
+            'base_url'        => env('AZURE_STORAGE_BASE_URL'),
         ],
 
     ],

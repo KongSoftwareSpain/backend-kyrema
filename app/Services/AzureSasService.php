@@ -15,11 +15,14 @@ class AzureSasService
     private BlobRestProxy $client;
     private BlobSharedAccessSignatureHelper $sasHelper;
 
-    public function __construct()
+    //Azurite
+    private string $sasProtocol;
+
+    /*public function __construct()
     {
         // Coge primero de config/filesystems, con fallback a .env
-        $this->account   = config('filesystems.disks.azure.account_name', env('AZURE_STORAGE_NAME'));
-        $this->key       = config('filesystems.disks.azure.account_key', env('AZURE_STORAGE_KEY'));
+        $this->account = config('filesystems.disks.azure.account_name', env('AZURE_STORAGE_NAME'));
+        $this->key = config('filesystems.disks.azure.account_key', env('AZURE_STORAGE_KEY'));
         $this->container = config('filesystems.disks.azure.container', env('AZURE_STORAGE_CONTAINER', 'documentos'));
 
         $connection = sprintf(
@@ -28,7 +31,44 @@ class AzureSasService
             $this->key
         );
 
-        $this->client    = BlobRestProxy::createBlobService($connection);
+        $this->client = BlobRestProxy::createBlobService($connection);
+        $this->sasHelper = new BlobSharedAccessSignatureHelper($this->account, $this->key);
+    }*/
+
+    public function __construct()
+    {
+        // Coge primero de config/filesystems, con fallback a .env
+        $this->account = config('filesystems.disks.azure.account_name', env('AZURE_STORAGE_NAME'));
+        $this->key = config('filesystems.disks.azure.account_key', env('AZURE_STORAGE_KEY'));
+        $this->container = config('filesystems.disks.azure.container', env('AZURE_STORAGE_CONTAINER', 'documentos'));
+
+        // Protocolo permitido en las SAS (por defecto solo HTTPS)
+        // En local con Azurite pondremos "https,http" o "http" en el .env
+        $this->sasProtocol = env('AZURE_STORAGE_SAS_PROTOCOL', 'https');
+
+        // 1️⃣ Intentar usar una connection string completa (ideal para Azurite)
+        $connection = env('AZURE_STORAGE_CONNECTION_STRING');
+
+        if (!$connection) {
+            // 2️⃣ Si no hay connection string, usar el modo "Azure normal" de siempre
+            $endpointSuffix = config(
+                'filesystems.disks.azure.endpoint_suffix',
+                env('AZURE_STORAGE_ENDPOINT_SUFFIX', 'core.windows.net')
+            );
+
+            // DefaultEndpointsProtocol: usamos https por defecto
+            $defaultProtocol = config('filesystems.disks.azure.protocol', env('AZURE_STORAGE_PROTOCOL', 'https'));
+
+            $connection = sprintf(
+                'DefaultEndpointsProtocol=%s;AccountName=%s;AccountKey=%s;EndpointSuffix=%s',
+                $defaultProtocol,
+                $this->account,
+                $this->key,
+                $endpointSuffix
+            );
+        }
+
+        $this->client = BlobRestProxy::createBlobService($connection);
         $this->sasHelper = new BlobSharedAccessSignatureHelper($this->account, $this->key);
     }
 
@@ -40,13 +80,31 @@ class AzureSasService
     }
 
     /** URL base (sin SAS) del blob */
-    private function blobBaseUrl(string $blobName): string
+    /*private function blobBaseUrl(string $blobName): string
     {
         // Codifica cada segmento, no las barras
         $segments = array_map('rawurlencode', explode('/', $blobName));
         $safePath = implode('/', $segments);
         return "https://{$this->account}.blob.core.windows.net/{$this->container}/{$safePath}";
+    }*/
+
+    private function blobBaseUrl(string $blobName): string
+    {
+        // Codifica cada segmento, no las barras
+        $segments = array_map('rawurlencode', explode('/', $blobName));
+        $safePath = implode('/', $segments);
+
+        // Si tenemos una base URL configurada (Azulite / entorno local), la usamos
+        $configuredBase = config('filesystems.disks.azure.base_url', env('AZURE_STORAGE_BASE_URL'));
+
+        if ($configuredBase) {
+            return rtrim($configuredBase, '/') . '/' . $safePath;
+        }
+
+        // Comportamiento por defecto: Azure público
+        return "https://{$this->account}.blob.core.windows.net/{$this->container}/{$safePath}";
     }
+
 
     /** True si el blob existe (getBlobProperties 200); false si 404 */
     public function exists(string $blobName): bool
@@ -72,17 +130,17 @@ class AzureSasService
         string $filename,
         int $ttlMinutes = 10
     ): array {
-        $account   = $this->account;
-        $key       = $this->key;
+        $account = $this->account;
+        $key = $this->key;
         $container = $this->container;
 
         // Ruta final: letras/codigo/uuid.pdf
-        $seg1     = $this->sanitize($seg1);
-        $seg2     = $this->sanitize($seg2);
+        $seg1 = $this->sanitize($seg1);
+        $seg2 = $this->sanitize($seg2);
         $blobName = "{$seg1}/{$seg2}/{$filename}";
 
         // Ventana de validez (con tolerancia de reloj)
-        $start  = gmdate('Y-m-d\TH:i:s\Z', time() - 120);
+        $start = gmdate('Y-m-d\TH:i:s\Z', time() - 120);
         $expiry = gmdate('Y-m-d\TH:i:s\Z', time() + ($ttlMinutes * 60));
 
         // Permisos mínimos para crear/escribir el blob concreto
@@ -91,7 +149,7 @@ class AzureSasService
 
         $helper = new BlobSharedAccessSignatureHelper($account, $key);
 
-        $sas = $helper->generateBlobServiceSharedAccessSignatureToken(
+        /*$sas = $helper->generateBlobServiceSharedAccessSignatureToken(
             Resources::RESOURCE_TYPE_BLOB,           // recurso: blob
             "{$container}/{$blobName}",              // contenedor + ruta exacta
             $permissions,                            // permisos
@@ -104,19 +162,35 @@ class AzureSasService
             '',                                      // contentEncoding
             '',                                      // contentLanguage
             'application/pdf'                        // contentType
+        );*/
+
+        $sas = $helper->generateBlobServiceSharedAccessSignatureToken(
+            Resources::RESOURCE_TYPE_BLOB,
+            "{$container}/{$blobName}",
+            $permissions,
+            $expiry,
+            $start,
+            '',
+            $this->sasProtocol,   // ← configurable vía .env
+            '',
+            '',
+            '',
+            '',
+            'application/pdf'
         );
+
 
         $base = "https://{$account}.blob.core.windows.net/{$container}/{$blobName}";
 
         return [
             // Devuelve ambos estilos por comodidad (camelCase y snake_case)
-            'blobName'   => $blobName,
-            'blob_name'  => $blobName,               // <-- este es el que guardarás en BD
-            'uploadUrl'  => "{$base}?{$sas}",        // URL firmada para el PUT
-            'blobUrl'    => $base,                   // sin SAS (si el contenedor es público)
-            'expiresAt'  => $expiry,
-            'headers'    => [
-                'x-ms-blob-type'         => 'BlockBlob',
+            'blobName' => $blobName,
+            'blob_name' => $blobName,               // <-- este es el que guardarás en BD
+            'uploadUrl' => "{$base}?{$sas}",        // URL firmada para el PUT
+            'blobUrl' => $base,                   // sin SAS (si el contenedor es público)
+            'expiresAt' => $expiry,
+            'headers' => [
+                'x-ms-blob-type' => 'BlockBlob',
                 'x-ms-blob-content-type' => 'application/pdf',
             ],
         ];
@@ -128,10 +202,10 @@ class AzureSasService
      */
     public function makeReadSasForBlobName(string $blobName, int $ttlMinutes = 3): string
     {
-        $start  = gmdate('Y-m-d\TH:i:s\Z', time() - 60);
+        $start = gmdate('Y-m-d\TH:i:s\Z', time() - 60);
         $expiry = gmdate('Y-m-d\TH:i:s\Z', time() + ($ttlMinutes * 60));
 
-        $sas = $this->sasHelper->generateBlobServiceSharedAccessSignatureToken(
+        /*$sas = $this->sasHelper->generateBlobServiceSharedAccessSignatureToken(
             Resources::RESOURCE_TYPE_BLOB,           // 'b'
             "{$this->container}/{$blobName}",        // "<container>/<blob>"
             'r',                                     // read
@@ -139,8 +213,28 @@ class AzureSasService
             $start,
             '',                                      // IP range
             'https',                                 // protocol
-            '', '', '', '', ''                       // cc, cd, ce, cl, ct (no necesarios para lectura)
+            '',
+            '',
+            '',
+            '',
+            ''                       // cc, cd, ce, cl, ct (no necesarios para lectura)
+        );*/
+
+        $sas = $this->sasHelper->generateBlobServiceSharedAccessSignatureToken(
+            Resources::RESOURCE_TYPE_BLOB,
+            "{$this->container}/{$blobName}",
+            'r',
+            $expiry,
+            $start,
+            '',
+            $this->sasProtocol, // ← configurable vía .env
+            '',
+            '',
+            '',
+            '',
+            ''
         );
+
 
         return $this->blobBaseUrl($blobName) . '?' . $sas;
     }
@@ -155,8 +249,8 @@ class AzureSasService
         string $filename,
         int $ttlMinutes = 3
     ): string {
-        $seg1     = $this->sanitize($letras_identificacion);
-        $seg2     = $this->sanitize($codigo_producto);
+        $seg1 = $this->sanitize($letras_identificacion);
+        $seg2 = $this->sanitize($codigo_producto);
         $blobName = "{$seg1}/{$seg2}/{$filename}";
 
         return $this->makeReadSasForBlobName($blobName, $ttlMinutes);
