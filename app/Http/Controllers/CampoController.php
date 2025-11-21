@@ -91,7 +91,7 @@ class CampoController extends Controller
             $campo['updated_at'] = Carbon::now()->format('Y-m-d\TH:i:s');
 
             if (isset($id)) {
-                
+
                 // Asegurarse de no incluir created_at en la actualización
                 unset($campo['created_at']);
 
@@ -115,7 +115,7 @@ class CampoController extends Controller
     {
         $campo = Campos::findOrFail($id_campo);
         $opciones = DB::table($campo->opciones)->selectRaw('id, nombre, CAST(precio AS DECIMAL(10,2)) as precio')
-        ->get();
+            ->get();
 
         $opciones = $opciones->map(function ($item) {
             $item->precio = (float) $item->precio; // Convierte a número flotante
@@ -248,14 +248,14 @@ class CampoController extends Controller
             ]);
 
             // Si es un producto los campos se añaden a su misma tabla, sino si es un subproducto se añaden a su tabla padre
-            if($tipo_producto->padre_id == null){
+            if ($tipo_producto->padre_id == null) {
                 self::addCampoConOpciones($data, $tipo_producto->letras_identificacion);
             } else {
                 $tipo_producto_padre = TipoProducto::findOrFail($tipo_producto->padre_id);
                 self::addCampoConOpciones($data, $tipo_producto_padre->letras_identificacion);
             }
-            
-            
+
+
 
             // Confirmar la transacción
             DB::commit();
@@ -265,7 +265,7 @@ class CampoController extends Controller
         } catch (\Exception $e) {
             // Si algo falla, revertir los cambios
             DB::rollBack();
-            
+
             // Intentar eliminar la tabla creada si ya existía en la transacción
             if (Schema::hasTable($nombreTabla)) {
                 Schema::dropIfExists($nombreTabla);
@@ -276,16 +276,17 @@ class CampoController extends Controller
 
     }
 
-    private function addCampoConOpciones($campoConOpciones, $letrasIdentificacion) {
+    private function addCampoConOpciones($campoConOpciones, $letrasIdentificacion)
+    {
         $nombreColumna = strtolower(str_replace(' ', '_', $campoConOpciones['nombre']));
-    
+
         if (!Schema::hasColumn($letrasIdentificacion, $nombreColumna)) {
             Schema::table($letrasIdentificacion, function (Blueprint $table) use ($nombreColumna) {
                 $table->string($nombreColumna)->nullable();
             });
         }
     }
-    
+
 
 
     // Método para validar manualmente los datos en caso de recibir un array
@@ -402,10 +403,10 @@ class CampoController extends Controller
     public static function fetchCamposCertificado($id)
     {
         return DB::table('campos')
-                ->where('tipo_producto_id', $id)
-                ->whereNotNull('columna')
-                ->whereNotNull('fila')
-                ->get();
+            ->where('tipo_producto_id', $id)
+            ->whereNotNull('columna')
+            ->whereNotNull('fila')
+            ->get();
     }
 
     public function getCamposLogos($id)
@@ -417,11 +418,40 @@ class CampoController extends Controller
     public static function fetchCamposLogos($id)
     {
         return DB::table('campos_logos')
-                ->where('tipo_producto_id', $id)
-                ->whereNotNull('page')
-                ->whereNotNull('altura')
-                ->whereNotNull('ancho')
-                ->get();
+            ->where('tipo_producto_id', $id)
+            ->whereNotNull('page')
+            ->whereNotNull('altura')
+            ->whereNotNull('ancho')
+            ->get();
+    }
+
+    /**
+     * Borrar un campo por id (pensado para casos de campos duplicados en subproductos).
+     */
+    public function deleteCampo(int $id)
+    {
+        // Buscamos el campo
+        $campo = Campos::findOrFail($id);
+
+        // Por seguridad, solo dejamos borrar campos de subproducto
+        if ($campo->grupo !== 'datos_subproducto') {
+            return response()->json([
+                'message' => 'Solo se pueden eliminar campos de subproductos desde este endpoint.'
+            ], 400);
+        }
+
+        // Si el campo tiene opciones relacionadas, las borramos primero
+        // Ajusta el nombre de la relación si en tu modelo es distinto.
+        if (method_exists($campo, 'opciones')) {
+            $campo->opciones()->delete();
+        }
+
+        // Borramos el campo
+        $campo->delete();
+
+        return response()->json([
+            'message' => 'Campo eliminado correctamente',
+        ]);
     }
 }
 

@@ -101,6 +101,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('campos-certificado/{id}', [CampoController::class, 'getCamposCertificado']);
     Route::get('logos/tipo-producto/{id}', [CampoController::class, 'getCamposLogos']);
 
+    // Endpoint específico para borrar un campo (caso subproducto duplicado)
+    Route::delete('/campos/{id}', [CampoController::class, 'deleteCampo']);
+
     Route::get('tipos-producto/sociedad/{id_sociedad}', [TipoProductoController::class, 'getTiposProductoPorSociedad']);
     Route::get('tipos-producto/all', [TipoProductoController::class, 'index']);
     Route::get('tipo-producto/show/{id}', [TipoProductoController::class, 'show']);
