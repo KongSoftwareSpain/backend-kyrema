@@ -11,13 +11,13 @@ use App\Models\Sociedad;
 use App\Models\TipoProducto;
 use App\Models\SocioProducto;
 use Illuminate\Support\Facades\Schema;
-use App\Notifications\SetInitialPasswordNotification;
 use App\Models\Categoria;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Password;
+use App\Notifications\SetInitialPasswordNotification;
 
 class SocioController extends Controller
 {
-    // Mostrar una lista de los socios
     public function index()
     {
         $socios = Socio::all();
@@ -35,21 +35,15 @@ class SocioController extends Controller
 
     public function getSociosByComercial($id_comercial)
     {
-        // Recoger el Comercial, ver si es comercial responsable, si lo es devolver todos los socios conectados a los comerciales de su sociedad
-        // y las sociedades por debajo, si no lo es devolver solo los socios conectados a él.
         if (Comercial::isResponsable($id_comercial)) {
             $comercial = Comercial::find($id_comercial);
-
             $sociedad = Sociedad::find($comercial->id_sociedad);
-
             $sociedades = $sociedad->getSociedadesHijasDesde($comercial->id_sociedad);
-
-            // Coger solo los ids de las sociedades
+            
             $sociedades = array_map(function ($sociedad) {
                 return $sociedad->id;
             }, $sociedades);
-
-            // Añadir la sociedad actual
+            
             $sociedades[] = $comercial->id_sociedad;
 
             $socios = Socio::join('socios_comerciales', 'socios.id', '=', 'socios_comerciales.id_socio')
@@ -71,7 +65,7 @@ class SocioController extends Controller
     {
         $data = $request->validate([
             'asegurado' => 'required|array',
-            'sendEmail' => 'sometimes|boolean', // o 'required|boolean' si es obligatorio
+            'sendEmail' => 'sometimes|boolean',
 
             'asegurado.id_comercial'       => 'required|string',
             'asegurado.dni'                => 'required|string',
@@ -91,7 +85,7 @@ class SocioController extends Controller
         ]);
 
         $asegurado = $data['asegurado'];
-        $sendEmail = $request->boolean('sendEmail'); // false si no viene
+        $sendEmail = $request->boolean('sendEmail');
 
         // Validar si el DNI ya existe en la misma categoría
         $exists = Socio::query()
@@ -120,21 +114,33 @@ class SocioController extends Controller
         ];
 
         $socio = DB::transaction(function () use ($payload, $sendEmail) {
-            // Crear socio con Eloquent
+            // 1. Crear socio con Eloquent
             $socio = Socio::create($payload);
 
-            // 2) Genera token de set/reset
-            $token = $socio->createToken('socio')->plainTextToken;
-
-            if(!$sendEmail){
+            if (!$sendEmail) {
                 return $socio;
             }
-            // 3) Notifica (queue)
+
+            // 2. Generar token usando el sistema de Password Reset
+            $token = Password::broker('socios')->createToken($socio);
+
+            // 3. Guardar el token en la tabla password_resets
+            DB::table('password_resets')->updateOrInsert(
+                ['email' => $socio->email],
+                [
+                    'email' => $socio->email,
+                    'token' => \Illuminate\Support\Facades\Hash::make($token),
+                    'created_at' => now(),
+                ]
+            );
+
+            // 4. Enviar notificación personalizada con el token generado
+            $categoria = Categoria::find($payload['categoria_id']);
             $socio->notify(new SetInitialPasswordNotification(
                 token: $token,
                 email: $socio->email,
-                categoryName: Categoria::find($payload['categoria_id'])->nombre,
-                displayName: $socio->nombre,
+                categoryName: $categoria->nombre ?? 'Cánama Seguros',
+                displayName: $socio->nombre_socio,
                 productHint: 'Desde aquí podrás crear tu contraseña y ver tus productos contratados.'
             ));
 
@@ -149,14 +155,12 @@ class SocioController extends Controller
         return response()->json($socio, 201);
     }
 
-    // Mostrar un socio específico
     public function show($id)
     {
         $socio = Socio::find($id);
         return response()->json($socio);
     }
 
-    // Actualizar un socio específico
     public function update(Request $request, $id)
     {
         $socio = Socio::findOrFail($id);
@@ -165,16 +169,12 @@ class SocioController extends Controller
         $socio_comercial = SocioComercial::where('id_socio', $id)->first();
 
         if ($request->id_comercial) {
-            // Si el socio no estaba conectado con nadie previamente, conectarlo con el comercial
             if (!$socio_comercial) {
                 SocioComercial::create([
                     'id_comercial' => $request->id_comercial,
                     'id_socio' => $id
                 ]);
             } else {
-
-                // Si ya existe la conexion con ese mismo comercial, no hacer nada
-                // si el comercial es distinto añadirlo.
                 if ($socio_comercial->id_comercial != $request->id_comercial) {
                     $socio_comercial->update([
                         'id_comercial' => $request->id_comercial
@@ -186,7 +186,6 @@ class SocioController extends Controller
         return response()->json($socio);
     }
 
-    // Eliminar un socio específico
     public function destroy($id)
     {
         $socio = Socio::findOrFail($id);
@@ -196,35 +195,30 @@ class SocioController extends Controller
 
     public function getProductosBySocio($id, $id_tipo_producto)
     {
-        // 1️⃣ Obtener el tipo de producto por su ID
         $tipoProducto = TipoProducto::find($id_tipo_producto);
 
         if (!$tipoProducto) {
             return response()->json(['error' => 'Tipo de producto no encontrado'], 404);
         }
 
-        // 2️⃣ Obtener las letras de identificación
         $letrasIdentificacion = $tipoProducto->letras_identificacion;
 
         if (!$letrasIdentificacion) {
             return response()->json(['error' => 'El tipo de producto no tiene letras de identificación'], 400);
         }
 
-        // 3️⃣ Verificar si la tabla con el nombre de las letras_identificacion existe
         if (!Schema::hasTable($letrasIdentificacion)) {
-            return response()->json([]); // Si no existe, devolvemos un array vacío
+            return response()->json([]);
         }
 
-        // 4️⃣ Obtener los registros de la tabla SocioProducto para el socio y tipo de producto
         $socioProductos = SocioProducto::where('id_socio', $id)
             ->where('letras_identificacion', $letrasIdentificacion)
             ->get();
 
         if ($socioProductos->isEmpty()) {
-            return response()->json([]); // Si no hay registros, devolvemos un array vacío
+            return response()->json([]);
         }
 
-        // 5️⃣ Obtener los productos de la tabla dinámica con los IDs de SocioProducto
         $productos = DB::table($letrasIdentificacion)
             ->whereIn('id', $socioProductos->pluck('id_producto'))
             ->get();

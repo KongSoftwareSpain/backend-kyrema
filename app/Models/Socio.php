@@ -16,7 +16,7 @@ class Socio extends Authenticatable
 
     // Definir la tabla asociada al modelo
     protected $table = 'socios';
-    
+
     // Especificar los campos que se pueden asignar de forma masiva
     protected $fillable = [
         'dni',
@@ -31,17 +31,22 @@ class Socio extends Authenticatable
         'poblacion',
         'provincia',
         'codigo_postal',
-        'categoria_id'
+        'categoria_id',
+        'password'
     ];
 
     protected $hidden = ['password'];
-
+    public function getEmailForPasswordReset()
+    {
+        return $this->email;
+    }
     public function sendPasswordResetNotification($token)
     {
         $this->notify(new CustomResetPassword($token));
     }
 
-    public static function getUltimoProducto($id_socio){
+    public static function getUltimoProducto($id_socio)
+    {
         return DB::table('socios_productos')
             ->where('id_socio', $id_socio)
             ->orderBy('created_at', 'desc')
@@ -62,5 +67,4 @@ class Socio extends Authenticatable
     {
         return $date->format('Y-m-d\TH:i:s');
     }
-
 }
