@@ -19,26 +19,48 @@ class AuthController extends Controller
     {
         $credentials = $request->only('usuario', 'contraseña');
 
-        // Buscar al comercial por su usuario (puede ser un email)
         $comercial = Comercial::where('usuario', $credentials['usuario'])->first();
 
-        if(!$comercial) {
+        if (!$comercial) {
             return response()->json(['error' => 'El usuario no existe.'], 404);
         }
 
-        if (!Hash::check($credentials['contraseña'], $comercial->contraseña)) {
-            return response()->json(['error' => 'Unauthorized'], 401);
+        $storedHash = $comercial->contraseña;
+        $inputPassword = $credentials['contraseña'];
+
+        // CASO 1: bcrypt (normal)
+        if (str_starts_with($storedHash, '$2y$')) {
+
+            if (!Hash::check($inputPassword, $storedHash)) {
+                return response()->json(['error' => 'Unauthorized'], 401);
+            }
+
+        }
+        // CASO 2: MD5 (legacy)
+        elseif (preg_match('/^[a-f0-9]{32}$/i', $storedHash)) {
+
+            if (strtolower($storedHash) !== md5($inputPassword)) {
+                return response()->json(['error' => 'Unauthorized'], 401);
+            }
+
+            // Migración a bcrypt
+            $comercial->contraseña = Hash::make($inputPassword);
+            $comercial->save();
+        }
+        // CASO 3: formato inválido
+        else {
+            return response()->json(['error' => 'Formato de contraseña inválido.'], 401);
         }
 
-        // Generar el token
+        // Generar token
         $token = $comercial->createToken('comercial')->plainTextToken;
 
-        // Retornar la información del comercial junto con el token
         return response()->json([
             'comercial' => $comercial,
             'token' => $token
         ], 200);
     }
+
 
     /**
      * Método para iniciar sesión de comerciales.
@@ -61,7 +83,7 @@ class AuthController extends Controller
         }
 
         // Si no tiene contraseña asignada mensaje de que su cuenta fue creada por su comercial y debe añadir la contraseña
-        if($socio->password === null) {
+        if ($socio->password === null) {
             return response()->json(['message' => 'Tu cuenta fue creada por tu comercial. Por favor, crea una contraseña para poder acceder desde  el botón "¿Has olvidado tu contraseña?".'], 422);
         }
 

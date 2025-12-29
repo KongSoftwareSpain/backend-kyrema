@@ -39,11 +39,11 @@ class SocioController extends Controller
             $comercial = Comercial::find($id_comercial);
             $sociedad = Sociedad::find($comercial->id_sociedad);
             $sociedades = $sociedad->getSociedadesHijasDesde($comercial->id_sociedad);
-            
+
             $sociedades = array_map(function ($sociedad) {
                 return $sociedad->id;
             }, $sociedades);
-            
+
             $sociedades[] = $comercial->id_sociedad;
 
             $socios = Socio::join('socios_comerciales', 'socios.id', '=', 'socios_comerciales.id_socio')
@@ -67,19 +67,19 @@ class SocioController extends Controller
             'asegurado' => 'required|array',
             'sendEmail' => 'sometimes|boolean',
 
-            'asegurado.id_comercial'       => 'required|string',
-            'asegurado.dni'                => 'required|string',
-            'asegurado.nombre_socio'       => 'required|string',
-            'asegurado.apellido_1'         => 'nullable|string',
-            'asegurado.apellido_2'         => 'nullable|string',
-            'asegurado.email'              => 'required|email',
-            'asegurado.telefono'           => 'nullable|string',
+            'asegurado.id_comercial' => 'required|string',
+            'asegurado.dni' => 'required|string',
+            'asegurado.nombre_socio' => 'required|string',
+            'asegurado.apellido_1' => 'nullable|string',
+            'asegurado.apellido_2' => 'nullable|string',
+            'asegurado.email' => 'required|email',
+            'asegurado.telefono' => 'nullable|string',
             'asegurado.fecha_de_nacimiento' => 'required|date',
-            'asegurado.sexo'               => 'nullable|string',
-            'asegurado.direccion'          => 'nullable|string',
-            'asegurado.poblacion'          => 'nullable|string',
-            'asegurado.provincia'          => 'nullable|string',
-            'asegurado.codigo_postal'      => 'nullable|string',
+            'asegurado.sexo' => 'nullable|string',
+            'asegurado.direccion' => 'nullable|string',
+            'asegurado.poblacion' => 'nullable|string',
+            'asegurado.provincia' => 'nullable|string',
+            'asegurado.codigo_postal' => 'nullable|string',
         ], [
             'asegurado.email.email' => 'El formato del correo electrónico no es correcto.',
         ]);
@@ -98,18 +98,18 @@ class SocioController extends Controller
         }
 
         $payload = [
-            'categoria_id'        => $categoria_id,
-            'dni'                 => trim($asegurado['dni']),
-            'nombre_socio'        => $asegurado['nombre_socio'],
-            'apellido_1'          => $asegurado['apellido_1'] ?? null,
-            'apellido_2'          => $asegurado['apellido_2'] ?? null,
-            'email'               => $asegurado['email'],
-            'telefono'            => $asegurado['telefono'] ?? null,
-            'sexo'                => $asegurado['sexo'] ?? null,
-            'direccion'           => $asegurado['direccion'] ?? null,
-            'poblacion'           => $asegurado['poblacion'] ?? null,
-            'provincia'           => $asegurado['provincia'] ?? null,
-            'codigo_postal'       => $asegurado['codigo_postal'] ?? null,
+            'categoria_id' => $categoria_id,
+            'dni' => trim($asegurado['dni']),
+            'nombre_socio' => $asegurado['nombre_socio'],
+            'apellido_1' => $asegurado['apellido_1'] ?? null,
+            'apellido_2' => $asegurado['apellido_2'] ?? null,
+            'email' => $asegurado['email'],
+            'telefono' => $asegurado['telefono'] ?? null,
+            'sexo' => $asegurado['sexo'] ?? null,
+            'direccion' => $asegurado['direccion'] ?? null,
+            'poblacion' => $asegurado['poblacion'] ?? null,
+            'provincia' => $asegurado['provincia'] ?? null,
+            'codigo_postal' => $asegurado['codigo_postal'] ?? null,
             'fecha_de_nacimiento' => Carbon::parse($asegurado['fecha_de_nacimiento'])->format('Y-m-d\TH:i:s'),
         ];
 
