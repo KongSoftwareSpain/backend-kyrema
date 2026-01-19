@@ -8,8 +8,22 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
+/**
+ * Comando para migrar el catálogo de productos desde la base de datos MySQL (Kyrema antigua)
+ * a la base de datos SQL Server (KONG/Kyrema nueva).
+ * 
+ * La migración es:
+ * 1. Idempotente: Se puede ejecutar varias veces sin duplicar datos (usa 'letras_identificacion' como clave).
+ * 2. No destructiva: No borra datos en el destino, solo inserta lo que falta.
+ */
 class TransferProductos extends Command
 {
+    /**
+     * Definición del comando y sus opciones:
+     * --chunk: Cantidad de registros a procesar por lote para optimizar memoria.
+     * --dry-run: Permite simular la migración sin realizar cambios reales en la base de datos.
+     * --only-catalogo: Si se activa, solo migra los nombres de productos, omitiendo su relación con sociedades.
+     */
     protected $signature = 'transfer:productos
         {--chunk=500 : Tamaño de chunk}
         {--dry-run=0 : Si 1, no inserta (solo simula)}
@@ -18,21 +32,30 @@ class TransferProductos extends Command
 
     protected $description = 'Migra productos Kyrema (MySQL) a KONG (SQL Server) de forma idempotente y no destructiva.';
 
+    /**
+     * Ejecución principal del comando.
+     */
     public function handle(): int
     {
+        // 1. Inicialización de opciones y log
         $chunkSize = max(1, (int) $this->option('chunk'));
         $dryRun = (int) $this->option('dry-run') === 1;
         $onlyCatalogo = (int) $this->option('only-catalogo') === 1;
 
         $log = Log::channel('transfer_productos');
 
+        // 2. Establecer conexiones a ambas bases de datos
         $mysql = DB::connection('mysql');
         $sqlsrv = DB::connection('sqlsrv');
 
         $this->info('Transfer Productos: Kyrema(MySQL) -> KONG(SQL Server)');
         $this->info('chunk=' . $chunkSize . ' dry-run=' . ($dryRun ? '1' : '0') . ' only-catalogo=' . ($onlyCatalogo ? '1' : '0'));
 
-        // Precarga: letras_identificacion -> id (tipo_producto)
+        /**
+         * 3. PRECARGA DE DATOS PARA IDEMPOTENCIA
+         * Cargamos en memoria los productos que YA existen en SQL Server.
+         * Usamos 'letras_identificacion' como clave única para comparar.
+         */
         $this->info('Precargando tipo_producto existentes (letras_identificacion -> id)...');
         $existingTipoProducto = $sqlsrv->table('tipo_producto')
             ->select(['id', 'letras_identificacion'])
@@ -47,7 +70,11 @@ class TransferProductos extends Command
 
         $this->info('Existentes cargados: ' . count($existingTipoProducto));
 
-        // Precarga sociedades destino: codigo_sociedad -> id
+        /**
+         * 4. PRECARGA DE SOCIEDADES
+         * Como los IDs de las sociedades pueden variar entre MySQL y SQL Server,
+         * mapeamos usando el 'codigo_sociedad' (ej: 'S001') que es un valor estable.
+         */
         $sociedadByCodigo = $sqlsrv->table('sociedad')
             ->select(['id', 'codigo_sociedad'])
             ->whereNotNull('codigo_sociedad')
@@ -59,7 +86,7 @@ class TransferProductos extends Command
                 return $acc;
             }, []);
 
-        // Conteo total
+        // 5. Configuración de la barra de progreso y estadísticas
         $total = (int) $mysql->table('productos')->count();
         $bar = $this->output->createProgressBar($total);
         $bar->start();
@@ -75,15 +102,21 @@ class TransferProductos extends Command
             'PIVOT_SIN_SOCIEDAD_MAP' => 0,
         ];
 
+        /**
+         * 6. PROCESAMIENTO POR LOTES (CHUNKS)
+         * Leemos de MySQL y procesamos uno a uno.
+         */
         $mysql->table('productos')
             ->orderBy('id_producto')
             ->chunk($chunkSize, function ($rows) use ($mysql, $sqlsrv, $log, $dryRun, $onlyCatalogo, &$existingTipoProducto, $sociedadByCodigo, &$stats, $bar) {
-                $sqlsrv->beginTransaction();
-
+                $sqlsrv->beginTransaction(); // Usamos transacciones por cada lote para asegurar integridad
+    
                 try {
                     foreach ($rows as $p) {
+                        // El 'codigo_producto' de MySQL será nuestra 'letras_identificacion' en SQL Server
                         $businessKey = $this->normalizeKey($p->codigo_producto ?? null);
 
+                        // Si el producto no tiene código, no podemos migrarlo de forma segura
                         if ($businessKey === null) {
                             $stats['PRODUCTO_SIN_CLAVE_UNICA']++;
                             $log->warning('PRODUCTO_SIN_CLAVE_UNICA', [
@@ -95,6 +128,11 @@ class TransferProductos extends Command
                             continue;
                         }
 
+                        /**
+                         * 7. CASO: EL PRODUCTO YA EXISTE
+                         * Si ya existe, saltamos la creación del producto pero
+                         * intentamos sincronizar sus relaciones con sociedades.
+                         */
                         if (isset($existingTipoProducto[$businessKey])) {
                             $stats['PRODUCTO_YA_EXISTE']++;
                             $log->info('PRODUCTO_YA_EXISTE', [
@@ -102,7 +140,7 @@ class TransferProductos extends Command
                                 'destino_tipo_producto_id' => $existingTipoProducto[$businessKey],
                                 'origen_id_producto' => $p->id_producto ?? null,
                             ]);
-                            // Aun así podemos migrar pivots por sociedad si procede
+
                             if (!$onlyCatalogo) {
                                 $this->syncTipoProductoSociedades(
                                     $mysql,
@@ -120,7 +158,10 @@ class TransferProductos extends Command
                             continue;
                         }
 
-                        // Payload tipo_producto (destino)
+                        /**
+                         * 8. PREPARACIÓN DE DATOS (PAYLOAD)
+                         * Validamos longitudes para evitar errores de truncado en SQL Server.
+                         */
                         $nombre = $this->safeString(
                             $p->nombre ?? '',
                             255,
@@ -130,18 +171,21 @@ class TransferProductos extends Command
                             'tipo_producto.nombre'
                         );
 
-                        // Política de estado: usa visible_tienda si quieres (1 = activo), si no, default activo.
+                        // Mapeo de estado: si está borrado en origen, se marca como inactivo (0)
                         $estado = $this->safeBit($p->borrado ?? 0) ? 0 : 1;
 
                         $payload = [
                             'nombre' => $nombre,
                             'letras_identificacion' => $businessKey,
                             'estado' => $estado,
-                            'nombre_unificado' => 0, // NOT NULL en destino
+                            'nombre_unificado' => 0, // Campo obligatorio en destino iniciado a 0
                             'created_at' => $this->safeSqlsrvDate($p->created_at ?? null),
                             'updated_at' => $this->safeSqlsrvDate($p->updated_at ?? null),
                         ];
 
+                        /**
+                         * 9. INSERCIÓN DEL PRODUCTO
+                         */
                         try {
                             if ($dryRun) {
                                 $stats['PRODUCTO_CREADO']++;
@@ -153,6 +197,7 @@ class TransferProductos extends Command
                                 ]);
                                 $existingTipoProducto[$businessKey] = -1;
                             } else {
+                                // Insertamos y obtenemos el nuevo ID autogenerado en SQL Server
                                 $newId = (int) $sqlsrv->table('tipo_producto')->insertGetId($payload);
                                 $existingTipoProducto[$businessKey] = $newId;
 
@@ -163,6 +208,7 @@ class TransferProductos extends Command
                                     'origen_id_producto' => $p->id_producto ?? null,
                                 ]);
 
+                                // 10. Sincronizar relaciones con sociedades para el nuevo producto
                                 if (!$onlyCatalogo) {
                                     $this->syncTipoProductoSociedades(
                                         $mysql,
@@ -188,6 +234,7 @@ class TransferProductos extends Command
                         $bar->advance();
                     }
 
+                    // Si es dry-run, siempre hacemos rollback para no guardar nada
                     if ($dryRun) {
                         $sqlsrv->rollBack();
                     } else {
@@ -205,6 +252,7 @@ class TransferProductos extends Command
         $bar->finish();
         $this->newLine(2);
 
+        // 11. Resumen final por consola
         $this->info('Fin.');
         foreach ($stats as $k => $v) {
             $this->line($k . ': ' . $v);
@@ -213,6 +261,10 @@ class TransferProductos extends Command
         return self::SUCCESS;
     }
 
+    /**
+     * Sincroniza la tabla pivot 'tipo_producto_sociedad'.
+     * Mapea qué sociedades tienen acceso a qué productos.
+     */
     private function syncTipoProductoSociedades(
         $mysql,
         $sqlsrv,
@@ -223,10 +275,10 @@ class TransferProductos extends Command
         array $sociedadByCodigo,
         array &$stats
     ): void {
-        // sociedad_producto (MySQL) tiene id_sociedad y FK a productos.id_producto
-        // En destino: tipo_producto_sociedad requiere id_sociedad (SQL) + id_tipo_producto (SQL)
-
-        // Join a sociedades para obtener codigo_sociedad (clave estable para mapear)
+        /**
+         * En MySQL la tabla es 'sociedad_producto'.
+         * Hacemos un JOIN con 'sociedades' para obtener el 'codigo_sociedad' (clave de mapeo).
+         */
         $rows = $mysql->table('sociedad_producto as sp')
             ->join('sociedades as s', 's.id_sociedad', '=', 'sp.id_sociedad')
             ->select(['sp.estado', 's.codigo_sociedad'])
@@ -236,6 +288,7 @@ class TransferProductos extends Command
         foreach ($rows as $r) {
             $codigoSociedad = $this->normalizeKey($r->codigo_sociedad ?? null);
 
+            // Verificamos si la sociedad existe en el destino mediante su código
             if ($codigoSociedad === null || !isset($sociedadByCodigo[$codigoSociedad])) {
                 $stats['PIVOT_SIN_SOCIEDAD_MAP']++;
                 $log->warning('WARN_SOCIEDAD_NO_MAPEADA_PARA_PRODUCTO', [
@@ -247,12 +300,17 @@ class TransferProductos extends Command
 
             $sociedadIdDestino = $sociedadByCodigo[$codigoSociedad];
 
-            // Política: si estado=1, insertamos/habilitamos. Si estado=0, no borramos (no destructivo).
+            /**
+             * Lógica de transferencia: 
+             * Solo migramos si en origen está activo (estado=1).
+             * No borramos nada en destino.
+             */
             $estado = (int) ($r->estado ?? 0);
             if ($estado !== 1) {
                 continue;
             }
 
+            // Evitar duplicados en la tabla pivot
             $exists = $sqlsrv->table('tipo_producto_sociedad')
                 ->where('id_sociedad', $sociedadIdDestino)
                 ->where('id_tipo_producto', $tipoProductoIdDestino)
@@ -281,6 +339,10 @@ class TransferProductos extends Command
         }
     }
 
+    /**
+     * Normaliza una clave (código) para comparaciones consistentes.
+     * Convierte a MAYÚSCULAS y elimina espacios.
+     */
     private function normalizeKey(?string $v): ?string
     {
         if ($v === null)
@@ -289,13 +351,16 @@ class TransferProductos extends Command
         if ($v === '')
             return null;
 
-        // Normalización “ERP”: mayúsculas + sin espacios internos
         $v = mb_strtoupper($v);
         $v = preg_replace('/\s+/', '', $v);
 
         return $v ?: null;
     }
 
+    /**
+     * Asegura que un string no supere el tamaño máximo de la columna.
+     * Si es más largo, lo trunca y lanza una advertencia en el log.
+     */
     private function safeString(?string $v, int $max, array &$stats, $log, string $businessKey, string $campo): ?string
     {
         if ($v === null)
@@ -319,6 +384,10 @@ class TransferProductos extends Command
         return $v;
     }
 
+    /**
+     * Ajusta fechas para que sean compatibles con SQL Server.
+     * SQL Server no acepta fechas anteriores a 1753.
+     */
     private function safeSqlsrvDate($value): string
     {
         try {
@@ -327,7 +396,7 @@ class TransferProductos extends Command
             }
             $dt = Carbon::parse($value);
 
-            // SQL Server datetime mínimo: 1753-01-01
+            // SQL Server datetime mínimo: 1753-01-01. Evitamos el error "out of range".
             if ($dt->year < 1753) {
                 return '1900-01-01 00:00:00';
             }
@@ -338,8 +407,12 @@ class TransferProductos extends Command
         }
     }
 
+    /**
+     * Convierte cualquier valor a un BIT (0 o 1).
+     */
     private function safeBit($v): int
     {
         return ((int) $v) ? 1 : 0;
     }
 }
+

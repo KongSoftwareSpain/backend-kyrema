@@ -48,6 +48,11 @@ class CategoriaController extends Controller
      */
     public function show($id)
     {
+        // Validar que el ID no sea null o 'null' (string)
+        if ($id === null || $id === 'null' || trim($id) === '') {
+            return response()->json(['error' => 'ID de categoría inválido'], 400);
+        }
+
         $categoria = Categoria::find($id);
 
         if (!$categoria) {

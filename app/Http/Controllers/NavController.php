@@ -66,9 +66,15 @@ class NavController extends Controller
         // Coger los tipos de producto asociados con la sociedad
         $tipoProductoIds = TipoProductoSociedad::where('id_sociedad', $id_sociedad)->pluck('id_tipo_producto');
 
-        // Coger los tipos de producto basados en los IDs obtenidos
-        $tiposProducto = TipoProducto::activos()
+        // Coger los tipos de producto basados en los IDs obtenidos (específicos de la sociedad)
+        $tiposProductoLinkeados = TipoProducto::activos()
             ->whereIn('id', $tipoProductoIds)
+            ->whereNull('padre_id')
+            ->whereNull('tipo_producto_asociado')
+            ->get();
+
+        // Coger TODOS los tipos de producto base activos (para los informes de administración)
+        $tiposProductoTodos = TipoProducto::activos()
             ->whereNull('padre_id')
             ->whereNull('tipo_producto_asociado')
             ->get();
@@ -89,7 +95,7 @@ class NavController extends Controller
         ];
 
 
-        $navegacion[0]["children"] = $tiposProducto->map(function ($tipoProducto) {
+        $navegacion[0]["children"] = $tiposProductoTodos->map(function ($tipoProducto) {
             return [
                 "label" => "Informes " . $tipoProducto->nombre,
                 "link" => "/informes/" . $tipoProducto->letras_identificacion
@@ -125,7 +131,7 @@ class NavController extends Controller
                 "link" => "/socios"
             ]
         ];
-        $navegacion[2]["children"] = $tiposProducto->map(function ($tipoProducto) {
+        $navegacion[2]["children"] = $tiposProductoLinkeados->map(function ($tipoProducto) {
             return [
                 "label" => $tipoProducto->nombre,
                 "link" => "/operaciones/" . strtolower($tipoProducto->letras_identificacion)
@@ -138,9 +144,17 @@ class NavController extends Controller
         $sociedadPadreId = $sociedad->sociedad_padre_id;
 
         // Condición para filtrar las opciones en el array de navegación
-        if ($sociedadPadreId == env('SOCIEDAD_ADMIN_ID') && isset($navegacion[2])) {
+        if ($id_sociedad == env('SOCIEDAD_ADMIN_ID')) {
+            // Sociedad Admin: Ver todo
+        } elseif ($sociedadPadreId == env('SOCIEDAD_ADMIN_ID')) {
+            // Hija de Admin: Sociedades, Comisiones, Socios
             $navegacion[1]["children"] = array_values(array_filter($navegacion[1]["children"], function ($child) {
                 return in_array($child["label"], ["Sociedades", "Comisiones", "Socios"]);
+            }));
+        } else {
+            // Sociedad estándar: Sociedades, Categorías, Productos, Socios
+            $navegacion[1]["children"] = array_values(array_filter($navegacion[1]["children"], function ($child) {
+                return in_array($child["label"], ["Sociedades", "Categorías", "Productos", "Socios"]);
             }));
         }
 
