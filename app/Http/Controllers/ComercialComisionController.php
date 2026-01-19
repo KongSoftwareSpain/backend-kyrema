@@ -11,20 +11,21 @@ class ComercialComisionController extends Controller
     public function index($id)
     {
         $comisiones = ComercialComision::where('id_comercial', $id)
+            ->orderBy('tipo_producto_id', 'asc')
             ->get();
-    
+
         // Mapear las comisiones para adaptarlas al formato necesario
-        $comisiones = $comisiones->map(function($comision) {
+        $comisiones = $comisiones->map(function ($comision) {
             // Dependiendo del tipo, ajustamos los valores a enviar
             $comisionData = [
                 'id_tipo_producto' => $comision->tipo_producto_id,
                 'fixedFee' => ($comision->tipo == 'fijo') ? $comision->valor : null,
                 'percentageFee' => ($comision->tipo == 'porcentual') ? $comision->valor : null,
             ];
-    
+
             return $comisionData;
         });
-    
+
         // Devolver la respuesta con las comisiones formateadas
         return response()->json($comisiones);
     }
@@ -70,8 +71,11 @@ class ComercialComisionController extends Controller
         // Abrimos una transacción para agrupar las actualizaciones
         DB::beginTransaction();
         try {
-            ComercialComision::upsert($comisionesToUpsert->toArray(), ['tipo_producto_id', 'id_comercial'], 
-            ['valor', 'tipo']);
+            ComercialComision::upsert(
+                $comisionesToUpsert->toArray(),
+                ['tipo_producto_id', 'id_comercial'],
+                ['valor', 'tipo']
+            );
 
             // Commit de la transacción si todo fue correcto
             DB::commit();
@@ -85,5 +89,5 @@ class ComercialComisionController extends Controller
     }
 
 
-    
+
 }

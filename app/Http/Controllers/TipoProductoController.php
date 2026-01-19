@@ -25,7 +25,9 @@ class TipoProductoController extends Controller
         $tipoProductoIds = TipoProductoSociedad::where('id_sociedad', $id_sociedad)->pluck('id_tipo_producto');
 
         // Obtener los TipoProducto basados en los IDs obtenidos
-        $tiposProducto = TipoProducto::whereIn('id', $tipoProductoIds)->get();
+        $tiposProducto = TipoProducto::whereIn('id', $tipoProductoIds)
+            ->orderBy('id', 'asc')
+            ->get();
 
         // Devolver los TipoProducto en formato JSON
         return response()->json($tiposProducto);

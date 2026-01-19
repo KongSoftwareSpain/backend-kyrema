@@ -453,7 +453,7 @@ class ProductoController extends Controller
 
         // 1. Consulta principal: Obtener productos vigentes por fecha y sociedades
         $productosVigentes = DB::table($nombreTabla)
-            ->when(count($sociedades) > 0, function ($query) use ($sociedades) {
+            ->when(count($sociedades) > 0 && !in_array(env('SOCIEDAD_ADMIN_ID', 1), $sociedades), function ($query) use ($sociedades) {
                 $query->whereIn('sociedad_id', $sociedades);
             })
             ->where('fecha_de_fin', '>=', $fechaActual) // Filtrar productos con fecha_de_fin mayor que la fecha actual
@@ -470,7 +470,7 @@ class ProductoController extends Controller
             // Consultar productos que tienen anexos vigentes en cada tabla de anexos
             $productosAnexoVigentes = DB::table($nombreTablaAnexo)
                 ->join($nombreTabla, "$nombreTablaAnexo.producto_id", '=', "$nombreTabla.id")
-                ->when(count($sociedades) > 0, function ($query) use ($sociedades, $nombreTabla) {
+                ->when(count($sociedades) > 0 && !in_array(env('SOCIEDAD_ADMIN_ID', 1), $sociedades), function ($query) use ($sociedades, $nombreTabla) {
                     $query->whereIn("$nombreTabla.sociedad_id", $sociedades);
                 })
                 ->where("$nombreTablaAnexo.fecha_de_fin", '>=', $fechaActual) // Anexo vigente
@@ -561,7 +561,7 @@ class ProductoController extends Controller
 
         // Realizar consulta dinámica usando el nombre de la tabla
         $productos = DB::table($nombreTabla)
-            ->when(count($sociedades) > 0, function ($query) use ($sociedades) {
+            ->when(count($sociedades) > 0 && !in_array(env('SOCIEDAD_ADMIN_ID', 1), $sociedades), function ($query) use ($sociedades) {
                 $query->whereIn('sociedad_id', $sociedades);
             })
             ->where('fecha_de_fin', '<', $fechaActual) // Filtrar productos con fecha_de_fin mayor que la fecha actual
@@ -738,8 +738,8 @@ class ProductoController extends Controller
     public function setBlobNameForProductId($letras_identificacion, $id, Request $request)
     {
         $data = $request->validate([
-            'blob_name' => ['required','string','max:300','regex:/^[A-Za-z0-9._\-\/]+\.pdf$/'],
-            'is_anexo' => ['required','boolean'] 
+            'blob_name' => ['required', 'string', 'max:300', 'regex:/^[A-Za-z0-9._\-\/]+\.pdf$/'],
+            'is_anexo' => ['required', 'boolean']
         ], [
             'regex' => 'El nombre del blob solo puede contener letras, números, punto, guion, guion bajo y barras (/).',
         ]);
@@ -831,7 +831,7 @@ class ProductoController extends Controller
         return response()->json($datos);
     }
 
-    public function getPlantillaBase64(String $path)
+    public function getPlantillaBase64(string $path)
     {
         $file = Storage::disk('public')->get($path);
         $base64 = base64_encode($file);

@@ -131,7 +131,10 @@ class NavController extends Controller
                 "link" => "/socios"
             ]
         ];
-        $navegacion[2]["children"] = $tiposProductoLinkeados->map(function ($tipoProducto) {
+        // Si es admin (id 1), mostramos TODOS los tipos de producto en la gestión de productos
+        $productosParaMenu = ($id_sociedad == env('SOCIEDAD_ADMIN_ID', 1)) ? $tiposProductoTodos : $tiposProductoLinkeados;
+
+        $navegacion[2]["children"] = $productosParaMenu->map(function ($tipoProducto) {
             return [
                 "label" => $tipoProducto->nombre,
                 "link" => "/operaciones/" . strtolower($tipoProducto->letras_identificacion)
