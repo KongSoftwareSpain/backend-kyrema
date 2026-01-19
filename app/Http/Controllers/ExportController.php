@@ -32,7 +32,9 @@ class ExportController extends Controller
         $fechaHasta = $request->input('fecha_hasta');
         $sociedadId = $request->input('sociedad_id');
 
-        $sociedades = SociedadController::getArrayIdSociedadesHijas($sociedadId);
+        // Si no se proporciona sociedadId, no filtramos por sociedades hijas por defecto aquí, 
+        // dejamos que el bloque condicional de más abajo lo gestione.
+        $sociedades = !empty($sociedadId) ? SociedadController::getArrayIdSociedadesHijas($sociedadId) : [];
 
         // Obtener las letras de identificación del tipo de producto
         $tipoProducto = DB::table('tipo_producto')->where('id', $tipoProductoId)->first();
@@ -98,17 +100,25 @@ class ExportController extends Controller
         $results = $query->get();
 
         if (!$hasSubproductoColumn) {
+            $countsQuery = DB::table($tableName)
+                ->whereRaw(
+                    "TRY_CONVERT(datetime2, [fecha_de_emisión], {$style}) >= ? AND TRY_CONVERT(datetime2, [fecha_de_emisión], {$style}) < ?",
+                    [$desde, $hasta]
+                );
+
+            if (!empty($sociedadId)) {
+                $countsQuery->whereIn('sociedad_id', $sociedades);
+            }
+
             $counts = collect([
                 [
                     'tipo_producto' => $tipoProducto->nombre,
-                    'cantidad' => DB::table($tableName)
-                        ->whereBetween('fecha_de_emisión', [$desde, $hasta])
-                        ->count(),
+                    'cantidad' => $countsQuery->count(),
                 ]
             ]);
         } else {
             // Obtener la cantidad de productos por tipo diferenciando subproductos
-            $counts = DB::table($tableName)
+            $countsQuery = DB::table($tableName)
                 ->select(
                     DB::raw(
                         "CASE 
@@ -118,13 +128,21 @@ class ExportController extends Controller
                     ),
                     DB::raw('COUNT(*) as cantidad')
                 )
-                ->whereBetween('fecha_de_emisión', [$desde, $hasta])
-                ->groupBy(
-                    DB::raw("CASE 
+                ->whereRaw(
+                    "TRY_CONVERT(datetime2, [fecha_de_emisión], {$style}) >= ? AND TRY_CONVERT(datetime2, [fecha_de_emisión], {$style}) < ?",
+                    [$desde, $hasta]
+                );
+
+            if (!empty($sociedadId)) {
+                $countsQuery->whereIn('sociedad_id', $sociedades);
+            }
+
+            $counts = $countsQuery->groupBy(
+                DB::raw("CASE 
                                     WHEN subproducto IS NOT NULL THEN CONCAT('{$tipoProducto->nombre}', ' - ', subproducto_codigo) 
                                     ELSE '{$tipoProducto->nombre}' 
                             END")
-                )
+            )
                 ->get();
         }
 
@@ -177,7 +195,7 @@ class ExportController extends Controller
                 $valores->plantilla_path_8,
             ];
 
-            Log::info($plantillaPaths);
+            Log::info(print_r($plantillaPaths, true));
 
             foreach ($plantillaPaths as $path) {
                 if ($path !== null) { // Verifica si no es nulo
