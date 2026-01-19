@@ -56,7 +56,7 @@ class SociedadController extends Controller
             'swift' => 'nullable|string|max:11',
             'dominio' => 'nullable|string|max:255',
             'observaciones' => 'nullable|string|max:255',
-            'logo' => 'nullable',  
+            'logo' => 'nullable',
             'sociedad_padre_id' => 'nullable|numeric|exists:sociedad,id',
         ]);
 
@@ -110,6 +110,11 @@ class SociedadController extends Controller
 
     public function getSociedadesHijas($id)
     {
+        // Si es la sociedad admin, devolvemos TODAS las sociedades
+        if ($id == self::SOCIEDAD_ADMIN_ID) {
+            return response()->json(Sociedad::all());
+        }
+
         $sociedad = Sociedad::findOrFail($id); // Obtener la sociedad inicial
         $sociedadesHijas = $sociedad->getSociedadesHijasDesde($id);
 
@@ -120,6 +125,10 @@ class SociedadController extends Controller
 
     public static function getArrayIdSociedadesHijas($id)
     {
+        if ($id == self::SOCIEDAD_ADMIN_ID) {
+            return Sociedad::all()->pluck('id')->toArray();
+        }
+
         $sociedad = Sociedad::findOrFail($id); // Obtener la sociedad inicial
         $sociedadesHijas = $sociedad->getSociedadesHijasDesde($id);
 
@@ -154,13 +163,13 @@ class SociedadController extends Controller
         // Obtener los IDs de los tipos de producto
         $tipoProductoId = $tipoProducto->pluck('id');
 
-        $sociedadesFiltradas = $sociedadesCompletas->filter(function($sociedad) use ($tipoProductoId) {
+        $sociedadesFiltradas = $sociedadesCompletas->filter(function ($sociedad) use ($tipoProductoId) {
             // Verifica si existe una relación entre la sociedad y el tipo de producto
             $existeRelacion = DB::table('tipo_producto_sociedad')
                 ->where('id_tipo_producto', $tipoProductoId)
                 ->where('id_sociedad', $sociedad->id)
                 ->exists();
-        
+
             // Retorna true si existe la relación, lo que mantendrá la sociedad
             return $existeRelacion;
         });
@@ -169,9 +178,9 @@ class SociedadController extends Controller
     }
 
     public function getSociedadPorComercial($comercial_id)
-    {   
+    {
         // Pasar $comercial_id a entero
-        $comercial_id = (int)$comercial_id;
+        $comercial_id = (int) $comercial_id;
         $comercial = Comercial::findOrFail($comercial_id);
         $sociedad = Sociedad::findOrFail($comercial->id_sociedad);
 

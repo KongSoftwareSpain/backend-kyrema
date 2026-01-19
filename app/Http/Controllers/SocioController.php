@@ -46,6 +46,16 @@ class SocioController extends Controller
 
             $sociedades[] = $comercial->id_sociedad;
 
+            // Si es la sociedad admin, devolvemos TODOS los socios
+            if ($comercial->id_sociedad == 1) { // Asumiendo ID 1 es admin, o usar constante si está disponible en este scope
+                $socios = Socio::join('socios_comerciales', 'socios.id', '=', 'socios_comerciales.id_socio')
+                    ->join('comercial', 'socios_comerciales.id_comercial', '=', 'comercial.id')
+                    ->select('socios.*')
+                    ->distinct() // Importante para no duplicar si un socio tiene múltiples comerciales
+                    ->get();
+                return $socios;
+            }
+
             $socios = Socio::join('socios_comerciales', 'socios.id', '=', 'socios_comerciales.id_socio')
                 ->join('comercial', 'socios_comerciales.id_comercial', '=', 'comercial.id')
                 ->whereIn('comercial.id_sociedad', $sociedades)

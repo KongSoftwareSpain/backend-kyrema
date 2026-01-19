@@ -22,11 +22,12 @@ class ComercialController extends Controller
         return response()->json($comerciales);
     }
 
-    public function isComercialPaginaWeb($id_comercial){
+    public function isComercialPaginaWeb($id_comercial)
+    {
         $comercial = Comercial::find($id_comercial);
         return response()->json($comercial->pagina_web == '1');
     }
-    
+
     public function store(StoreComercialRequest $request)
     {
 
@@ -41,11 +42,11 @@ class ComercialController extends Controller
                 'fecha_alta' => date('Y-m-d\TH:i:s', strtotime($request->fecha_alta))
             ]);
         }
-    
+
         // Crear una copia de los datos del request
         $data = $request->except('path_foto');
 
-        if($request->responsable == '2'){
+        if ($request->responsable == '2') {
             $data['responsable'] = '1';
             $data['pagina_web'] = '1';
         } else {
@@ -54,7 +55,7 @@ class ComercialController extends Controller
 
         // Hashear la contraseña
         $data['contraseña'] = Hash::make($request->contraseña);
-        $data['dni'] == null ? $data['dni'] = '' : $data['dni']; 
+        $data['dni'] == null ? $data['dni'] = '' : $data['dni'];
 
         // Crear el comercial usando los datos modificados
         $comercial = Comercial::create($data);
@@ -66,14 +67,18 @@ class ComercialController extends Controller
             $comercial->path_foto = str_replace('public/', '', $fotoPath); // Guardar la ruta de la foto
             $comercial->save();
         }
-    
+
         return response()->json($comercial, 201);
     }
 
 
     public function getComercialesPorSociedad($sociedad)
     {
-        $comerciales = Comercial::where('id_sociedad', $sociedad)->get();
+        if ($sociedad == 1) {
+            $comerciales = Comercial::all();
+        } else {
+            $comerciales = Comercial::where('id_sociedad', $sociedad)->get();
+        }
         return response()->json($comerciales);
     }
 
@@ -113,7 +118,7 @@ class ComercialController extends Controller
 
         // Preparar los datos a actualizar
         $data = $request->except(['path_foto', 'created_at', 'updated_at']);
-        
+
         // Formatear fechas antes de actualizar
         if (!empty($data['fecha_nacimiento'])) {
             $data['fecha_nacimiento'] = date('Y-m-d', strtotime($data['fecha_nacimiento']));

@@ -159,7 +159,8 @@ class NavController extends Controller
         }
 
         // Si no es responsable
-        if ($responsable != 1) {
+        // Si no es responsable y NO es la sociedad admin (id 1)
+        if ($responsable != 1 && $id_sociedad != env('SOCIEDAD_ADMIN_ID', 1)) {
             // Quitar el apartado de Gestión excepto Socios.
             $navegacion[1]["children"] = array_values(array_filter($navegacion[1]["children"], function ($child) {
                 return in_array($child["label"], ["Socios"]);
