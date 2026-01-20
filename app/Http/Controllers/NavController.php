@@ -149,15 +149,10 @@ class NavController extends Controller
         // Condición para filtrar las opciones en el array de navegación
         if ($id_sociedad == env('SOCIEDAD_ADMIN_ID')) {
             // Sociedad Admin: Ver todo
-        } elseif ($sociedadPadreId == env('SOCIEDAD_ADMIN_ID')) {
-            // Hija de Admin: Sociedades, Comisiones, Socios
+        } else {
+            // Resto de sociedades: Sociedades, Comisiones, Socios
             $navegacion[1]["children"] = array_values(array_filter($navegacion[1]["children"], function ($child) {
                 return in_array($child["label"], ["Sociedades", "Comisiones", "Socios"]);
-            }));
-        } else {
-            // Sociedad estándar: Sociedades, Categorías, Productos, Socios
-            $navegacion[1]["children"] = array_values(array_filter($navegacion[1]["children"], function ($child) {
-                return in_array($child["label"], ["Sociedades", "Categorías", "Productos", "Socios"]);
             }));
         }
 
