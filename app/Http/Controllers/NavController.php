@@ -95,7 +95,11 @@ class NavController extends Controller
         ];
 
 
-        $navegacion[0]["children"] = $tiposProductoTodos->map(function ($tipoProducto) {
+
+        // Si es admin (id 1), mostramos TODOS los tipos de producto, si no, solo los vinculados
+        $productosParaInformes = ($id_sociedad == env('SOCIEDAD_ADMIN_ID', 1)) ? $tiposProductoTodos : $tiposProductoLinkeados;
+
+        $navegacion[0]["children"] = $productosParaInformes->map(function ($tipoProducto) {
             return [
                 "label" => "Informes " . $tipoProducto->nombre,
                 "link" => "/informes/" . $tipoProducto->letras_identificacion

@@ -32,6 +32,12 @@ class ExportController extends Controller
         $fechaHasta = $request->input('fecha_hasta');
         $sociedadId = $request->input('sociedad_id');
 
+        // Restricción de visibilidad por sociedad
+        $user = auth('comercial')->user();
+        if ($user && $user->id_sociedad != env('SOCIEDAD_ADMIN_ID')) {
+            $sociedadId = $user->id_sociedad;
+        }
+
         // Si no se proporciona sociedadId, no filtramos por sociedades hijas por defecto aquí, 
         // dejamos que el bloque condicional de más abajo lo gestione.
         $sociedades = !empty($sociedadId) ? SociedadController::getArrayIdSociedadesHijas($sociedadId) : [];
