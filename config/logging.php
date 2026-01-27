@@ -148,12 +148,11 @@ return [
             'path' => storage_path('logs/repair_socios_comerciales.log'),
             'level' => 'debug',
         ],
-        'channels' => [
-            'transfer_productos' => [
-                'driver' => 'single',
-                'path' => storage_path('logs/transfer_productos.log'),
-                'level' => 'info',
-            ],
+        'migracion_seguros' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/migracion_seguros.log'),
+            'level' => 'debug',
+            'replace_placeholders' => true,
         ],
 
     ],

@@ -41,7 +41,8 @@ class TipoPagoProductoSociedadController extends Controller
         return response()->json($tiposPago);
     }
 
-    public function transferirTiposPago($sociedad_padre_id, $sociedad_hija_id){
+    public function transferirTiposPago($sociedad_padre_id, $sociedad_hija_id)
+    {
 
         // Coger todos los tipos de pago por producto de la sociedad padre:
         $tiposPagoProductoSociedad = TipoPagoProductoSociedad::where('sociedad_id', $sociedad_padre_id)->get();
@@ -57,7 +58,7 @@ class TipoPagoProductoSociedadController extends Controller
         }
 
         return response()->json(['message' => 'Tipos de pago transferidos exitosamente'], 201);
-        
+
     }
 
     public function getTiposPagoPorSociedadYTipoProducto($sociedad_id, $tipo_producto_id)
@@ -73,6 +74,22 @@ class TipoPagoProductoSociedadController extends Controller
                     'codigo' => $item->tipoPago->codigo,
                 ];
             });
+
+        // Comprobar jerarquía y filtrar si es necesario
+        $sociedad = \App\Models\Sociedad::find($sociedad_id);
+
+        if ($sociedad && $sociedad->sociedad_padre_id) {
+            // Obtener los tipos de pago de la sociedad padre para el mismo producto
+            $pagosPadre = TipoPagoProductoSociedad::where('sociedad_id', $sociedad->sociedad_padre_id)
+                ->where('tipo_producto_id', $tipo_producto_id)
+                ->pluck('tipo_pago_id')
+                ->toArray();
+
+            // Filtrar los pagos de la hija para dejar solo los que también tiene el padre
+            $tiposPago = $tiposPago->filter(function ($pago) use ($pagosPadre) {
+                return in_array($pago['id'], $pagosPadre);
+            })->values(); // Reindexar el array
+        }
 
         return response()->json($tiposPago);
     }
