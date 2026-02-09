@@ -18,7 +18,7 @@ class MigrarSegurosCombinadosK extends Command
                             {--rebuild-map : Reconstruir mapeo de comerciales, socios y productos}
                             {--default-comercial=1 : ID comercial por defecto para no mapeados}';
 
-    protected $description = 'Migrar registros de seguros_combinados a producto_k';
+    protected $description = 'Migrar registros de seguros_combinados a producto_k (solo borrado=0 Y finalizado=0)';
 
     private $logChannel = 'migracion_seguros';
 
@@ -68,8 +68,10 @@ class MigrarSegurosCombinadosK extends Command
 
         Log::channel($this->logChannel)->info('=== INICIO DE MIGRACIÓN SEGUROS COMBINADOS ===');
         Log::channel($this->logChannel)->info('Fecha: ' . now());
+        Log::channel($this->logChannel)->info('Filtro: borrado=0 AND finalizado=0');
 
         $this->info('🚀 Iniciando migración de seguros_combinados a producto_k');
+        $this->warn('⚠️  Solo se migrarán registros con: borrado=0 AND finalizado=0');
         $this->info('📝 Logs detallados en: storage/logs/migracion_seguros.log');
         $this->info('⚠️  Anomalías en: storage/logs/migracion_anomalias_combinados.log');
         $this->newLine();
@@ -84,14 +86,27 @@ class MigrarSegurosCombinadosK extends Command
         $oldConnection = 'mysql';
         $newConnection = 'sqlsrv';
 
-        // Contar registros totales
+        // Contar registros totales CON EL FILTRO CORRECTO
         $totalRegistros = DB::connection($oldConnection)
             ->table('seguros_combinados')
             ->where('borrado', 0)
+            ->where('finalizado', 0) // ← NUEVO FILTRO
             ->count();
 
         $this->stats['total'] = $totalRegistros;
-        $this->info("📊 Total de registros a migrar: {$totalRegistros}");
+        $this->info("📊 Total de registros a migrar (borrado=0 Y finalizado=0): {$totalRegistros}");
+        Log::channel($this->logChannel)->info("Total de registros a migrar: {$totalRegistros}");
+
+        // Mostrar estadísticas de exclusión
+        $totalExcluidos = DB::connection($oldConnection)
+            ->table('seguros_combinados')
+            ->where('borrado', 0)
+            ->where('finalizado', 1)
+            ->count();
+
+        $this->warn("   Registros EXCLUIDOS (finalizado=1): {$totalExcluidos}");
+        Log::channel($this->logChannel)->info("Registros excluidos (finalizado=1): {$totalExcluidos}");
+        $this->newLine();
 
         // Modo dry-run
         if ($this->option('dry-run')) {
@@ -115,10 +130,11 @@ class MigrarSegurosCombinadosK extends Command
         $bar = $this->output->createProgressBar($totalRegistros);
         $bar->start();
 
-        // Obtener registros
+        // Obtener registros CON EL FILTRO CORRECTO
         $query = DB::connection($oldConnection)
             ->table('seguros_combinados')
             ->where('borrado', 0)
+            ->where('finalizado', 0) // ← NUEVO FILTRO
             ->orderBy('id_seguro');
 
         if ($this->option('offset')) {
@@ -155,6 +171,7 @@ class MigrarSegurosCombinadosK extends Command
                     'subproducto_nuevo' => $datosNuevos['subproducto'],
                     'subproducto_codigo' => $datosNuevos['subproducto_codigo'],
                     'precio_total' => $datosNuevos['precio_total'],
+                    'finalizado' => $seguro->finalizado ?? 'N/A',
                 ]);
 
                 if (!$this->option('test')) {
@@ -892,6 +909,7 @@ class MigrarSegurosCombinadosK extends Command
 
         $contenido[] = "================================================================================";
         $contenido[] = "   REPORTE DE ANOMALÍAS - MIGRACIÓN SEGUROS COMBINADOS (producto_k)";
+        $contenido[] = "   Filtro aplicado: borrado=0 AND finalizado=0";
         $contenido[] = "   Fecha: " . now()->format('Y-m-d H:i:s');
         $contenido[] = "   Total migrados: {$this->stats['migrados']}";
         $contenido[] = "================================================================================";
@@ -978,13 +996,15 @@ class MigrarSegurosCombinadosK extends Command
     private function modoDryRun(string $connection): void
     {
         $this->warn('🔍 MODO DRY-RUN - Mostrando 5 ejemplos');
+        $this->warn('   Filtro: borrado=0 AND finalizado=0');
         $this->newLine();
 
-        Log::channel($this->logChannel)->info('Ejecutando modo DRY-RUN');
+        Log::channel($this->logChannel)->info('Ejecutando modo DRY-RUN con filtro: borrado=0 AND finalizado=0');
 
         $ejemplos = DB::connection($connection)
             ->table('seguros_combinados')
             ->where('borrado', 0)
+            ->where('finalizado', 0) // ← FILTRO
             ->limit(5)
             ->get();
 
@@ -993,6 +1013,7 @@ class MigrarSegurosCombinadosK extends Command
             $this->line("ID: {$seguro->id_seguro}");
             $this->line("Póliza: {$seguro->poliza_seguro}");
             $this->line("ID Socio: {$seguro->id_socio}");
+            $this->line("Finalizado: " . ($seguro->finalizado ?? 'N/A'));
 
             $transformado = $this->transformarDatos($seguro);
 
@@ -1040,7 +1061,7 @@ class MigrarSegurosCombinadosK extends Command
         $this->table(
             ['Concepto', 'Cantidad'],
             [
-                ['Total registros', $this->stats['total']],
+                ['Total registros (filtrados)', $this->stats['total']],
                 ['✅ Migrados', $this->stats['migrados']],
                 ['⏭️  Saltados (ya existían)', $this->stats['saltados']],
                 ['❌ Errores', $this->stats['errores']],
@@ -1064,6 +1085,7 @@ class MigrarSegurosCombinadosK extends Command
             $this->info('✅ Modo test completado - No se insertaron datos');
         } else {
             $this->info('✅ Migración completada exitosamente');
+            $this->info('   Solo se migraron registros con: borrado=0 AND finalizado=0');
         }
 
         Log::channel($this->logChannel)->info('=== FIN DE MIGRACIÓN SEGUROS COMBINADOS ===');
