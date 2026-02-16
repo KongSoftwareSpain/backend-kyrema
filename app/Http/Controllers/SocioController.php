@@ -256,6 +256,52 @@ class SocioController extends Controller
             ->whereIn('id', $socioProductos->pluck('id_producto'))
             ->get();
 
+        // Obtener datos adicionales
+        $socio = Socio::find($id);
+        $categoria = Categoria::find($tipoProducto->categoria_id);
+
+        // Obtener nombres de subproductos si es necesario
+        // Asumimos que 'subproducto' puede guardar el ID del TipoProducto hijo
+        $nombresSubproductos = [];
+        $idsSubproductos = $productos->pluck('subproducto')->filter()->unique()->toArray();
+
+        if (!empty($idsSubproductos)) {
+            $nombresSubproductos = DB::table('tipo_producto')
+                ->whereIn('id', $idsSubproductos)
+                ->pluck('nombre', 'id')
+                ->toArray();
+        }
+
+        // Obtener nombres de comerciales creadores
+        $idsComerciales = $productos->pluck('comercial_creador_id')->filter()->unique()->toArray();
+        $nombresComerciales = [];
+
+        if (!empty($idsComerciales)) {
+            $nombresComerciales = Comercial::whereIn('id', $idsComerciales)->pluck('nombre', 'id')->toArray();
+        }
+
+        foreach ($productos as $producto) {
+            $producto->nombre_socio = $socio->nombre_socio . ' ' . $socio->apellido_1 . ' ' . $socio->apellido_2;
+            $producto->nombre_tipo_producto = $tipoProducto->nombre;
+            $producto->nombre_categoria = $categoria ? $categoria->nombre : '';
+
+            // Asignar nombre del comercial creador
+            if (isset($producto->comercial_creador_id) && isset($nombresComerciales[$producto->comercial_creador_id])) {
+                $producto->nombre_comercial = $nombresComerciales[$producto->comercial_creador_id];
+            } else {
+                // Fallback: Si no tiene creador específico, usamos el nombre del comercial de la relación socio-comercial si existiera, 
+                // pero como el usuario pide "comercial creador", dejaremos vacío o "N/A" si no hay dato.
+                // Opcional: $producto->nombre_comercial = 'Desconocido';
+                $producto->nombre_comercial = '';
+            }
+
+
+            // Si hay subproducto y tenemos su nombre mapeado (es decir, era un ID válido)
+            if (isset($producto->subproducto) && isset($nombresSubproductos[$producto->subproducto])) {
+                $producto->subproducto = $nombresSubproductos[$producto->subproducto];
+            }
+        }
+
         return response()->json($productos);
     }
 }
