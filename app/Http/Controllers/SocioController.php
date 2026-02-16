@@ -50,7 +50,8 @@ class SocioController extends Controller
             if ($comercial->id_sociedad == 1) { // Asumiendo ID 1 es admin, o usar constante si está disponible en este scope
                 $socios = Socio::join('socios_comerciales', 'socios.id', '=', 'socios_comerciales.id_socio')
                     ->join('comercial', 'socios_comerciales.id_comercial', '=', 'comercial.id')
-                    ->select('socios.*')
+                    ->join('sociedad', 'comercial.id_sociedad', '=', 'sociedad.id')
+                    ->select('socios.*', 'sociedad.nombre as nombre_sociedad')
                     ->distinct() // Importante para no duplicar si un socio tiene múltiples comerciales
                     ->get();
                 return $socios;
@@ -58,13 +59,16 @@ class SocioController extends Controller
 
             $socios = Socio::join('socios_comerciales', 'socios.id', '=', 'socios_comerciales.id_socio')
                 ->join('comercial', 'socios_comerciales.id_comercial', '=', 'comercial.id')
+                ->join('sociedad', 'comercial.id_sociedad', '=', 'sociedad.id')
                 ->whereIn('comercial.id_sociedad', $sociedades)
-                ->select('socios.*')
+                ->select('socios.*', 'sociedad.nombre as nombre_sociedad')
                 ->get();
         } else {
             $socios = Socio::join('socios_comerciales', 'socios.id', '=', 'socios_comerciales.id_socio')
+                ->join('comercial', 'socios_comerciales.id_comercial', '=', 'comercial.id')
+                ->join('sociedad', 'comercial.id_sociedad', '=', 'sociedad.id')
                 ->where('socios_comerciales.id_comercial', $id_comercial)
-                ->select('socios.*')
+                ->select('socios.*', 'sociedad.nombre as nombre_sociedad')
                 ->get();
         }
 
@@ -167,8 +171,27 @@ class SocioController extends Controller
 
     public function show($id)
     {
-        $socio = Socio::find($id);
-        return response()->json($socio);
+        $socio = Socio::with(['socioComercial.comercial.sociedad'])->find($id);
+
+        if (!$socio) {
+            return response()->json(['message' => 'Socio not found'], 404);
+        }
+
+        // Aplanamos la estructura si es necesario para el frontend, o dejamos que el frontend lo maneje.
+        // Vamos a devolver el objeto socio con las relaciones anidadas.
+        // Para facilitar al frontend, podemos añadir campos calculados o simplemente usar los datos anidados.
+
+        $data = $socio->toArray();
+
+        // Añadimos información directa si existe la relación
+        if ($socio->socioComercial && $socio->socioComercial->comercial) {
+            $data['nombre_comercial'] = $socio->socioComercial->comercial->nombre;
+            if ($socio->socioComercial->comercial->sociedad) {
+                $data['nombre_sociedad'] = $socio->socioComercial->comercial->sociedad->nombre;
+            }
+        }
+
+        return response()->json($data);
     }
 
     public function update(Request $request, $id)

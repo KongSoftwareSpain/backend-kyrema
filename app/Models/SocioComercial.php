@@ -33,4 +33,9 @@ class SocioComercial extends Model
     {
         return $date->format('Y-m-d\TH:i:s');
     }
+
+    public function comercial()
+    {
+        return $this->belongsTo(Comercial::class, 'id_comercial', 'id');
+    }
 }

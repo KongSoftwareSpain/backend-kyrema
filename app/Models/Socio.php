@@ -67,4 +67,9 @@ class Socio extends Authenticatable
     {
         return $date->format('Y-m-d\TH:i:s');
     }
+
+    public function socioComercial()
+    {
+        return $this->hasOne(SocioComercial::class, 'id_socio', 'id');
+    }
 }
