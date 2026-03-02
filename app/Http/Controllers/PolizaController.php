@@ -10,13 +10,15 @@ use Illuminate\Support\Facades\DB;
 
 class PolizaController extends Controller
 {
-    public function getPolizasByCompany($id){
+    public function getPolizasByCompany($id)
+    {
         $polizas = Poliza::where('compania_id', $id)->get();
 
         return response()->json($polizas);
     }
 
-    public function getPolizaById($id){
+    public function getPolizaById($id)
+    {
         $poliza = Poliza::find($id);
 
         return response()->json($poliza);
@@ -64,7 +66,7 @@ class PolizaController extends Controller
 
                 // Comprobar si ya existe un archivo con el mismo nombre
                 if (Storage::disk('public')->exists($rutaArchivo)) {
-                    return response()->json(['error' => 'Ya existe un document con el nombre '. $nombreArchivo], 400);
+                    return response()->json(['error' => 'Ya existe un document con el nombre ' . $nombreArchivo], 400);
                 }
 
                 // Guardar la plantilla Excel en el sistema de archivos
@@ -124,7 +126,7 @@ class PolizaController extends Controller
 
                 // Comprobar si ya existe un archivo con el mismo nombre
                 if (Storage::disk('public')->exists($rutaArchivo)) {
-                    return response()->json(['error' => 'Ya existe un document con el nombre '. $nombreArchivo], 400);
+                    return response()->json(['error' => 'Ya existe un document con el nombre ' . $nombreArchivo], 400);
                 }
 
                 // Guardar la plantilla Excel en el sistema de archivos
@@ -142,7 +144,8 @@ class PolizaController extends Controller
         return response()->json($poliza);
     }
 
-    public function downloadPoliza(Request $request, $id){
+    public function downloadPoliza(Request $request, $id)
+    {
         $poliza = Poliza::findOrFail($id);
 
         $docField = $request->doc_adjunto;
@@ -161,23 +164,31 @@ class PolizaController extends Controller
         return response()->download(storage_path('app/public/' . $rutaArchivo));
     }
 
-    public function getPolizasByTipoProducto($id){
+    public function getPolizasByTipoProducto($id)
+    {
 
         $polizas = DB::table('tipo_producto_polizas')
-            ->select('id',
-            'poliza_id',
-            'compania_id',
-            'fila',
-            'columna',
-            'page',
-            'copia')
+            ->select(
+                'id',
+                'poliza_id',
+                'compania_id',
+                'fila',
+                'columna',
+                'page',
+                'fila_logo',
+                'columna_logo',
+                'page_logo',
+                'font_size',
+                'copia'
+            )
             ->where('tipo_producto_id', $id)
             ->get();
 
         return response()->json($polizas);
     }
 
-    public function updatePolizas(Request $request, $id){
+    public function updatePolizas(Request $request, $id)
+    {
         $polizas = $request->all();
 
         Log::info($polizas);
@@ -185,7 +196,7 @@ class PolizaController extends Controller
         //Borrar todas las plizas conectadas anteriormente:
         DB::table('tipo_producto_polizas')
             ->where('tipo_producto_id', $id)
-            ->delete(); 
+            ->delete();
 
         foreach ($polizas as $poliza) {
             DB::table('tipo_producto_polizas')
@@ -195,15 +206,20 @@ class PolizaController extends Controller
                     'compania_id' => $poliza['compania_id'],
                     'fila' => $poliza['fila'],
                     'columna' => $poliza['columna'],
-                    'page' => $poliza['page'],
-                    'copia' => $poliza['copia'],
+                    'page' => $poliza['page'] ?? 1,
+                    'fila_logo' => $poliza['fila_logo'] ?? null,
+                    'columna_logo' => $poliza['columna_logo'] ?? null,
+                    'page_logo' => $poliza['page_logo'] ?? null,
+                    'font_size' => $poliza['font_size'] ?? null,
+                    'copia' => $poliza['copia'] ?? 0,
                 ]);
         }
 
         return response()->json($polizas);
     }
 
-    public function destroy($id){
+    public function destroy($id)
+    {
         $poliza = Poliza::findOrFail($id);
 
         // Eliminar los documentos adjuntos
@@ -221,5 +237,4 @@ class PolizaController extends Controller
 
         return response()->json(['message' => 'Póliza eliminada correctamente']);
     }
-
 }

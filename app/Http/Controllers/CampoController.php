@@ -123,7 +123,6 @@ class CampoController extends Controller
         });
 
         return response()->json($opciones);
-
     }
 
 
@@ -172,6 +171,7 @@ class CampoController extends Controller
             'grupo' => $data['grupo'] ?? null,
             'opciones' => $nombreTabla,
             'copia' => $data['copia'] ?? false,
+            'font_size' => $data['font_size'] ?? null,
             'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
             'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
         ]);
@@ -198,6 +198,7 @@ class CampoController extends Controller
             'visible' => 'required|boolean',
             'obligatorio' => 'required|boolean',
             'grupo' => 'nullable|string|max:255',
+            'font_size' => 'nullable|string|max:255',
             'opciones' => 'nullable|array',
         ]);
 
@@ -243,6 +244,7 @@ class CampoController extends Controller
                 'grupo' => $data['grupo'] ?? null,
                 'opciones' => $nombreTabla,
                 'copia' => $data['copia'] ?? false,
+                'font_size' => $data['font_size'] ?? null,
                 'created_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
                 'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
             ]);
@@ -261,7 +263,6 @@ class CampoController extends Controller
             DB::commit();
 
             return response()->json(['message' => 'Campo con opciones creado exitosamente'], 201);
-
         } catch (\Exception $e) {
             // Si algo falla, revertir los cambios
             DB::rollBack();
@@ -273,7 +274,6 @@ class CampoController extends Controller
 
             return response()->json(['error' => 'Error al crear el campo: ' . $e->getMessage()], 500);
         }
-
     }
 
     private function addCampoConOpciones($campoConOpciones, $letrasIdentificacion)
@@ -333,6 +333,10 @@ class CampoController extends Controller
         // Actualizar el campo principal si es necesario
         DB::table('campos')->where('id', $id)->update([
             'nombre' => $request->input('nombre'),
+            'columna' => $request->input('columna'),
+            'fila' => $request->input('fila'),
+            'page' => $request->input('page'),
+            'font_size' => $request->input('font_size'),
             'visible' => $request->input('visible'),
             'obligatorio' => $request->input('obligatorio'),
             'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s'),
@@ -454,4 +458,3 @@ class CampoController extends Controller
         ]);
     }
 }
-
