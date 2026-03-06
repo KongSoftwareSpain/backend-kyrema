@@ -456,7 +456,6 @@ class ProductoController extends Controller
             ->when(count($sociedades) > 0 && !in_array(env('SOCIEDAD_ADMIN_ID', 1), $sociedades), function ($query) use ($sociedades) {
                 $query->whereIn('sociedad_id', $sociedades);
             })
-            ->where('fecha_de_fin', '>=', $fechaActual) // Filtrar productos con fecha_de_fin mayor que la fecha actual
             ->orderBy('updated_at', 'desc')
             ->get();
 
@@ -473,7 +472,6 @@ class ProductoController extends Controller
                 ->when(count($sociedades) > 0 && !in_array(env('SOCIEDAD_ADMIN_ID', 1), $sociedades), function ($query) use ($sociedades, $nombreTabla) {
                     $query->whereIn("$nombreTabla.sociedad_id", $sociedades);
                 })
-                ->where("$nombreTablaAnexo.fecha_de_fin", '>=', $fechaActual) // Anexo vigente
                 ->select("$nombreTabla.*") // Seleccionar solo los productos
                 ->orderBy("$nombreTabla.updated_at", 'desc')
                 ->get();
@@ -486,7 +484,7 @@ class ProductoController extends Controller
         $productosFinales = $productosVigentes->merge($productosConAnexosVigentes);
 
         // 4. Eliminar duplicados por ID de producto
-        return response()->json($productosFinales->unique('id'));
+        return response()->json($this->appendApellidos($nombreTabla, $productosFinales->unique('id')));
     }
 
     public function getProductosByTipoAndComercial($letrasIdentificacion, $comercial_id)
@@ -507,10 +505,9 @@ class ProductoController extends Controller
         // Obtener la fecha y hora actual
         $fechaActual = Carbon::now()->format('Y-m-d\TH:i:s');
 
-        // Obtener los productos que están vigentes (fecha de fin >= fecha actual)
+        // Obtener los productos que están asociados al comercial
         $productosVigentes = DB::table($nombreTabla)
             ->where('comercial_id', $comercial_id)
-            ->where('fecha_de_fin', '>=', $fechaActual)
             ->orderBy('updated_at', 'desc')
             ->get();
 
@@ -521,11 +518,10 @@ class ProductoController extends Controller
             // Convertir letra del anexo en nombre de tabla
             $nombreTablaAnexo = strtolower($letraAnexo);
 
-            // Consultar los productos con anexos vigentes en cada tabla de anexos
+            // Consultar los productos con anexos en cada tabla de anexos
             $productosAnexoVigentes = DB::table($nombreTablaAnexo)
                 ->join($nombreTabla, "$nombreTablaAnexo.producto_id", '=', "$nombreTabla.id")
                 ->where("$nombreTabla.comercial_id", $comercial_id)
-                ->where("$nombreTablaAnexo.fecha_de_fin", '>=', $fechaActual)
                 ->select("$nombreTabla.*") // Seleccionar solo los productos
                 ->orderBy("$nombreTabla.updated_at", 'desc')
                 ->get();
@@ -538,7 +534,7 @@ class ProductoController extends Controller
         $productosFinales = $productosVigentes->merge($productosConAnexosVigentes);
 
         // Devolver los productos como respuesta JSON
-        return response()->json($productosFinales->unique('id')); // Eliminar duplicados por ID
+        return response()->json($this->appendApellidos($nombreTabla, $productosFinales->unique('id'))); // Eliminar duplicados por ID
     }
 
     public function getHistorialProductosByTipoAndSociedades($letrasIdentificacion, Request $request)
@@ -568,7 +564,7 @@ class ProductoController extends Controller
             ->orderBy('updated_at', 'desc') // Ordenar por fecha de actualización de forma descendente
             ->get();
 
-        return response()->json($productos);
+        return response()->json($this->appendApellidos($nombreTabla, $productos));
     }
 
 
@@ -587,7 +583,33 @@ class ProductoController extends Controller
             ->orderBy('updated_at', 'desc') // Ordenar por fecha de actualización de forma descendente
             ->get();
 
-        return response()->json($productos);
+        return response()->json($this->appendApellidos($nombreTabla, $productos));
+    }
+
+    /**
+     * Append apellido_1 and apellido_2 to each row if those columns exist in the table.
+     * This ensures the frontend can always build the full name without needing them as visible campos.
+     */
+    private function appendApellidos(string $nombreTabla, $productos)
+    {
+        $hasApe1 = Schema::hasColumn($nombreTabla, 'apellido_1');
+        $hasApe2 = Schema::hasColumn($nombreTabla, 'apellido_2');
+
+        if (!$hasApe1 && !$hasApe2) {
+            return $productos;
+        }
+
+        // If the collection was returned from ->get() the items are stdClass objects.
+        return $productos->map(function ($row) use ($hasApe1, $hasApe2) {
+            $row = (array) $row;
+            if ($hasApe1 && !array_key_exists('apellido_1', $row)) {
+                $row['apellido_1'] = null;
+            }
+            if ($hasApe2 && !array_key_exists('apellido_2', $row)) {
+                $row['apellido_2'] = null;
+            }
+            return (object) $row;
+        });
     }
 
 
