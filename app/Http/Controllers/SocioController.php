@@ -26,7 +26,7 @@ class SocioController extends Controller
 
     public function getAsegurado($dni, $categoria_id)
     {
-        $socio = Socio::where('dni', $dni)->where('categoria_id', $categoria_id)->first();
+        $socio = Socio::where('dni', $dni)->first();
         if (!$socio) {
             return response()->json(['message' => 'Socio not found.'], 404);
         }
@@ -96,15 +96,17 @@ class SocioController extends Controller
             'asegurado.codigo_postal' => 'nullable|string',
         ], [
             'asegurado.email.email' => 'El formato del correo electrónico no es correcto.',
+            'asegurado.categoria_id.required' => 'La categoría es obligatoria.',
+            'asegurado.categoria_id.integer' => 'La categoría debe ser un número entero.',
+            'asegurado.categoria_id.exists' => 'La categoría seleccionada no existe.',
         ]);
 
         $asegurado = $data['asegurado'];
         $sendEmail = $request->boolean('sendEmail');
 
-        // Validar si el DNI ya existe en la misma categoría
+        // Validar si el DNI ya existe globalmente
         $exists = Socio::query()
             ->where('dni', $asegurado['dni'])
-            ->where('categoria_id', $categoria_id)
             ->exists();
 
         if ($exists) {
