@@ -103,16 +103,26 @@ class RemesaController extends Controller
         ]);
 
         // Buscar giros relacionados a pagos filtrados por sociedad y tipo
-        $giros = GiroBancario::whereBetween('created_at', [
-            Carbon::parse($validated['desde'])->format('Y-m-d\TH:i:s'),
-            Carbon::parse($validated['hasta'])->addDay()->format('Y-m-d\TH:i:s')
-        ])
+        $giros = GiroBancario::with('pago')
             ->whereHas('pago', function ($query) use ($validated) {
                 if ($validated['sociedad_id'] != 0) {
                     $query->where('sociedad_id', $validated['sociedad_id']);
                 }
             })
             ->get();
+
+        // Filtrar por fecha_de_inicio del producto relacionado
+        $giros = $giros->filter(function ($giro) use ($validated) {
+            $producto = $giro->pago ? $giro->pago->obtenerProductoRelacionado() : null;
+            if (!$producto || !isset($producto->fecha_de_inicio)) {
+                return false;
+            }
+            $fechaInicio = \Carbon\Carbon::parse($producto->fecha_de_inicio);
+            $desde = \Carbon\Carbon::parse($validated['desde']);
+            $hasta = \Carbon\Carbon::parse($validated['hasta']);
+
+            return $fechaInicio->between($desde, $hasta);
+        });
 
         if ($giros->isEmpty()) {
             return response()->json(['message' => 'No hay giros en ese rango'], 404);
@@ -162,20 +172,33 @@ class RemesaController extends Controller
 
         Log::info('Guardar fecha de cobro', [
             'fechaCobro' => $validated['fechaCobro'],
-            'filtro' => $validated['filtro'], 
+            'filtro' => $validated['filtro'],
         ]);
 
         $desde = Carbon::parse($validated['filtro']['desde'])->format('Y-m-d\TH:i:s');
         $hasta = Carbon::parse($validated['filtro']['hasta'])->format('Y-m-d\TH:i:s');
         $sociedadId = $validated['filtro']['sociedad_id'];
 
-        $updated = GiroBancario::whereBetween('created_at', [$desde, $hasta])
+        $giros = GiroBancario::with('pago')
             ->whereHas('pago', function ($query) use ($sociedadId) {
                 if ($sociedadId != 0) {
                     $query->where('sociedad_id', $sociedadId);
                 }
             })
+            ->get();
+
+        $idsToUpdate = $giros->filter(function ($giro) use ($desde, $hasta) {
+            $producto = $giro->pago ? $giro->pago->obtenerProductoRelacionado() : null;
+            if (!$producto || !isset($producto->fecha_de_inicio)) {
+                return false;
+            }
+            $fechaInicio = \Carbon\Carbon::parse($producto->fecha_de_inicio);
+            return $fechaInicio->between(\Carbon\Carbon::parse($desde), \Carbon\Carbon::parse($hasta));
+        })->pluck('id');
+
+        $updated = GiroBancario::whereIn('id', $idsToUpdate)
             ->update(['fecha_cobro' => Carbon::parse($validated['fechaCobro'])]);
+
 
         return response()->json([
             'message' => 'Fecha de cobro actualizada correctamente.',

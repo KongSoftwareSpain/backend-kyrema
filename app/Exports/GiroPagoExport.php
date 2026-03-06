@@ -10,26 +10,40 @@ class GiroPagoExport implements PagoExportInterface
     public function getPagos(int $sociedadId, ?string $desde = null, ?string $hasta = null): Collection
     {
         $query = GiroBancario::with('pago')
-            ->whereHas('pago', function ($q) use ($sociedadId, $desde, $hasta) {
+            ->whereHas('pago', function ($query) use ($sociedadId) {
                 if ($sociedadId !== 0) {
-                    $q->where('sociedad_id', $sociedadId);
-                }
-
-                if ($desde) {
-                    $q->whereDate('fecha', '>=', $desde);
-                }
-
-                if ($hasta) {
-                    $q->whereDate('fecha', '<=', $hasta);
+                    $query->where('sociedad_id', $sociedadId);
                 }
             });
 
-        return $query->get()->map(function ($giro) {
+        $giros = $query->get();
+
+        // Filtrar por fecha_de_inicio del producto relacionado
+        if ($desde || $hasta) {
+            $giros = $giros->filter(function ($giro) use ($desde, $hasta) {
+                $producto = $giro->pago ? $giro->pago->obtenerProductoRelacionado() : null;
+                if (!$producto || !isset($producto->fecha_de_inicio)) {
+                    return false;
+                }
+                $fechaInicio = \Carbon\Carbon::parse($producto->fecha_de_inicio);
+
+                if ($desde && $fechaInicio->lt(\Carbon\Carbon::parse($desde))) {
+                    return false;
+                }
+                if ($hasta && $fechaInicio->gt(\Carbon\Carbon::parse($hasta))) {
+                    return false;
+                }
+                return true;
+            });
+        }
+
+        return $giros->map(function ($giro) {
+            $producto = $giro->pago ? $giro->pago->obtenerProductoRelacionado() : null;
             return [
                 'Referencia' => $giro->referencia,
                 'Tipo de pago' => $giro->pago->tipo_pago ?? 'N/A',
                 'Monto' => number_format($giro->pago->monto ?? 0, 2, ',', '.'),
-                'Fecha de creación' => optional($giro->pago->fecha)->format('Y-m-d'),
+                'Fecha de inicio' => $producto ? \Carbon\Carbon::parse($producto->fecha_de_inicio)->format('Y-m-d') : 'N/A',
 
                 'Nombre del cliente' => $giro->nombre_cliente,
                 'DNI' => $giro->dni,
