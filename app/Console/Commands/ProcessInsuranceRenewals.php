@@ -14,12 +14,7 @@ use Carbon\Carbon;
 
 class ProcessInsuranceRenewals extends Command
 {
-    /**
-     * The name and signature of the console command.
-     *
-     * @var string
-     */
-    protected $signature = 'insurances:process-renewals {--date= : The date to run the process for (Y-m-d)}';
+    protected $signature = 'insurances:process-renewals {--date= : The date to run the process for (Y-m-d)} {--test-email= : Send all emails to this address instead of the real clients (Safe mode)}';
 
     /**
      * The console command description.
@@ -93,13 +88,19 @@ class ProcessInsuranceRenewals extends Command
             })
             ->get();
 
+        $testEmail = $this->option('test-email');
+
         foreach ($productsToNotify as $product) {
-            if (!empty($product->email)) {
-                $this->info("Enviando aviso de renovación a: {$product->email} (ID: {$product->id})");
+            $emailOriginal = property_exists($product, 'email') ? $product->email : null;
+            $destino = $testEmail ? $testEmail : $emailOriginal;
+
+            if (!empty($destino)) {
+                $mensajeAviso = $testEmail ? " (MODO PRUEBA: Redirigido desde {$emailOriginal})" : "";
+                $this->info("Enviando aviso de renovación a: {$destino}{$mensajeAviso} (ID original: {$product->id})");
                 try {
-                    Mail::to($product->email)->send(new PreRenewalMail($product, $tipo->letras_identificacion));
+                    Mail::to($destino)->send(new PreRenewalMail($product, $tipo->letras_identificacion));
                 } catch (\Exception $e) {
-                    Log::error("Error enviando PreRenewalMail a {$product->email}: " . $e->getMessage());
+                    Log::error("Error enviando PreRenewalMail a {$destino}: " . $e->getMessage());
                 }
             } else {
                 $this->warn("Producto ID {$product->id} en {$tableName} no tiene email para notificar.");
@@ -120,16 +121,22 @@ class ProcessInsuranceRenewals extends Command
             })
             ->get();
 
+        $testEmail = $this->option('test-email');
+
         foreach ($productsToRenew as $oldProduct) {
             $this->info("Renovando producto ID: {$oldProduct->id}");
             try {
                 // Generar nuevo registro y PDF
                 $newProduct = $this->renewalService->renewInsurance($tipo->letras_identificacion, $oldProduct->id);
 
+                $emailOriginal = property_exists($newProduct, 'email') ? $newProduct->email : null;
+                $destino = $testEmail ? $testEmail : $emailOriginal;
+
                 // Enviar correo de éxito
-                if (!empty($newProduct->email)) {
-                    $this->info("Enviando correo de éxito a: {$newProduct->email}");
-                    Mail::to($newProduct->email)->send(new RenewalSuccessMail($newProduct, $tipo->letras_identificacion));
+                if (!empty($destino)) {
+                    $mensajeAviso = $testEmail ? " (MODO PRUEBA: Redirigido desde {$emailOriginal})" : "";
+                    $this->info("Enviando correo de éxito a: {$destino}{$mensajeAviso}");
+                    Mail::to($destino)->send(new RenewalSuccessMail($newProduct, $tipo->letras_identificacion));
                 }
             } catch (\Exception $e) {
                 Log::error("Error renovando producto ID {$oldProduct->id} en tabla {$tableName}: " . $e->getMessage());

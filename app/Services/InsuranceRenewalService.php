@@ -40,7 +40,14 @@ class InsuranceRenewalService
             // Eliminar la ID original para que genere una nueva
             unset($newData['id']);
 
-            // Actualizar fechas
+            // Parsear fechas y asegurar el formato ISO-8601 en cualquier fecha heredada del objeto anterior
+            foreach ($newData as $key => $value) {
+                if (is_string($value) && preg_match('/^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}(?:\.\d+)?$/', $value)) {
+                    $newData[$key] = Carbon::parse($value)->format('Y-m-d\TH:i:s.000');
+                }
+            }
+
+            // Actualizar fechas principales
             $oldFechaInicio = Carbon::parse($oldRecord->fecha_de_inicio);
             $oldFechaFin = Carbon::parse($oldRecord->fecha_de_fin);
 
@@ -57,12 +64,12 @@ class InsuranceRenewalService
             $newFechaInicio = Carbon::today();
             $newFechaFin = Carbon::today()->addMonths($diffInMonths);
 
-            $newData['fecha_de_inicio'] = $newFechaInicio->format('Y-m-d\TH:i:s');
-            $newData['fecha_de_fin'] = $newFechaFin->format('Y-m-d\TH:i:s');
+            $newData['fecha_de_inicio'] = $newFechaInicio->format('Y-m-d\TH:i:s.000');
+            $newData['fecha_de_fin'] = $newFechaFin->format('Y-m-d\TH:i:s.000');
 
             // Tiempos de creación
-            $newData['created_at'] = Carbon::now()->format('Y-m-d\TH:i:s');
-            $newData['updated_at'] = Carbon::now()->format('Y-m-d\TH:i:s');
+            $newData['created_at'] = Carbon::now()->format('Y-m-d\TH:i:s.000');
+            $newData['updated_at'] = Carbon::now()->format('Y-m-d\TH:i:s.000');
 
             // Limpiar blob_name viejo, ya que vamos a generar uno nuevo
             $newData['blob_name'] = null;
@@ -110,7 +117,13 @@ class InsuranceRenewalService
             $fileName = strtolower($fileName);
 
             // Si usamos local storage o Azure
-            Storage::disk('azure')->put($letrasIdentificacion . '/' . $newData['codigo_producto'] . '/' . $fileName, $pdfContent);
+            try {
+                Storage::disk('azure')->put($letrasIdentificacion . '/' . $newData['codigo_producto'] . '/' . $fileName, $pdfContent);
+            } catch (\Exception $e) {
+                // Fallback to local storage if azure fails/is not configured (e.g., in local environment)
+                Log::warning("Azure storage failed or not configured, falling back to default disk: " . $e->getMessage());
+                Storage::put($letrasIdentificacion . '/' . $newData['codigo_producto'] . '/' . $fileName, $pdfContent);
+            }
 
             // Actualizar la BBDD con el nombre del blob
             DB::table($tableName)->where('id', $newId)->update(['blob_name' => $fileName]);

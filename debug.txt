@@ -1,0 +1,100 @@
+    make:session-table
+    make:test
+    make:trait
+    make:view {"exception":"[object] (Symfony\\Component\\Console\\Exception\\CommandNotFoundException(code: 0): Command \"make:service\" is not defined.
+
+Did you mean one of these?
+    make:cache-table
+    make:cast
+    make:channel
+    make:class
+    make:command
+    make:component
+    make:controller
+    make:enum
+    make:event
+    make:exception
+    make:factory
+    make:interface
+    make:job
+    make:listener
+    make:mail
+    make:middleware
+    make:migration
+    make:model
+    make:notification
+    make:notifications-table
+    make:observer
+    make:policy
+    make:provider
+    make:queue-batches-table
+    make:queue-failed-table
+    make:queue-table
+    make:request
+    make:resource
+    make:rule
+    make:scope
+    make:seeder
+    make:session-table
+    make:test
+    make:trait
+    make:view at C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\symfony\\console\\Application.php:702)
+[stacktrace]
+#0 C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\symfony\\console\\Application.php(258): Symfony\\Component\\Console\\Application->find('make:service')
+#1 C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\symfony\\console\\Application.php(167): Symfony\\Component\\Console\\Application->doRun(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#2 C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Console\\Kernel.php(197): Symfony\\Component\\Console\\Application->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#3 C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Application.php(1203): Illuminate\\Foundation\\Console\\Kernel->handle(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#4 C:\\Users\\marav\\source\\repos\\backend-kyrema\\artisan(13): Illuminate\\Foundation\\Application->handleCommand(Object(Symfony\\Component\\Console\\Input\\ArgvInput))
+#5 {main}
+"} 
+[2026-03-09 10:00:11] local.ERROR: PHP Parse error: Syntax error, unexpected '=' on line 2 {"exception":"[object] (Psy\\Exception\\ParseErrorException(code: 0): PHP Parse error: Syntax error, unexpected '=' on line 2 at C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\psy\\psysh\\src\\Exception\\ParseErrorException.php:44)
+[stacktrace]
+#0 C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\psy\\psysh\\src\\CodeCleaner.php(311): Psy\\Exception\\ParseErrorException::fromParseError(Object(PhpParser\\Error))
+#1 C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\psy\\psysh\\src\\CodeCleaner.php(240): Psy\\CodeCleaner->parse('<?php \\n = new \\\\...', false)
+#2 C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\psy\\psysh\\src\\Shell.php(848): Psy\\CodeCleaner->clean(Array, false)
+#3 C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\psy\\psysh\\src\\Shell.php(877): Psy\\Shell->addCode('\\n = new \\\\stdCla...', true)
+#4 C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\psy\\psysh\\src\\Shell.php(1342): Psy\\Shell->setCode('\\n = new \\\\stdCla...', true)
+#5 C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\laravel\\tinker\\src\\Console\\TinkerCommand.php(76): Psy\\Shell->execute('\\n = new \\\\stdCla...')
+#6 C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\BoundMethod.php(36): Laravel\\Tinker\\Console\\TinkerCommand->handle()
+#7 C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\Util.php(41): Illuminate\\Container\\BoundMethod::Illuminate\\Container\\{closure}()
+#8 C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\BoundMethod.php(93): Illuminate\\Container\\Util::unwrapIfClosure(Object(Closure))
+#9 C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\BoundMethod.php(35): Illuminate\\Container\\BoundMethod::callBoundMethod(Object(Illuminate\\Foundation\\Application), Array, Object(Closure))
+#10 C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\Container.php(690): Illuminate\\Container\\BoundMethod::call(Object(Illuminate\\Foundation\\Application), Array, Array, NULL)
+#11 C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\laravel\\framework\\src\\Illuminate\\Console\\Command.php(213): Illuminate\\Container\\Container->call(Array)
+#12 C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\symfony\\console\\Command\\Command.php(279): Illuminate\\Console\\Command->execute(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Illuminate\\Console\\OutputStyle))
+#13 C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\laravel\\framework\\src\\Illuminate\\Console\\Command.php(182): Symfony\\Component\\Console\\Command\\Command->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Illuminate\\Console\\OutputStyle))
+#14 C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\symfony\\console\\Application.php(1047): Illuminate\\Console\\Command->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#15 C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\symfony\\console\\Application.php(316): Symfony\\Component\\Console\\Application->doRunCommand(Object(Laravel\\Tinker\\Console\\TinkerCommand), Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#16 C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\symfony\\console\\Application.php(167): Symfony\\Component\\Console\\Application->doRun(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#17 C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Console\\Kernel.php(197): Symfony\\Component\\Console\\Application->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#18 C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Application.php(1203): Illuminate\\Foundation\\Console\\Kernel->handle(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#19 C:\\Users\\marav\\source\\repos\\backend-kyrema\\artisan(13): Illuminate\\Foundation\\Application->handleCommand(Object(Symfony\\Component\\Console\\Input\\ArgvInput))
+#20 {main}
+"} 
+[2026-03-09 10:00:20] local.ERROR: PHP Parse error: Syntax error, unexpected '=' on line 2 {"exception":"[object] (Psy\\Exception\\ParseErrorException(code: 0): PHP Parse error: Syntax error, unexpected '=' on line 2 at C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\psy\\psysh\\src\\Exception\\ParseErrorException.php:44)
+[stacktrace]
+#0 C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\psy\\psysh\\src\\CodeCleaner.php(311): Psy\\Exception\\ParseErrorException::fromParseError(Object(PhpParser\\Error))
+#1 C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\psy\\psysh\\src\\CodeCleaner.php(240): Psy\\CodeCleaner->parse('<?php \\n = new \\\\...', false)
+#2 C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\psy\\psysh\\src\\Shell.php(848): Psy\\CodeCleaner->clean(Array, false)
+#3 C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\psy\\psysh\\src\\Shell.php(877): Psy\\Shell->addCode('\\n = new \\\\stdCla...', true)
+#4 C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\psy\\psysh\\src\\Shell.php(1342): Psy\\Shell->setCode('\\n = new \\\\stdCla...', true)
+#5 C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\laravel\\tinker\\src\\Console\\TinkerCommand.php(76): Psy\\Shell->execute('\\n = new \\\\stdCla...')
+#6 C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\BoundMethod.php(36): Laravel\\Tinker\\Console\\TinkerCommand->handle()
+#7 C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\Util.php(41): Illuminate\\Container\\BoundMethod::Illuminate\\Container\\{closure}()
+#8 C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\BoundMethod.php(93): Illuminate\\Container\\Util::unwrapIfClosure(Object(Closure))
+#9 C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\BoundMethod.php(35): Illuminate\\Container\\BoundMethod::callBoundMethod(Object(Illuminate\\Foundation\\Application), Array, Object(Closure))
+#10 C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\Container.php(690): Illuminate\\Container\\BoundMethod::call(Object(Illuminate\\Foundation\\Application), Array, Array, NULL)
+#11 C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\laravel\\framework\\src\\Illuminate\\Console\\Command.php(213): Illuminate\\Container\\Container->call(Array)
+#12 C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\symfony\\console\\Command\\Command.php(279): Illuminate\\Console\\Command->execute(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Illuminate\\Console\\OutputStyle))
+#13 C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\laravel\\framework\\src\\Illuminate\\Console\\Command.php(182): Symfony\\Component\\Console\\Command\\Command->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Illuminate\\Console\\OutputStyle))
+#14 C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\symfony\\console\\Application.php(1047): Illuminate\\Console\\Command->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#15 C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\symfony\\console\\Application.php(316): Symfony\\Component\\Console\\Application->doRunCommand(Object(Laravel\\Tinker\\Console\\TinkerCommand), Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#16 C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\symfony\\console\\Application.php(167): Symfony\\Component\\Console\\Application->doRun(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#17 C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Console\\Kernel.php(197): Symfony\\Component\\Console\\Application->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#18 C:\\Users\\marav\\source\\repos\\backend-kyrema\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Application.php(1203): Illuminate\\Foundation\\Console\\Kernel->handle(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#19 C:\\Users\\marav\\source\\repos\\backend-kyrema\\artisan(13): Illuminate\\Foundation\\Application->handleCommand(Object(Symfony\\Component\\Console\\Input\\ArgvInput))
+#20 {main}
+"} 
+[2026-03-09 10:16:14] local.ERROR: Error procesando renovaciones en tabla anexos_peas: Undefined property: stdClass::$email  
+[2026-03-09 10:26:43] local.ERROR: InsuranceRenewalService Error: SQLSTATE[22007]: [Microsoft][ODBC Driver 17 for SQL Server][SQL Server]La conversión del tipo de datos nvarchar en datetime produjo un valor fuera de intervalo. (Connection: sqlsrv, SQL: insert into [producto_c] ([sociedad_id], [tipo_de_pago_id], [comercial_id], [comercial_creador_id], [mediante_pagina_web], [socio_id], [logo_sociedad_path], [plantilla_path_1], [plantilla_path_2], [plantilla_path_3], [plantilla_path_4], [plantilla_path_5], [plantilla_path_6], [plantilla_path_7], [plantilla_path_8], [duracion], [anulado], [codigo_producto], [comercial], [extra_1], [extra_2], [extra_3], [fecha_de_emisión], [fecha_de_fin], [fecha_de_inicio], [numero_anexos], [precio_base], [precio_final], [precio_total], [sociedad], [tipo_de_pago], [apellido_1], [apellido_2], [codigo_postal], [dirección], [dni], [email], [fecha_de_nacimiento], [nombre_socio], [población], [provincia], [sexo], [telefono], [created_at], [updated_at], [subproducto], [subproducto_codigo], [finca_o_lugar_del_evento], [matricula], [poblacion], [nº_de_puestos], [tipo_de_caceria], [finca_o_lugar_de_evento], [cod_postal_finca], [poblacion_finca], [puestos], [tipo_de_cacería], [población_o_finca], [numero_de_puestos], [hora_de_emisión], [hora_de_fin], [hora_de_inicio], [pago_id], [codigo_postal_finca], [matricula_del_coto], [dni_cazador], [nombre_cazador], [blob_name], [tipo_de_evento], [poblacion_de_realizacion], [codigo_postal_realizacion], [numero_de_participantes]) values (1, 6, 1, 1, 0, 21298, logos/logo_18.png, plantillas/NO LOGO Cacerias Kyrema 2025 cara A OPCION A - copia 3.jpg, plantillas/Certificado Cacerias Kyrema 2025 cara B - copia 17.jpg, ?, ?, ?, ?, ?, ?, 1, 0, 032026C000000001, Admin, 1.50, .00, .00, 2025-12-05 07:54:03.000, 2983-03-09T00:00:00, 2026-03-09T00:00:00, 0, 60.50, 62, 62.00, Admin, No completado, Maraver, Castro, 11407, Avenida San Joaquin 9A, 32909712R, maraverdev@gmail.com, 2005-07-21 07:54:03.000, Gonzalo, Jerez de la Frontera, Cádiz, M, 601328459, 2026-03-09T10:26:43, 2026-03-09T10:26:43, 10237, Cacerias 300.000, ?, fsdfasfasd, ?, ?, Monteria, fsdfadsfdsa, fsadfsadf, asdfsadfs, Hasta 40, ?, ?, ?, 07:54:03, 07:54:03, 07:54:03, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?))  
+[2026-03-09 10:26:43] local.ERROR: Error renovando producto ID 33 en tabla producto_c: SQLSTATE[22007]: [Microsoft][ODBC Driver 17 for SQL Server][SQL Server]La conversión del tipo de datos nvarchar en datetime produjo un valor fuera de intervalo. (Connection: sqlsrv, SQL: insert into [producto_c] ([sociedad_id], [tipo_de_pago_id], [comercial_id], [comercial_creador_id], [mediante_pagina_web], [socio_id], [logo_sociedad_path], [plantilla_path_1], [plantilla_path_2], [plantilla_path_3], [plantilla_path_4], [plantilla_path_5], [plantilla_path_6], [plantilla_path_7], [plantilla_path_8], [duracion], [anulado], [codigo_producto], [comercial], [extra_1], [extra_2], [extra_3], [fecha_de_emisión], [fecha_de_fin], [fecha_de_inicio], [numero_anexos], [precio_base], [precio_final], [precio_total], [sociedad], [tipo_de_pago], [apellido_1], [apellido_2], [codigo_postal], [dirección], [dni], [email], [fecha_de_nacimiento], [nombre_socio], [población], [provincia], [sexo], [telefono], [created_at], [updated_at], [subproducto], [subproducto_codigo], [finca_o_lugar_del_evento], [matricula], [poblacion], [nº_de_puestos], [tipo_de_caceria], [finca_o_lugar_de_evento], [cod_postal_finca], [poblacion_finca], [puestos], [tipo_de_cacería], [población_o_finca], [numero_de_puestos], [hora_de_emisión], [hora_de_fin], [hora_de_inicio], [pago_id], [codigo_postal_finca], [matricula_del_coto], [dni_cazador], [nombre_cazador], [blob_name], [tipo_de_evento], [poblacion_de_realizacion], [codigo_postal_realizacion], [numero_de_participantes]) values (1, 6, 1, 1, 0, 21298, logos/logo_18.png, plantillas/NO LOGO Cacerias Kyrema 2025 cara A OPCION A - copia 3.jpg, plantillas/Certificado Cacerias Kyrema 2025 cara B - copia 17.jpg, ?, ?, ?, ?, ?, ?, 1, 0, 032026C000000001, Admin, 1.50, .00, .00, 2025-12-05 07:54:03.000, 2983-03-09T00:00:00, 2026-03-09T00:00:00, 0, 60.50, 62, 62.00, Admin, No completado, Maraver, Castro, 11407, Avenida San Joaquin 9A, 32909712R, maraverdev@gmail.com, 2005-07-21 07:54:03.000, Gonzalo, Jerez de la Frontera, Cádiz, M, 601328459, 2026-03-09T10:26:43, 2026-03-09T10:26:43, 10237, Cacerias 300.000, ?, fsdfasfasd, ?, ?, Monteria, fsdfadsfdsa, fsadfsadf, asdfsadfs, Hasta 40, ?, ?, ?, 07:54:03, 07:54:03, 07:54:03, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?))  
