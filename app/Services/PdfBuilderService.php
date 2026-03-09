@@ -41,7 +41,7 @@ class PdfBuilderService
                 throw new Exception('Tipo de producto no encontrado');
             }
 
-            // PLANTILLAS
+            // PLANTILLAS (BACKGROUNDS)
             $plantillaPaths = [
                 $valores->plantilla_path_1,
                 $valores->plantilla_path_2,
@@ -53,14 +53,22 @@ class PdfBuilderService
                 $valores->plantilla_path_8,
             ];
 
-            $plantillasBase64 = [];
+            $plantillaFullPaths = [];
             foreach ($plantillaPaths as $path) {
-                if ($path !== null) {
-                    $fullPath = storage_path('app/public/' . $path);
-                    if (file_exists($fullPath)) {
-                        $imageData = base64_encode(file_get_contents($fullPath));
-                        $mimeType = mime_content_type($fullPath);
-                        $plantillasBase64[] = "data:{$mimeType};base64,{$imageData}";
+                if ($path !== null && $path !== '') {
+                    // Posibles rutas en disco
+                    $possiblePaths = [
+                        storage_path('app/public/' . $path),
+                        storage_path('app/' . $path),
+                        public_path('storage/' . $path),
+                        public_path($path),
+                    ];
+
+                    foreach ($possiblePaths as $fullPath) {
+                        if (file_exists($fullPath)) {
+                            $plantillaFullPaths[] = $fullPath;
+                            break;
+                        }
                     }
                 }
             }
@@ -78,16 +86,20 @@ class PdfBuilderService
                         $campoLogo->url = $valores->logo_sociedad_path;
                     }
                 } else {
-                    $campoLogo->url = Compania::find($campoLogo->entidad_id)->logo;
+                    $compania = Compania::find($campoLogo->entidad_id);
+                    $campoLogo->url = $compania ? $compania->logo : null;
                 }
 
-                $logoPath = public_path('storage/' . $campoLogo->url);
-                if (file_exists($logoPath)) {
-                    $logoData = base64_encode(file_get_contents($logoPath));
-                    $logoMimeType = mime_content_type($logoPath);
-                    $campoLogo->base64 = "data:{$logoMimeType};base64,{$logoData}";
-                } else {
-                    $campoLogo->base64 = '';
+                if ($campoLogo->url) {
+                    // Buscar en public y en storage
+                    $logoPath = public_path('storage/' . $campoLogo->url);
+                    if (!file_exists($logoPath)) {
+                        $logoPath = storage_path('app/public/' . $campoLogo->url);
+                    }
+
+                    if (file_exists($logoPath)) {
+                        $campoLogo->fullPath = $logoPath;
+                    }
                 }
             }
 
@@ -121,29 +133,31 @@ class PdfBuilderService
             $a4width_pt = 595.28;
             $a4height_pt = 841.89;
 
-            foreach ($plantillasBase64 as $index => $base64Plantilla) {
-                if ($index > 0) {
+            // Si no hay plantillas, añadir al menos una página
+            if (empty($plantillaFullPaths)) {
+                $mpdf->AddPage();
+            }
+
+            foreach ($plantillaFullPaths as $index => $fullPath) {
+                if ($index > 0 || empty($plantillaFullPaths)) {
                     $mpdf->AddPage();
+                } else if ($index == 0) {
+                    $mpdf->AddPage(); // Primera página
                 }
 
-                // Plantilla de fondo
-                // mPDF \Mpdf\Mpdf::Image($file, $x, $y, $w, $h, $type, $link, $paint, $constrain, $watermark, $shownoimg, $allow_other_formats)
-                // Utilizamos Image para dibujar el fondo base64 en (0,0) del tamaño del A4
-                // Nota: Las coordenadas de Image() están en milímetros (mm) por defecto en mPDF.
-                // Sin embargo mPDF permite cambiar las unidades o convertir.
-                // 1 pt = 0.352778 mm
                 $pt2mm = 0.352778;
 
-                $mpdf->Image($base64Plantilla, 0, 0, $a4width_pt * $pt2mm, $a4height_pt * $pt2mm, '', '', true, false);
+                // Imagen de fondo (Template)
+                $mpdf->Image($fullPath, 0, 0, $a4width_pt * $pt2mm, $a4height_pt * $pt2mm);
 
                 // Logos
                 foreach ($camposLogos as $logo) {
-                    if ($logo->page == $index + 1 && !empty($logo->base64)) {
+                    if ($logo->page == $index + 1 && !empty($logo->fullPath)) {
                         $x = (float)$logo->columna * $pt2mm;
                         $y = (float)$logo->fila * $pt2mm;
-                        $w = ((float)($logo->ancho ?: 20)) * $pt2mm;
-                        $h = ((float)($logo->altura ?: 20)) * $pt2mm;
-                        $mpdf->Image($logo->base64, $x, $y, $w, $h, '', '', true, false);
+                        $w = ((float)($logo->ancho ?: 40)) * $pt2mm;
+                        $h = ((float)($logo->altura ?: 40)) * $pt2mm;
+                        $mpdf->Image($logo->fullPath, $x, $y, $w, $h);
                     }
                 }
 
@@ -155,13 +169,10 @@ class PdfBuilderService
 
                         if ($polizaNumero) {
                             $fontSize = $poliza->font_size ? $poliza->font_size : 10;
-                            // Set font size
                             $mpdf->SetFont('helvetica', '', $fontSize);
                             $x = (float)$poliza->columna * $pt2mm;
-                            // jsPDF Text y (fila) es baseline, mPDF Text($x, $y) también usa algo similar o esquina superior izquierda dependiendo del método. 
-                            // O usamos WriteText
                             $y = (float)$poliza->fila * $pt2mm;
-                            $mpdf->WriteText($x, $y, $polizaNumero);
+                            $mpdf->Text($x, $y, $polizaNumero);
                         }
                     }
                 }
@@ -193,9 +204,8 @@ class PdfBuilderService
                             $x = (float)$campo->columna * $pt2mm;
                             $y = (float)$campo->fila * $pt2mm;
 
-                            // jsPDF text method uses bottom-left baseline for Y coordinate.
-                            // mPDF WriteText is similar.
-                            $mpdf->WriteText($x, $y, (string)$valor);
+                            // Usamos Text() para posicionamiento absoluto (y es el baseline)
+                            $mpdf->Text($x, $y, (string)$valor);
                         }
                     }
                 }
