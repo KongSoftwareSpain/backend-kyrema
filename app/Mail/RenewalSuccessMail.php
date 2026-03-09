@@ -58,8 +58,22 @@ class RenewalSuccessMail extends Mailable
 
         if (!empty($this->producto->blob_name)) {
             $path = $this->letrasIdentificacion . '/' . $this->producto->codigo_producto . '/' . $this->producto->blob_name;
-            if (Storage::disk('azure')->exists($path)) {
-                $attachments[] = Attachment::fromStorageDisk('azure', $path)
+
+            // Intentar buscar en Azure si está configurado
+            try {
+                if (config('filesystems.disks.azure') && Storage::disk('azure')->exists($path)) {
+                    $attachments[] = Attachment::fromStorageDisk('azure', $path)
+                        ->as('certificado_renovacion.pdf')
+                        ->withMime('application/pdf');
+                    return $attachments;
+                }
+            } catch (\Exception $e) {
+                // El disco azure no existe o falló la conexión
+            }
+
+            // Fallback al disco por defecto (local)
+            if (Storage::exists($path)) {
+                $attachments[] = Attachment::fromPath(storage_path('app/' . $path))
                     ->as('certificado_renovacion.pdf')
                     ->withMime('application/pdf');
             }
