@@ -34,7 +34,6 @@ class AuthController extends Controller
             if (!Hash::check($inputPassword, $storedHash)) {
                 return response()->json(['error' => 'Unauthorized'], 401);
             }
-
         }
         // CASO 2: MD5 (legacy)
         elseif (preg_match('/^[a-f0-9]{32}$/i', $storedHash)) {

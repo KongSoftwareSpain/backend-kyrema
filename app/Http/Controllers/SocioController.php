@@ -188,6 +188,7 @@ class SocioController extends Controller
         // Añadimos información directa si existe la relación
         if ($socio->socioComercial && $socio->socioComercial->comercial) {
             $data['nombre_comercial'] = $socio->socioComercial->comercial->nombre;
+            $data['id_comercial'] = $socio->socioComercial->comercial->id;
             if ($socio->socioComercial->comercial->sociedad) {
                 $data['nombre_sociedad'] = $socio->socioComercial->comercial->sociedad->nombre;
             }
