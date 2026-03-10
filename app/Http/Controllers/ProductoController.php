@@ -859,4 +859,21 @@ class ProductoController extends Controller
         $base64 = base64_encode($file);
         return response()->json(['base64' => $base64]);
     }
+
+    public function show($letrasIdentificacion, $id)
+    {
+        $nombreTabla = strtolower($letrasIdentificacion);
+
+        if (!Schema::hasTable($nombreTabla)) {
+            return response()->json(['error' => 'Product table not found'], 404);
+        }
+
+        $producto = DB::table($nombreTabla)->where('id', $id)->first();
+
+        if (!$producto) {
+            return response()->json(['error' => 'Product not found'], 404);
+        }
+
+        return response()->json($producto, 200);
+    }
 }

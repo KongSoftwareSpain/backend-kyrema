@@ -241,10 +241,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
         });
     });
 
-    Route::get('/payments/{pago}/status', function(App\Models\Payments\Pago $pago) {
+    Route::get('/payments/{pago}/status', function (App\Models\Payments\Pago $pago) {
         return response()->json(['estado' => $pago->estado]);
     });
 
+    Route::get('producto/{letrasIdentificacion}/id/{id}', [ProductoController::class, 'show']);
 
     Route::post('pago/generate-csv', [PagoExportController::class, 'exportarPagos']);
 
