@@ -8,6 +8,7 @@ use App\Models\TipoProductoSociedad;
 use App\Models\Sociedad;
 use App\Models\SocioComercial;
 use App\Models\Categoria;
+use App\Models\Comercial;
 
 class NavController extends Controller
 {
@@ -15,7 +16,11 @@ class NavController extends Controller
 
     public function getNavegacionSocio($categoria, $socio_id)
     {
-        $tiposProducto = TipoProducto::where('categoria_id', $categoria)->get();
+        $tiposProducto = TipoProducto::activos()
+            ->where('categoria_id', $categoria)
+            ->whereNull('padre_id')
+            ->whereNull('tipo_producto_asociado')
+            ->get();
 
         $navegacion = [];
         $navegacion[] = [
@@ -32,16 +37,22 @@ class NavController extends Controller
             "children" => []
         ];
 
-        $tiposProducto = TipoProducto::activos()
-            ->where('categoria_id', $categoria)
-            ->whereNull('padre_id')
-            ->whereNull('tipo_producto_asociado')
-            ->get();
-
-        $comercial_id = SocioComercial::where('id_socio', $socio_id)->pluck('id_comercial')->first();
+        $comercial = SocioComercial::where('id_socio', $socio_id)->with('comercial')->first();
+        $comercial_id = $comercial?->id_comercial;
 
         if (!$comercial_id) {
-            $comercial_id = Categoria::findOrFail($categoria)->comercial_responsable_id;
+            $categoria_obj = Categoria::findOrFail($categoria);
+            $comercial_id = $categoria_obj->comercial_responsable_id;
+            $comercial = Comercial::find($comercial_id);
+        } else {
+            $comercial = $comercial->comercial;
+        }
+
+        if ($comercial && $comercial->id_sociedad) {
+            $tipoProductoIds = TipoProductoSociedad::where('id_sociedad', $comercial->id_sociedad)->pluck('id_tipo_producto')->toArray();
+            $tiposProducto = $tiposProducto->filter(function ($tp) use ($tipoProductoIds) {
+                return in_array($tp->id, $tipoProductoIds);
+            });
         }
 
         $navegacion[1]["children"] = $tiposProducto->map(function ($tipoProducto) use ($comercial_id) {

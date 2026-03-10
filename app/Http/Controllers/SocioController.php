@@ -11,6 +11,7 @@ use App\Models\Sociedad;
 use App\Models\TipoProducto;
 use App\Models\SocioProducto;
 use Illuminate\Support\Facades\Schema;
+use App\Models\TipoProductoSociedad;
 use App\Models\Categoria;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Password;
@@ -245,6 +246,18 @@ class SocioController extends Controller
 
         if (!Schema::hasTable($letrasIdentificacion)) {
             return response()->json([]);
+        }
+
+        // Verificar si el tipo de producto está habilitado para la sociedad del socio
+        $socio_comercial = SocioComercial::where('id_socio', $id)->with('comercial')->first();
+        if ($socio_comercial && $socio_comercial->comercial && $socio_comercial->comercial->id_sociedad) {
+            $habilitado = TipoProductoSociedad::where('id_sociedad', $socio_comercial->comercial->id_sociedad)
+                ->where('id_tipo_producto', $id_tipo_producto)
+                ->exists();
+
+            if (!$habilitado) {
+                return response()->json(['error' => 'No tiene permisos para ver este tipo de producto'], 403);
+            }
         }
 
         $socioProductos = SocioProducto::where('id_socio', $id)
