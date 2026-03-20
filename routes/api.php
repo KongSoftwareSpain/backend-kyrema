@@ -135,6 +135,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('comerciales/responsables', [ComercialController::class, 'getResponsables']);
     Route::post('comercial', [ComercialController::class, 'store']);
     Route::put('comercial/{id}', [ComercialController::class, 'update']);
+    Route::post('comercial/{id}', [ComercialController::class, 'update']); // method spoofing para FormData
     Route::delete('comercial/{id}', [ComercialController::class, 'destroy']);
 
 

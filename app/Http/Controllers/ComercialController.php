@@ -94,10 +94,10 @@ class ComercialController extends Controller
         $request->validate([
             'nombre' => 'required|string|max:255',
             'id_sociedad' => 'required|numeric|exists:sociedad,id',
-            'comercial_responsable_categoria' => 'nullable|boolean',
+            'comercial_responsable_categoria' => 'nullable|string',
             'usuario' => 'required|string|max:255',
             'email' => 'required|string|max:255',
-            'responsable' => 'nullable|boolean',
+            'responsable' => 'nullable|string|max:1',
             'dni' => 'nullable|string|max:255',
             'sexo' => 'nullable|string|max:10',
             'fecha_nacimiento' => 'required|date',
@@ -117,7 +117,7 @@ class ComercialController extends Controller
         ]);
 
         // Preparar los datos a actualizar
-        $data = $request->except(['path_foto', 'created_at', 'updated_at']);
+        $data = $request->except(['path_foto', 'created_at', 'updated_at', 'contraseña', '_method']);
 
         // Formatear fechas antes de actualizar
         if (!empty($data['fecha_nacimiento'])) {
@@ -128,9 +128,7 @@ class ComercialController extends Controller
         }
 
         // Actualizar en la base de datos
-        DB::table('comercials')
-            ->where('id', $id)
-            ->update($data);
+        Comercial::where('id', $id)->update($data);
 
         // Procesar la foto si se subió una nueva
         if ($request->hasFile('path_foto')) {
@@ -139,13 +137,12 @@ class ComercialController extends Controller
                 'public/profile-pics',
                 'foto_' . $id . '.' . $foto->extension()
             );
-            DB::table('comercials')
-                ->where('id', $id)
+            Comercial::where('id', $id)
                 ->update(['path_foto' => str_replace('public/', '', $fotoPath)]);
         }
 
         // Recuperar el registro actualizado para devolverlo
-        $comercial = DB::table('comercials')->where('id', $id)->first();
+        $comercial = Comercial::where('id', $id)->first();
 
         return response()->json($comercial);
     }
