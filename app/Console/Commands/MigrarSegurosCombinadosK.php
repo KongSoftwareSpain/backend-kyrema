@@ -565,6 +565,22 @@ class MigrarSegurosCombinadosK extends Command
         $precioBase = $this->obtenerPrecioSeguro($seguro);
         $precioTotal = $precioBase;
 
+        // Calcular número de anexos sumando acompañantes y perros en la vieja BD
+        $numAcompaniantes = DB::connection('mysql')
+            ->table('seguro_acompaniantes')
+            ->where('id_seguro_combinado', $seguro->id_seguro)
+            ->where('borrado', 0)
+            ->count();
+
+        $numPerros = DB::connection('mysql')
+            ->table('seguro_perros')
+            ->where('id_seguro', $seguro->id_seguro)
+            ->where('id_tipo_seguro_perros', 2)
+            ->where('borrado', 0)
+            ->count();
+
+        $numeroAnexos = $numAcompaniantes + $numPerros;
+
         $datos = [
             // IDs y control
             'sociedad_id' => $sociedadId,
@@ -608,7 +624,7 @@ class MigrarSegurosCombinadosK extends Command
 
             // Otros
             'duracion' => $this->calcularDuracion($fechaInicio, $fechaFin),
-            'numero_anexos' => 0,
+            'numero_anexos' => $numeroAnexos,
             'blob_name' => null,
 
             // Plantillas

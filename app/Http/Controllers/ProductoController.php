@@ -481,10 +481,12 @@ class ProductoController extends Controller
         }
 
         // 3. Combinar los productos vigentes directamente con los productos que tienen anexos vigentes
-        $productosFinales = $productosVigentes->merge($productosConAnexosVigentes);
+        $productosFinales = $productosVigentes->merge($productosConAnexosVigentes)->unique('id');
+
+        $productosFinales = self::appendNumeroAnexos($nombreTabla, $tipoProducto->id, collect($productosFinales->values()));
 
         // 4. Eliminar duplicados por ID de producto
-        return response()->json($this->appendApellidos($nombreTabla, $productosFinales->unique('id')));
+        return response()->json($this->appendApellidos($nombreTabla, $productosFinales));
     }
 
     public function getProductosByTipoAndComercial($letrasIdentificacion, $comercial_id)
@@ -531,10 +533,12 @@ class ProductoController extends Controller
         }
 
         // Combinar productos vigentes y productos con anexos vigentes
-        $productosFinales = $productosVigentes->merge($productosConAnexosVigentes);
+        $productosFinales = $productosVigentes->merge($productosConAnexosVigentes)->unique('id');
+
+        $productosFinales = self::appendNumeroAnexos($nombreTabla, $tipoProducto->id, collect($productosFinales->values()));
 
         // Devolver los productos como respuesta JSON
-        return response()->json($this->appendApellidos($nombreTabla, $productosFinales->unique('id'))); // Eliminar duplicados por ID
+        return response()->json($this->appendApellidos($nombreTabla, $productosFinales));
     }
 
     public function getHistorialProductosByTipoAndSociedades($letrasIdentificacion, Request $request)
@@ -555,6 +559,10 @@ class ProductoController extends Controller
 
         Log::info('Fecha actual: ' . $fechaActual);
 
+        $tipoProducto = DB::table('tipo_producto')
+            ->where('letras_identificacion', $letrasIdentificacion)
+            ->first();
+
         // Realizar consulta dinámica usando el nombre de la tabla
         $productos = DB::table($nombreTabla)
             ->when(count($sociedades) > 0 && !in_array(env('SOCIEDAD_ADMIN_ID', 1), $sociedades), function ($query) use ($sociedades) {
@@ -563,6 +571,8 @@ class ProductoController extends Controller
             ->where('fecha_de_fin', '<', $fechaActual) // Filtrar productos con fecha_de_fin mayor que la fecha actual
             ->orderBy('updated_at', 'desc') // Ordenar por fecha de actualización de forma descendente
             ->get();
+
+        $productos = self::appendNumeroAnexos($nombreTabla, $tipoProducto->id, $productos);
 
         return response()->json($this->appendApellidos($nombreTabla, $productos));
     }
@@ -576,12 +586,18 @@ class ProductoController extends Controller
 
         $fechaActual = Carbon::now()->format('Y-m-d\TH:i:s');
 
+        $tipoProducto = DB::table('tipo_producto')
+            ->where('letras_identificacion', $letrasIdentificacion)
+            ->first();
+
         // Realizar consulta dinámica usando el nombre de la tabla
         $productos = DB::table($nombreTabla)
             ->where('comercial_id', $comercial_id)
             ->where('fecha_de_fin', '<', $fechaActual)
             ->orderBy('updated_at', 'desc') // Ordenar por fecha de actualización de forma descendente
             ->get();
+
+        $productos = self::appendNumeroAnexos($nombreTabla, $tipoProducto->id, $productos);
 
         return response()->json($this->appendApellidos($nombreTabla, $productos));
     }
@@ -609,6 +625,63 @@ class ProductoController extends Controller
                 $row['apellido_2'] = null;
             }
             return (object) $row;
+        });
+    }
+
+    public static function appendNumeroAnexos(string $nombreTabla, $tipoProductoId, $productos)
+    {
+        if ($productos->isEmpty()) {
+            return $productos;
+        }
+
+        $hasNumeroAnexos = Schema::hasColumn($nombreTabla, 'numero_anexos');
+        if (!$hasNumeroAnexos) {
+            return $productos;
+        }
+
+        $anexos = DB::table('tipo_producto')
+            ->where('tipo_producto_asociado', $tipoProductoId)
+            ->pluck('letras_identificacion');
+
+        if ($anexos->isEmpty()) {
+            return $productos;
+        }
+
+        $productIds = $productos->pluck('id')->toArray();
+        $anexoCounts = [];
+
+        foreach ($anexos as $letraAnexo) {
+            $nombreTablaAnexo = strtolower($letraAnexo);
+            if (!Schema::hasTable($nombreTablaAnexo)) continue;
+            
+            $chunks = array_chunk($productIds, 500);
+            foreach ($chunks as $chunk) {
+                $counts = DB::table($nombreTablaAnexo)
+                    ->whereIn('producto_id', $chunk)
+                    ->where('anulado', 0)
+                    ->select('producto_id', DB::raw('count(*) as total'))
+                    ->groupBy('producto_id')
+                    ->get();
+
+                foreach ($counts as $count) {
+                    if (!isset($anexoCounts[$count->producto_id])) {
+                        $anexoCounts[$count->producto_id] = 0;
+                    }
+                    $anexoCounts[$count->producto_id] += $count->total;
+                }
+            }
+        }
+
+        return $productos->map(function ($row) use ($anexoCounts) {
+            $rowArray = (array) $row;
+            if (isset($anexoCounts[$rowArray['id']]) && $anexoCounts[$rowArray['id']] > 0) {
+                // Si hay anexos nuevos activos en las tablas hijas, este es el valor más real
+                $rowArray['numero_anexos'] = $anexoCounts[$rowArray['id']];
+            } else {
+                // Si no hay nuevos anexos (ej: no se han migrado aún), preservamos el valor importado de la BD
+                $rowArray['numero_anexos'] = $rowArray['numero_anexos'] ?? 0;
+            }
+            return (object) $rowArray;
         });
     }
 

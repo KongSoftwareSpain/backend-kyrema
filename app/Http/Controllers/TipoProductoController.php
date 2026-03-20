@@ -350,6 +350,20 @@ class TipoProductoController extends Controller
             ];
         });
 
-        return $subproductosConDetalles;
+        // Ordenar subproductos: Cacerias 300.000 → España → Portugal → Eventos → Recechos
+        $ordenPrioridad = function (string $nombre): int {
+            $nombre = mb_strtolower($nombre);
+            if (str_contains($nombre, '300'))                          return 1;
+            if (str_contains($nombre, 'espa'))                         return 2;
+            if (str_contains($nombre, 'portu'))                        return 3;
+            if (str_contains($nombre, 'evento'))                       return 4;
+            if (str_contains($nombre, 'rececho') || str_contains($nombre, 'rececho')) return 5;
+            return 99;
+        };
+
+        $sorted = $subproductosConDetalles->toArray();
+        usort($sorted, fn($a, $b) => $ordenPrioridad($a['nombre']) <=> $ordenPrioridad($b['nombre']));
+
+        return collect($sorted);
     }
 }

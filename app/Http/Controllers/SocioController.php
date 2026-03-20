@@ -272,6 +272,8 @@ class SocioController extends Controller
             ->whereIn('id', $socioProductos->pluck('id_producto'))
             ->get();
 
+        $productos = \App\Http\Controllers\ProductoController::appendNumeroAnexos($letrasIdentificacion, $tipoProducto->id, $productos);
+
         // Obtener datos adicionales
         $socio = Socio::find($id);
         $categoria = Categoria::find($tipoProducto->categoria_id);
