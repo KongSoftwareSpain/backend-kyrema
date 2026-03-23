@@ -226,6 +226,22 @@ class SocioController extends Controller
     public function destroy($id)
     {
         $socio = Socio::findOrFail($id);
+
+        $socioProductos = SocioProducto::where('id_socio', $id)->get();
+        foreach ($socioProductos as $sp) {
+            $tabla = strtolower($sp->letras_identificacion);
+            if (\Illuminate\Support\Facades\Schema::hasTable($tabla)) {
+                $isActive = \Illuminate\Support\Facades\DB::table($tabla)
+                    ->where('id', $sp->id_producto)
+                    ->where('anulado', 0)
+                    ->exists();
+
+                if ($isActive) {
+                    return response()->json(['message' => 'No se puede eliminar el socio porque tiene pólizas o productos activos.'], 403);
+                }
+            }
+        }
+
         $socio->delete();
         return response()->json(null, 204);
     }
