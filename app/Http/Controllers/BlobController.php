@@ -94,6 +94,10 @@ class BlobController extends Controller
             ->where('producto_id', $data['producto_id'])
             ->first();
 
+        if (!$anexoRelacionado || empty($anexoRelacionado->blob_name)) {
+            return response()->json(['message' => 'Not found'], 404);
+        }
+
         $blobName = ltrim($anexoRelacionado->blob_name, '/');
         $ttl      = (int)($data['ttl'] ?? 3);
 
