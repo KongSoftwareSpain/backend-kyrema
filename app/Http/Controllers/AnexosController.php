@@ -97,6 +97,7 @@ class AnexosController extends Controller
 
                 $data = [
                     'producto_id' => $id_producto,
+                    'blob_name' => '',
                     'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s')
                 ];
 
@@ -325,10 +326,20 @@ class AnexosController extends Controller
         // Las letras_identificacion usarlas como nombres de tablas y coger todos los anexos relacionados con el $id_producto y poner el anexo con el siguiente formato:
         // {id: '', formato: this.formatosAnexos[tipo_anexo.id], tipo_anexo: tipo_anexo} (Es decir que el tipo_anexo me lo deberia de haber guardado previamente)
         
-         // Obtener los tipos de anexos asociados al tipo de producto
+        // Obtener los tipos de anexos asociados al tipo de producto
         $tiposAnexos = DB::table('tipo_producto')
         ->where('tipo_producto_asociado', $id_tipo_producto)
         ->get();
+
+        // Si no hay anexos asociados al ID directo (ej: es un subproducto), buscamos por el padre
+        if ($tiposAnexos->isEmpty()) {
+            $subproducto = DB::table('tipo_producto')->where('id', $id_tipo_producto)->first();
+            if ($subproducto && $subproducto->padre_id) {
+                $tiposAnexos = DB::table('tipo_producto')
+                    ->where('tipo_producto_asociado', $subproducto->padre_id)
+                    ->get();
+            }
+        }
 
         $anexos = [];
 

@@ -63,19 +63,38 @@ class MigrarAnexosCombinados extends Command
         // We need to map old id_seguro_combinado/id_seguro to NEW producto_id
         $segurosOld = DB::connection($oldConnection)
             ->table('seguros_combinados')
+            ->join('socios', 'seguros_combinados.id_socio', '=', 'socios.id_socio')
+            ->select('seguros_combinados.*', 'socios.dni as socio_dni')
             ->get()
             ->keyBy('id_seguro');
 
         $productosNew = DB::connection($newConnection)
             ->table('producto_k')
-            ->get()
-            ->keyBy('codigo_producto');
+            ->get();
             
+        $productosNewByPoliza = $productosNew->keyBy('codigo_producto');
+        $productosNewByDni = $productosNew->groupBy('dni');
+
         $migradosAcompaniantes = 0;
         foreach ($acompaniantes as $ac) {
             $oldSeguro = $segurosOld->get($ac->id_seguro_combinado);
             if (!$oldSeguro) continue;
-            $newProducto = $productosNew->get($oldSeguro->poliza_seguro);
+            
+            // Try matching by policy number first
+            $newProducto = $productosNewByPoliza->get($oldSeguro->poliza_seguro);
+            
+            // Fallback: search by DNI and Date
+            $dni = trim($oldSeguro->socio_dni);
+            if (!$newProducto && $dni) {
+                $potentials = $productosNewByDni->get($dni);
+                if ($potentials) {
+                    $oldStart = Carbon::parse($oldSeguro->fecha_inicio)->toDateString();
+                    $newProducto = $potentials->first(function($p) use ($oldStart) {
+                        return Carbon::parse($p->fecha_de_inicio)->toDateString() === $oldStart;
+                    });
+                }
+            }
+            
             if (!$newProducto) continue;
             
             // Check if it already exists
@@ -114,7 +133,22 @@ class MigrarAnexosCombinados extends Command
         foreach ($perros as $pr) {
             $oldSeguro = $segurosOld->get($pr->id_seguro);
             if (!$oldSeguro) continue;
-            $newProducto = $productosNew->get($oldSeguro->poliza_seguro);
+            
+            // Try matching by policy number first
+            $newProducto = $productosNewByPoliza->get($oldSeguro->poliza_seguro);
+
+            // Fallback: search by DNI and Date
+            $dni = trim($oldSeguro->socio_dni);
+            if (!$newProducto && $dni) {
+                $potentials = $productosNewByDni->get($dni);
+                if ($potentials) {
+                    $oldStart = Carbon::parse($oldSeguro->fecha_inicio)->toDateString();
+                    $newProducto = $potentials->first(function($p) use ($oldStart) {
+                        return Carbon::parse($p->fecha_de_inicio)->toDateString() === $oldStart;
+                    });
+                }
+            }
+
             if (!$newProducto) continue;
             
             // Check if exists
