@@ -205,6 +205,9 @@ class ProductoController extends Controller
                         if (!Schema::hasColumn($table->getTable(), 'subproducto_codigo')) {
                             $table->string('subproducto_codigo')->nullable();
                         }
+                        if (!Schema::hasColumn($table->getTable(), 'sociedad_id')) {
+                            $table->unsignedBigInteger('sociedad_id')->nullable()->index();
+                        }
                         // Añadir los campos dinámicos desde $campos
                         foreach ($campos as $campo) {
                             $nombreCampo = strtolower(str_replace(' ', '_', $campo['nombre']));
@@ -243,12 +246,12 @@ class ProductoController extends Controller
                     // Estos campos solo se añaden al producto, no al anexo.
                     if ($tipo_producto_asociado == null) {
                         // Agregar campos adicionales
-                        $table->unsignedBigInteger('sociedad_id')->nullable();
-                        $table->unsignedBigInteger('tipo_de_pago_id')->nullable();
-                        $table->unsignedBigInteger('comercial_id')->nullable();
-                        $table->unsignedBigInteger('pago_id')->nullable();
+                        $table->unsignedBigInteger('sociedad_id')->nullable()->index();
+                        $table->unsignedBigInteger('tipo_de_pago_id')->nullable()->index();
+                        $table->unsignedBigInteger('comercial_id')->nullable()->index();
+                        $table->unsignedBigInteger('pago_id')->nullable()->index();
                         // Campo para saber si el comercial crea el producto en nombre de otro
-                        $table->unsignedBigInteger('comercial_creador_id')->nullable();
+                        $table->unsignedBigInteger('comercial_creador_id')->nullable()->index();
 
                         // Define si se ha contratado mediante un comercial con tipo_comercial 'Pagina Web' 
                         // Se usa por si una sociedad tiene venta directa por la web se le crea un comercial tipo 'Pagina Web' para 
@@ -257,7 +260,7 @@ class ProductoController extends Controller
                         $table->unsignedBigInteger('socio_id')->nullable();
                         $table->string('logo_sociedad_path')->nullable();
                     } else {
-                        $table->unsignedBigInteger('producto_id')->nullable();
+                        $table->unsignedBigInteger('producto_id')->nullable()->index();
                         $table->decimal('precio_base', 8, 2)->nullable();
                         $table->decimal('extra_1', 8, 2)->nullable();
                         $table->decimal('extra_2', 8, 2)->nullable();
