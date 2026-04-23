@@ -330,6 +330,51 @@ class ExportController extends Controller
         // Coger los anexos relacionados con el id del producto de la tabla con el nombre $letrasIdentificacionAnexo
         $anexos = DB::table($letrasIdentificacionAnexo)->where('producto_id', $id)->get();
 
+        /* =======================================================================================================
+           EXPLICACIÓN MUY GRANDE: FORZADO ESTRICTO DE FECHAS EN BACKEND (DESACTIVADO)
+           =======================================================================================================
+           Este bloque está comentado a petición. Su objetivo era solucionar de raíz el problema de que el PDF
+           imprima la fecha del producto (ej: 01/06) en lugar de la del anexo (ej: 30/06).
+           
+           ¿Por qué pasa esto en la aplicación?
+           1. Cuando se aprueba un producto, el PDF se genera y se guarda en Azure.
+           2. Si se cambian las fechas del anexo sin volver a generar el PDF "Limpiamente" o si el cache de Azure
+              sigue activo, el sistema descarga el PDF antiguo o utiliza las variables del producto padre que están
+              en la variable $valores.
+           
+           ¿Qué hacía este código?
+           Para que sea FÍSICAMENTE IMPOSIBLE que el frontend (con todos sus loops y validaciones) se equivoque
+           e imprima la fecha del producto padre, este bloque tomaba las fechas de '$valores' (el producto)
+           y las SOBREESCRIBÍA con fuerza bruta usando las fechas del '$anexoPrincipal'. 
+           
+           Al hacer esto en el Backend:
+           - No importa si el generador de PDF confunde los sinónimos.
+           - No importa si en la plantilla la variable se llama "fecha_de_emisión" o "inicio".
+           - La única fecha que viajaría por internet hacia el frontend sería la fecha del anexo.
+           
+           Código original (Comentado):
+           
+           if ($anexos->count() > 0) {
+               $anexoPrincipal = $anexos->first();
+               
+               // Reemplazar siempre por los valores del anexo
+               $valores->fecha_de_inicio = $anexoPrincipal->fecha_de_inicio ?? null;
+               
+               // Cubrir emisiones con y sin tilde
+               if(isset($anexoPrincipal->fecha_de_emisión)) {
+                   $valores->fecha_de_emisión = $anexoPrincipal->fecha_de_emisión;
+               }
+               if(isset($anexoPrincipal->fecha_de_emision)) {
+                   $valores->fecha_de_emision = $anexoPrincipal->fecha_de_emision;
+               }
+           } else {
+               $valores->fecha_de_inicio = null;
+               $valores->fecha_de_emisión = null;
+               $valores->fecha_de_emision = null;
+           }
+        ======================================================================================================= */
+
+
         $campos = DB::table('campos')
             ->where('tipo_producto_id', $tipoAnexoId)
             ->whereNotNull('columna')
