@@ -966,26 +966,32 @@ class ProductoController extends Controller
 
     public function regenerarDatosInstancia($letrasIdentificacion, $id)
     {
+        Log::info("Regenerar Datos - INICIO. Letras: $letrasIdentificacion, ID: $id");
+
         // Buscar el tipo_producto base original
         $tipoProductoReal = DB::table('tipo_producto')
             ->where('letras_identificacion', $letrasIdentificacion)
             ->first();
 
         if (!$tipoProductoReal) {
+            Log::error("Regenerar Datos - ERROR: Tipo de producto no encontrado. Letras: $letrasIdentificacion");
             return response()->json(['error' => 'Tipo de producto no encontrado'], 404);
         }
 
         // Si el tipoProducto tiene padre (es un subproducto), la tabla a modificar es la del padre
         $tipoProductoTabla = $tipoProductoReal;
         if ($tipoProductoReal->padre_id != null) {
+            Log::info("Regenerar Datos - Es un subproducto. Padre ID: " . $tipoProductoReal->padre_id);
             $tipoProductoTabla = DB::table('tipo_producto')
                 ->where('id', $tipoProductoReal->padre_id)
                 ->first();
         }
 
         $nombreTabla = strtolower($tipoProductoTabla->letras_identificacion);
+        Log::info("Regenerar Datos - Tabla resolucion: $nombreTabla");
 
         if (!Schema::hasTable($nombreTabla)) {
+            Log::error("Regenerar Datos - ERROR: No existe tabla física: $nombreTabla");
             return response()->json(['error' => 'Product table not found'], 404);
         }
 
@@ -995,6 +1001,7 @@ class ProductoController extends Controller
             ->first();
 
         if (!$instancia) {
+            Log::error("Regenerar Datos - ERROR: Instancia $id no encontrada en tabla $nombreTabla");
             return response()->json(['error' => 'Instancia de producto no encontrada'], 404);
         }
 
@@ -1007,10 +1014,13 @@ class ProductoController extends Controller
                 $updateData[$colName] = $tipoProductoReal->$colName ?? null;
             }
         }
+        
+        Log::info("Regenerar Datos - Plantillas listadas para actualizar", ['plantillas' => array_keys($updateData)]);
 
         // 2. Logo Sociedad
         if (Schema::hasColumn($nombreTabla, 'logo_sociedad_path')) {
             $updateData['logo_sociedad_path'] = DB::table('sociedad')->where('id', $instancia->sociedad_id)->value('logo');
+            Log::info("Regenerar Datos - Logo sociedad agregado", ['path' => $updateData['logo_sociedad_path']]);
         }
 
         // 3. Precios y Tarifas (Tabla hija e instancia base)
@@ -1018,28 +1028,41 @@ class ProductoController extends Controller
         $tarifaIdAUsar = $tipoProductoReal->id;
         if (isset($instancia->subproducto) && $instancia->subproducto) {
             $tarifaIdAUsar = $instancia->subproducto;
+            Log::info("Regenerar Datos - Usando subproducto desde instancia: $tarifaIdAUsar");
         }
 
+        Log::info("Regenerar Datos - Consultando tarifa_producto para id_sociedad: {$instancia->sociedad_id}, tipo_producto_id: $tarifaIdAUsar");
+        
         $tarifa = DB::table('tarifas_producto')
                     ->where('id_sociedad', $instancia->sociedad_id)
                     ->where('tipo_producto_id', $tarifaIdAUsar)
                     ->first();
 
         if ($tarifa) {
+            Log::info("Regenerar Datos - Tarifa encontrada", ['tarifa' => $tarifa->precio_total]);
             $colsToUpdate = ['precio_base', 'extra_1', 'extra_2', 'extra_3', 'precio_total'];
             foreach ($colsToUpdate as $col) {
                 if (Schema::hasColumn($nombreTabla, $col)) {
                     $updateData[$col] = $tarifa->$col;
                 }
             }
+        } else {
+            Log::warning("Regenerar Datos - WARN: Tarifa no encontrada para tipo $tarifaIdAUsar");
         }
 
-        // 4. Metadatos adicionales (nombre_producto)
+        // 4. Metadatos adicionales (nombre_producto o subproducto_codigo)
         if (Schema::hasColumn($nombreTabla, 'nombre_producto')) {
             $updateData['nombre_producto'] = $tipoProductoReal->nombre;
+            Log::info("Regenerar Datos - Actualizando nombre_producto: " . $tipoProductoReal->nombre);
+        }
+        
+        if (Schema::hasColumn($nombreTabla, 'subproducto_codigo')) {
+            $updateData['subproducto_codigo'] = $tipoProductoReal->nombre;
+            Log::info("Regenerar Datos - Actualizando subproducto_codigo: " . $tipoProductoReal->nombre);
         }
 
         DB::table($nombreTabla)->where('id', $id)->update($updateData);
+        Log::info("Regenerar Datos - Producto principal actualizado exitosamente");
 
         // 5. Regenerar anexos también (Los anexos se enlazan al PADRE en Base de Datos porque es el que da la Estructura en algunos casos, o al REAL?)
         // En Kyrema los anexos suelen estar asociados al padre o al hijo. En base a $tipoProductoTabla o $tipoProductoReal?
@@ -1048,6 +1071,7 @@ class ProductoController extends Controller
             ->where('tipo_producto_asociado', $tipoProductoTabla->id)
             ->pluck('letras_identificacion');
 
+        Log::info("Regenerar Datos - Tratando anexos. Total encontrados: " . $anexosNames->count(), ['anexos' => $anexosNames]);
         $sumaAnexos = 0;
 
         foreach ($anexosNames as $letraAnexo) {
@@ -1058,6 +1082,8 @@ class ProductoController extends Controller
                     ->where('anulado', 0)
                     ->get();
                     
+                Log::info("Regenerar Datos - Procesando tabla anexo: $tablaAnexo. Instancias: " . $anexosInstancia->count());
+                
                 foreach ($anexosInstancia as $anInst) {
                     $updateAnexo = [];
                     $tipoAnexo = DB::table('tipo_producto')->where('letras_identificacion', $letraAnexo)->first();
@@ -1070,8 +1096,11 @@ class ProductoController extends Controller
                             }
                         }
 
+                        $sociedadAdmin = env('SOCIEDAD_ADMIN_ID', 1);
+                        Log::info("Regenerar Datos - Buscando tarifa anexo para id_sociedad: $sociedadAdmin, tipo_producto_id: {$tipoAnexo->id}");
+                        
                         $tarifaAnexo = DB::table('tarifas_producto')
-                            ->where('id_sociedad', env('SOCIEDAD_ADMIN_ID', 1)) // Las tarifas de anexo siempre apuntan a Admin
+                            ->where('id_sociedad', $sociedadAdmin) // Las tarifas de anexo siempre apuntan a Admin
                             ->where('tipo_producto_id', $tipoAnexo->id)
                             ->first();
 
@@ -1087,19 +1116,26 @@ class ProductoController extends Controller
 
                         if (!empty($updateAnexo)) {
                             DB::table($tablaAnexo)->where('id', $anInst->id)->update($updateAnexo);
+                            Log::info("Regenerar Datos - Anexo {$anInst->id} de la tabla $tablaAnexo actualizado correctamente");
                         }
                     }
                 }
+            } else {
+                Log::warning("Regenerar Datos - WARN: Tabla anexo no existe: $tablaAnexo");
             }
         }
 
         // 6. Actualizar precio_final global
         if (Schema::hasColumn($nombreTabla, 'precio_final')) {
             $baseTarifa = $tarifa ? ($tarifa->precio_total ?? 0) : ($instancia->precio_total ?? 0);
-            DB::table($nombreTabla)->where('id', $id)->update(['precio_final' => $baseTarifa + $sumaAnexos]);
+            $nuevoPrecioFinal = $baseTarifa + $sumaAnexos;
+            Log::info("Regenerar Datos - Actualizando precio_final global. Base: $baseTarifa, SumaAnexos: $sumaAnexos, Total: $nuevoPrecioFinal");
+            DB::table($nombreTabla)->where('id', $id)->update(['precio_final' => $nuevoPrecioFinal]);
         }
 
         $instanciaActualizada = DB::table($nombreTabla)->where('id', $id)->first();
+        Log::info("Regenerar Datos - FIN. Operación finalizada exitosamente.");
+        
         return response()->json([
             'message' => 'Datos regenerados con éxito',
             'producto' => $instanciaActualizada
