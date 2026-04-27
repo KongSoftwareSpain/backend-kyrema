@@ -1021,7 +1021,7 @@ class ProductoController extends Controller
         }
 
         $tarifa = DB::table('tarifas_producto')
-                    ->where('sociedad_id', $instancia->sociedad_id)
+                    ->where('id_sociedad', $instancia->sociedad_id)
                     ->where('tipo_producto_id', $tarifaIdAUsar)
                     ->first();
 
@@ -1071,7 +1071,7 @@ class ProductoController extends Controller
                         }
 
                         $tarifaAnexo = DB::table('tarifas_producto')
-                            ->where('sociedad_id', env('SOCIEDAD_ADMIN_ID', 1)) // Las tarifas de anexo siempre apuntan a Admin
+                            ->where('id_sociedad', env('SOCIEDAD_ADMIN_ID', 1)) // Las tarifas de anexo siempre apuntan a Admin
                             ->where('tipo_producto_id', $tipoAnexo->id)
                             ->first();
 
