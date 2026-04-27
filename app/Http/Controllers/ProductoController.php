@@ -952,4 +952,131 @@ class ProductoController extends Controller
 
         return response()->json($producto, 200);
     }
+
+    public function regenerarDatosInstancia($letrasIdentificacion, $id)
+    {
+        $nombreTabla = strtolower($letrasIdentificacion);
+
+        // Buscar el tipo_producto base
+        $tipoProducto = DB::table('tipo_producto')
+            ->where('letras_identificacion', $letrasIdentificacion)
+            ->first();
+
+        if (!$tipoProducto) {
+            return response()->json(['error' => 'Tipo de producto no encontrado'], 404);
+        }
+
+        // Buscar la instancia
+        $instancia = DB::table($nombreTabla)
+            ->where('id', $id)
+            ->first();
+
+        if (!$instancia) {
+            return response()->json(['error' => 'Instancia de producto no encontrada'], 404);
+        }
+
+        $updateData = [];
+
+        // 1. Rutas de plantillas
+        for ($i = 1; $i <= 8; $i++) {
+            $colName = 'plantilla_path_' . $i;
+            if (Schema::hasColumn($nombreTabla, $colName)) {
+                $updateData[$colName] = $tipoProducto->$colName ?? null;
+            }
+        }
+
+        // 2. Logo Sociedad
+        if (Schema::hasColumn($nombreTabla, 'logo_sociedad_path')) {
+            $updateData['logo_sociedad_path'] = DB::table('sociedad')->where('id', $instancia->sociedad_id)->value('logo');
+        }
+
+        // 3. Precios y Tarifas (Tabla hija e instancia base)
+        $tarifaIdAUsar = $tipoProducto->id;
+        if (isset($instancia->subproducto) && $instancia->subproducto) {
+            $tarifaIdAUsar = $instancia->subproducto;
+        }
+
+        $tarifa = DB::table('tarifa_producto')
+                    ->where('sociedad_id', $instancia->sociedad_id)
+                    ->where('tipo_producto_id', $tarifaIdAUsar)
+                    ->first();
+
+        if ($tarifa) {
+            $colsToUpdate = ['precio_base', 'extra_1', 'extra_2', 'extra_3', 'precio_total'];
+            foreach ($colsToUpdate as $col) {
+                if (Schema::hasColumn($nombreTabla, $col)) {
+                    $updateData[$col] = $tarifa->$col;
+                }
+            }
+        }
+
+        // 4. Metadatos adicionales (nombre_producto)
+        if (Schema::hasColumn($nombreTabla, 'nombre_producto')) {
+            $updateData['nombre_producto'] = $tipoProducto->nombre;
+        }
+
+        DB::table($nombreTabla)->where('id', $id)->update($updateData);
+
+        // 5. Regenerar anexos también (si este tipo_producto tiene asociados)
+        $anexosNames = DB::table('tipo_producto')
+            ->where('tipo_producto_asociado', $tipoProducto->id)
+            ->pluck('letras_identificacion');
+
+        $sumaAnexos = 0;
+
+        foreach ($anexosNames as $letraAnexo) {
+            $tablaAnexo = strtolower($letraAnexo);
+            if (Schema::hasTable($tablaAnexo)) {
+                $anexosInstancia = DB::table($tablaAnexo)
+                    ->where('producto_id', $id)
+                    ->where('anulado', 0)
+                    ->get();
+                    
+                foreach ($anexosInstancia as $anInst) {
+                    $updateAnexo = [];
+                    $tipoAnexo = DB::table('tipo_producto')->where('letras_identificacion', $letraAnexo)->first();
+                    
+                    if ($tipoAnexo) {
+                        for ($i = 1; $i <= 8; $i++) {
+                            $colName = 'plantilla_path_' . $i;
+                            if (Schema::hasColumn($tablaAnexo, $colName)) {
+                                $updateAnexo[$colName] = $tipoAnexo->$colName ?? null;
+                            }
+                        }
+
+                        $tarifaAnexo = DB::table('tarifa_producto')
+                            ->where('sociedad_id', env('SOCIEDAD_ADMIN_ID', 1)) // Las tarifas de anexo siempre apuntan a Admin
+                            ->where('tipo_producto_id', $tipoAnexo->id)
+                            ->first();
+
+                        if ($tarifaAnexo) {
+                            $colsToUpdate = ['precio_base', 'extra_1', 'extra_2', 'extra_3', 'precio_total'];
+                            foreach ($colsToUpdate as $col) {
+                                if (Schema::hasColumn($tablaAnexo, $col)) {
+                                    $updateAnexo[$col] = $tarifaAnexo->$col;
+                                }
+                            }
+                            $sumaAnexos += $tarifaAnexo->precio_total;
+                        }
+
+                        if (!empty($updateAnexo)) {
+                            DB::table($tablaAnexo)->where('id', $anInst->id)->update($updateAnexo);
+                        }
+                    }
+                }
+            }
+        }
+
+        // 6. Actualizar precio_final global
+        if (Schema::hasColumn($nombreTabla, 'precio_final')) {
+            $baseTarifa = $tarifa ? ($tarifa->precio_total ?? 0) : ($instancia->precio_total ?? 0);
+            DB::table($nombreTabla)->where('id', $id)->update(['precio_final' => $baseTarifa + $sumaAnexos]);
+        }
+
+        $instanciaActualizada = DB::table($nombreTabla)->where('id', $id)->first();
+        return response()->json([
+            'message' => 'Datos regenerados con éxito',
+            'producto' => $instanciaActualizada
+        ], 200);
+    }
 }
