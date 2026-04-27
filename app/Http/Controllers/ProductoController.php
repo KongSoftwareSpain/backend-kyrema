@@ -938,6 +938,17 @@ class ProductoController extends Controller
 
     public function show($letrasIdentificacion, $id)
     {
+        $tipoProducto = DB::table('tipo_producto')
+            ->where('letras_identificacion', $letrasIdentificacion)
+            ->first();
+
+        if ($tipoProducto && $tipoProducto->padre_id != null) {
+            $tipoProducto = DB::table('tipo_producto')
+                ->where('id', $tipoProducto->padre_id)
+                ->first();
+            $letrasIdentificacion = $tipoProducto->letras_identificacion;
+        }
+
         $nombreTabla = strtolower($letrasIdentificacion);
 
         if (!Schema::hasTable($nombreTabla)) {
@@ -955,15 +966,27 @@ class ProductoController extends Controller
 
     public function regenerarDatosInstancia($letrasIdentificacion, $id)
     {
-        $nombreTabla = strtolower($letrasIdentificacion);
-
-        // Buscar el tipo_producto base
-        $tipoProducto = DB::table('tipo_producto')
+        // Buscar el tipo_producto base original
+        $tipoProductoReal = DB::table('tipo_producto')
             ->where('letras_identificacion', $letrasIdentificacion)
             ->first();
 
-        if (!$tipoProducto) {
+        if (!$tipoProductoReal) {
             return response()->json(['error' => 'Tipo de producto no encontrado'], 404);
+        }
+
+        // Si el tipoProducto tiene padre (es un subproducto), la tabla a modificar es la del padre
+        $tipoProductoTabla = $tipoProductoReal;
+        if ($tipoProductoReal->padre_id != null) {
+            $tipoProductoTabla = DB::table('tipo_producto')
+                ->where('id', $tipoProductoReal->padre_id)
+                ->first();
+        }
+
+        $nombreTabla = strtolower($tipoProductoTabla->letras_identificacion);
+
+        if (!Schema::hasTable($nombreTabla)) {
+            return response()->json(['error' => 'Product table not found'], 404);
         }
 
         // Buscar la instancia
@@ -977,11 +1000,11 @@ class ProductoController extends Controller
 
         $updateData = [];
 
-        // 1. Rutas de plantillas
+        // 1. Rutas de plantillas (Desde el tipo_producto_real, ya que los subproductos pueden tener sus propias plantillas)
         for ($i = 1; $i <= 8; $i++) {
             $colName = 'plantilla_path_' . $i;
             if (Schema::hasColumn($nombreTabla, $colName)) {
-                $updateData[$colName] = $tipoProducto->$colName ?? null;
+                $updateData[$colName] = $tipoProductoReal->$colName ?? null;
             }
         }
 
@@ -991,7 +1014,8 @@ class ProductoController extends Controller
         }
 
         // 3. Precios y Tarifas (Tabla hija e instancia base)
-        $tarifaIdAUsar = $tipoProducto->id;
+        // Usamos la tarifa del ProductoReal
+        $tarifaIdAUsar = $tipoProductoReal->id;
         if (isset($instancia->subproducto) && $instancia->subproducto) {
             $tarifaIdAUsar = $instancia->subproducto;
         }
@@ -1012,14 +1036,16 @@ class ProductoController extends Controller
 
         // 4. Metadatos adicionales (nombre_producto)
         if (Schema::hasColumn($nombreTabla, 'nombre_producto')) {
-            $updateData['nombre_producto'] = $tipoProducto->nombre;
+            $updateData['nombre_producto'] = $tipoProductoReal->nombre;
         }
 
         DB::table($nombreTabla)->where('id', $id)->update($updateData);
 
-        // 5. Regenerar anexos también (si este tipo_producto tiene asociados)
+        // 5. Regenerar anexos también (Los anexos se enlazan al PADRE en Base de Datos porque es el que da la Estructura en algunos casos, o al REAL?)
+        // En Kyrema los anexos suelen estar asociados al padre o al hijo. En base a $tipoProductoTabla o $tipoProductoReal?
+        // Revisamos tipo_producto_asociado = $tipoProductoTabla->id (El Padre, porque la tabla de anexos guarda asociaciion con la estructura general)
         $anexosNames = DB::table('tipo_producto')
-            ->where('tipo_producto_asociado', $tipoProducto->id)
+            ->where('tipo_producto_asociado', $tipoProductoTabla->id)
             ->pluck('letras_identificacion');
 
         $sumaAnexos = 0;
