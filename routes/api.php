@@ -247,6 +247,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     });
 
     Route::get('producto/{letrasIdentificacion}/id/{id}', [ProductoController::class, 'show']);
+    Route::post('productos/{letrasIdentificacion}/{id}/regenerar', [ProductoController::class, 'regenerarDatosInstancia']);
 
     Route::post('pago/generate-csv', [PagoExportController::class, 'exportarPagos']);
 

@@ -656,7 +656,7 @@ class ProductoController extends Controller
         foreach ($anexos as $letraAnexo) {
             $nombreTablaAnexo = strtolower($letraAnexo);
             if (!Schema::hasTable($nombreTablaAnexo)) continue;
-            
+
             $chunks = array_chunk($productIds, 500);
             foreach ($chunks as $chunk) {
                 $counts = DB::table($nombreTablaAnexo)
