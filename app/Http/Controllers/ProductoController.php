@@ -969,21 +969,21 @@ class ProductoController extends Controller
         Log::info("Regenerar Datos - INICIO. Letras: $letrasIdentificacion, ID: $id");
 
         // Buscar el tipo_producto base original
-        $tipoProductoReal = DB::table('tipo_producto')
+        $tipoProductoBase = DB::table('tipo_producto')
             ->where('letras_identificacion', $letrasIdentificacion)
             ->first();
 
-        if (!$tipoProductoReal) {
+        if (!$tipoProductoBase) {
             Log::error("Regenerar Datos - ERROR: Tipo de producto no encontrado. Letras: $letrasIdentificacion");
             return response()->json(['error' => 'Tipo de producto no encontrado'], 404);
         }
 
         // Si el tipoProducto tiene padre (es un subproducto), la tabla a modificar es la del padre
-        $tipoProductoTabla = $tipoProductoReal;
-        if ($tipoProductoReal->padre_id != null) {
-            Log::info("Regenerar Datos - Es un subproducto. Padre ID: " . $tipoProductoReal->padre_id);
+        $tipoProductoTabla = $tipoProductoBase;
+        if ($tipoProductoBase->padre_id != null) {
+            Log::info("Regenerar Datos - El tipo proporcionado es un subproducto. Usando padre para resolución de tabla.");
             $tipoProductoTabla = DB::table('tipo_producto')
-                ->where('id', $tipoProductoReal->padre_id)
+                ->where('id', $tipoProductoBase->padre_id)
                 ->first();
         }
 
@@ -1005,6 +1005,63 @@ class ProductoController extends Controller
             return response()->json(['error' => 'Instancia de producto no encontrada'], 404);
         }
 
+        // Determinar el tipo de producto real (podría ser un subproducto)
+        $tipoProductoReal = $tipoProductoBase;
+        if (isset($instancia->subproducto) && $instancia->subproducto) {
+            $tipoProductoReal = DB::table('tipo_producto')->where('id', $instancia->subproducto)->first();
+            Log::info("Regenerar Datos - Identificado subproducto: " . ($tipoProductoReal->id ?? 'desconocido'));
+        }
+
+        // SI ES UN SUBPRODUCTO, SINCRONIZAR CON EL PADRE
+        if ($tipoProductoReal && $tipoProductoReal->padre_id != null) {
+            Log::info("Regenerar Datos - Sincronizando subproducto {$tipoProductoReal->id} con padre {$tipoProductoReal->padre_id}");
+            
+            // 1. Sincronizar campos (posiciones, font_size, etc)
+            $parentCampos = DB::table('campos')->where('tipo_producto_id', $tipoProductoReal->padre_id)->get();
+            foreach ($parentCampos as $pCampo) {
+                DB::table('campos')
+                    ->where('tipo_producto_id', $tipoProductoReal->id)
+                    ->where('nombre_codigo', $pCampo->nombre_codigo)
+                    ->update([
+                        'columna' => $pCampo->columna,
+                        'fila' => $pCampo->fila,
+                        'page' => $pCampo->page,
+                        'font_size' => $pCampo->font_size,
+                        'visible' => $pCampo->visible,
+                        'obligatorio' => $pCampo->obligatorio,
+                    ]);
+            }
+
+            // 2. Sincronizar logos
+            DB::table('campos_logos')->where('tipo_producto_id', $tipoProductoReal->id)->delete();
+            $parentLogos = DB::table('campos_logos')->where('tipo_producto_id', $tipoProductoReal->padre_id)->get();
+            foreach ($parentLogos as $pLogo) {
+                $newLogo = (array)$pLogo;
+                unset($newLogo['id']);
+                $newLogo['tipo_producto_id'] = $tipoProductoReal->id;
+                DB::table('campos_logos')->insert($newLogo);
+            }
+
+            // 3. Sincronizar pólizas
+            DB::table('tipo_producto_polizas')->where('tipo_producto_id', $tipoProductoReal->id)->delete();
+            $parentPolizas = DB::table('tipo_producto_polizas')->where('tipo_producto_id', $tipoProductoReal->padre_id)->get();
+            foreach ($parentPolizas as $pPoliza) {
+                $newPoliza = (array)$pPoliza;
+                unset($newPoliza['id']);
+                $newPoliza['tipo_producto_id'] = $tipoProductoReal->id;
+                DB::table('tipo_producto_polizas')->insert($newPoliza);
+            }
+
+            // 4. Sincronizar metadatos de tipo_producto (PDF Builder)
+            DB::table('tipo_producto')->where('id', $tipoProductoReal->id)->update([
+                'separacion_anexos' => $tipoProductoBase->separacion_anexos,
+                'nombre_unificado' => $tipoProductoBase->nombre_unificado,
+            ]);
+            
+            // Recargar tipoProductoReal actualizado
+            $tipoProductoReal = DB::table('tipo_producto')->where('id', $tipoProductoReal->id)->first();
+        }
+
         $updateData = [];
 
         // 1. Rutas de plantillas (Desde el tipo_producto_real, ya que los subproductos pueden tener sus propias plantillas)
@@ -1017,19 +1074,26 @@ class ProductoController extends Controller
         
         Log::info("Regenerar Datos - Plantillas listadas para actualizar", ['plantillas' => array_keys($updateData)]);
 
-        // 2. Logo Sociedad
+        // 2. Logo Sociedad y Datos del Socio
         if (Schema::hasColumn($nombreTabla, 'logo_sociedad_path')) {
             $updateData['logo_sociedad_path'] = DB::table('sociedad')->where('id', $instancia->sociedad_id)->value('logo');
             Log::info("Regenerar Datos - Logo sociedad agregado", ['path' => $updateData['logo_sociedad_path']]);
         }
 
+        // Actualizar datos del socio si existe socio_id
+        if (isset($instancia->socio_id) && $instancia->socio_id) {
+            $socio = DB::table('socios')->where('id', $instancia->socio_id)->first();
+            if ($socio) {
+                if (Schema::hasColumn($nombreTabla, 'nombre_socio')) $updateData['nombre_socio'] = $socio->nombre_socio;
+                if (Schema::hasColumn($nombreTabla, 'apellido_1')) $updateData['apellido_1'] = $socio->apellido_1;
+                if (Schema::hasColumn($nombreTabla, 'apellido_2')) $updateData['apellido_2'] = $socio->apellido_2;
+                Log::info("Regenerar Datos - Datos del socio actualizados desde la tabla maestro");
+            }
+        }
+
         // 3. Precios y Tarifas (Tabla hija e instancia base)
         // Usamos la tarifa del ProductoReal
         $tarifaIdAUsar = $tipoProductoReal->id;
-        if (isset($instancia->subproducto) && $instancia->subproducto) {
-            $tarifaIdAUsar = $instancia->subproducto;
-            Log::info("Regenerar Datos - Usando subproducto desde instancia: $tarifaIdAUsar");
-        }
 
         Log::info("Regenerar Datos - Consultando tarifa_producto para id_sociedad: {$instancia->sociedad_id}, tipo_producto_id: $tarifaIdAUsar");
         
