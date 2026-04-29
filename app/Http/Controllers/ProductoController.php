@@ -449,6 +449,10 @@ class ProductoController extends Controller
             ->where('letras_identificacion', $letrasIdentificacion)
             ->first();
 
+        if (!$tipoProducto) {
+            return response()->json(['error' => 'Tipo de producto no encontrado'], 404);
+        }
+
         // Obtener todas las tablas de anexos asociados al tipo de producto
         $anexos = DB::table('tipo_producto')
             ->where('tipo_producto_asociado', $tipoProducto->id)
@@ -494,10 +498,13 @@ class ProductoController extends Controller
 
     public function getProductosByTipoAndComercial($letrasIdentificacion, $comercial_id)
     {
-        // Obtener el tipo de producto por las letras de identificación
         $tipoProducto = DB::table('tipo_producto')
             ->where('letras_identificacion', $letrasIdentificacion)
             ->first();
+
+        if (!$tipoProducto) {
+            return response()->json(['error' => 'Tipo de producto no encontrado'], 404);
+        }
 
         // Obtener todas las tablas de anexos asociados
         $anexos = DB::table('tipo_producto')
@@ -959,7 +966,12 @@ class ProductoController extends Controller
 
         if (!$producto) {
             return response()->json(['error' => 'Product not found'], 404);
-     public function regenerarDatosInstancia($letrasIdentificacion, $id)
+        }
+
+        return response()->json($producto);
+    }
+
+    public function regenerarDatosInstancia($letrasIdentificacion, $id)
     {
         Log::info("Regenerar Datos - INICIO. Letras: $letrasIdentificacion, ID: $id");
 
