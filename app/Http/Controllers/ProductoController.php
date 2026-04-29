@@ -427,6 +427,31 @@ class ProductoController extends Controller
         }
     }
 
+    public function borrarPlantilla($id_tipo_producto, $page)
+    {
+        $tipoProducto = DB::table('tipo_producto')
+            ->where('id', $id_tipo_producto)
+            ->first();
+
+        if (!$tipoProducto) {
+            return response()->json(['error' => 'Tipo de producto no encontrado'], 404);
+        }
+
+        $plantilla_path_name = 'plantilla_path_' . $page;
+        $rutaArchivo = $tipoProducto->$plantilla_path_name;
+
+        if ($rutaArchivo && Storage::disk('public')->exists($rutaArchivo)) {
+            Storage::disk('public')->delete($rutaArchivo);
+        }
+
+        // Actualizar la base de datos
+        DB::table('tipo_producto')
+            ->where('id', $id_tipo_producto)
+            ->update([$plantilla_path_name => null]);
+
+        return response()->json(['message' => 'Plantilla ' . $page . ' borrada correctamente'], 200);
+    }
+
     public function getProductosByTipoAndSociedades($letrasIdentificacion, Request $request)
     {
         // Obtener las sociedades del request

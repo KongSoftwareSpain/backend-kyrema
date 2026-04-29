@@ -89,6 +89,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     Route::post('crear-tipo-producto', [ProductoController::class, 'crearTipoProducto']);
     Route::post('subir-plantilla/{id_tipo_producto}/{page}', [ProductoController::class, 'subirPlantilla']);
+    Route::delete('borrar-plantilla/{id_tipo_producto}/{page}', [ProductoController::class, 'borrarPlantilla']);
 
 
     Route::get('descargar-plantilla/{letrasIdentificacion}/id/{id}', [ExportController::class, 'exportToPdf']);
