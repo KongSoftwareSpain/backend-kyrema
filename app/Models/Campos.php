@@ -11,6 +11,14 @@ class Campos extends Model
     protected $primaryKey = 'id';
     protected $keyType = 'string';
 
+    /**
+     * The storage format of the model's date columns.
+     * SQL Server sometimes has issues with milliseconds in some configurations.
+     * 
+     * @var string
+     */
+    protected $dateFormat = 'Y-m-d\TH:i:s';
+
     // 'nombre' => $campo['nombre'],
     // 'nombre_codigo' => strtolower(str_replace(' ', '_', $campo['nombre'])),
     // 'tipo_producto_id' => $tipoProductoId,

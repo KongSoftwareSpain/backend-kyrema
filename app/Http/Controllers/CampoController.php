@@ -47,6 +47,7 @@ class CampoController extends Controller
         foreach ($campos as $campoData) {
             $campo = Campos::find($campoData['id']);
             if ($campo) {
+                unset($campoData['created_at'], $campoData['updated_at']);
                 $campo->update($campoData);
             }
         }
@@ -77,11 +78,14 @@ class CampoController extends Controller
             if (isset($campoData['id']) && $campoData['id']) {
                 $campo = Campos::find($campoData['id']);
                 if ($campo) {
+                    unset($campoData['created_at'], $campoData['updated_at']);
                     $campo->update($campoData);
                 } else {
+                    unset($campoData['created_at'], $campoData['updated_at']);
                     $campo = Campos::create($campoData);
                 }
             } else {
+                unset($campoData['created_at'], $campoData['updated_at']);
                 $campo = Campos::create($campoData);
             }
 
@@ -111,6 +115,7 @@ class CampoController extends Controller
         try {
             $campo = Campos::findOrFail($id);
             $campoData = $request->all();
+            unset($campoData['created_at'], $campoData['updated_at']);
             $campo->update($campoData);
 
             if (isset($campoData['opciones']) && is_array($campoData['opciones'])) {

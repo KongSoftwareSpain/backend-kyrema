@@ -10,6 +10,11 @@ class CampoAnexo extends Model
     use HasFactory;
 
     protected $table = 'campos_anexos'; // Nombre de la tabla en la base de datos
+    protected $dateFormat = 'Y-m-d\TH:i:s';
+
+    protected $casts = [
+        'obligatorio' => 'boolean',
+    ];
 
     protected $fillable = [
         'nombre',

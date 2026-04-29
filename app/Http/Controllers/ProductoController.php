@@ -488,12 +488,9 @@ class ProductoController extends Controller
         }
 
         // 3. Combinar los productos vigentes directamente con los productos que tienen anexos vigentes
-        $productosFinales = $productosVigentes->merge($productosConAnexosVigentes)->unique('id');
+        $productosFinales = $productosVigentes->merge($productosConAnexosVigentes)->unique('id')->values();
 
-        $productosFinales = self::appendNumeroAnexos($nombreTabla, $tipoProducto->id, collect($productosFinales->values()));
-
-        // 4. Eliminar duplicados por ID de producto
-        return response()->json($this->appendApellidos($nombreTabla, $productosFinales));
+        return response()->json($productosFinales);
     }
 
     public function getProductosByTipoAndComercial($letrasIdentificacion, $comercial_id)

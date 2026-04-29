@@ -18,6 +18,9 @@ class Anulacion extends Model
     // Indicar si la tabla tiene timestamps (created_at y updated_at)
     public $timestamps = true;
 
+    // Personalizamos el formato de fechas para que SQL server lo pueda convertir de varchar a datetime
+    protected $dateFormat = 'Y-m-d\TH:i:s';
+
     // Los atributos que se pueden asignar masivamente
     protected $fillable = [
         'fecha',
