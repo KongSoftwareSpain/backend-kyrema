@@ -959,16 +959,11 @@ class ProductoController extends Controller
 
         if (!$producto) {
             return response()->json(['error' => 'Product not found'], 404);
-        }
-
-        return response()->json($producto, 200);
-    }
-
-    public function regenerarDatosInstancia($letrasIdentificacion, $id)
+     public function regenerarDatosInstancia($letrasIdentificacion, $id)
     {
         Log::info("Regenerar Datos - INICIO. Letras: $letrasIdentificacion, ID: $id");
 
-        // Buscar el tipo_producto base original
+        // 1. Buscar el tipo_producto base original
         $tipoProductoBase = DB::table('tipo_producto')
             ->where('letras_identificacion', $letrasIdentificacion)
             ->first();
@@ -1016,20 +1011,36 @@ class ProductoController extends Controller
         if ($tipoProductoReal && $tipoProductoReal->padre_id != null) {
             Log::info("Regenerar Datos - Sincronizando subproducto {$tipoProductoReal->id} con padre {$tipoProductoReal->padre_id}");
             
-            // 1. Sincronizar campos (posiciones, font_size, etc)
+            // 1. Sincronizar campos (posiciones, font_size, nuevos campos, etc)
             $parentCampos = DB::table('campos')->where('tipo_producto_id', $tipoProductoReal->padre_id)->get();
             foreach ($parentCampos as $pCampo) {
-                DB::table('campos')
+                $exists = DB::table('campos')
                     ->where('tipo_producto_id', $tipoProductoReal->id)
                     ->where('nombre_codigo', $pCampo->nombre_codigo)
-                    ->update([
+                    ->first();
+
+                if ($exists) {
+                    DB::table('campos')->where('id', $exists->id)->update([
                         'columna' => $pCampo->columna,
                         'fila' => $pCampo->fila,
                         'page' => $pCampo->page,
                         'font_size' => $pCampo->font_size,
                         'visible' => $pCampo->visible,
                         'obligatorio' => $pCampo->obligatorio,
+                        'tipo_dato' => $pCampo->tipo_dato,
+                        'grupo' => $pCampo->grupo,
+                        'opciones' => $pCampo->opciones,
+                        'copia' => $pCampo->copia,
+                        'updated_at' => now(),
                     ]);
+                } else {
+                    $campoData = (array)$pCampo;
+                    unset($campoData['id']);
+                    $campoData['tipo_producto_id'] = $tipoProductoReal->id;
+                    $campoData['created_at'] = now();
+                    $campoData['updated_at'] = now();
+                    DB::table('campos')->insert($campoData);
+                }
             }
 
             // 2. Sincronizar logos
@@ -1052,140 +1063,115 @@ class ProductoController extends Controller
                 DB::table('tipo_producto_polizas')->insert($newPoliza);
             }
 
-            // 4. Sincronizar metadatos de tipo_producto (PDF Builder)
-            DB::table('tipo_producto')->where('id', $tipoProductoReal->id)->update([
+            // 4. Sincronizar metadatos de tipo_producto (PDF Builder y Plantillas)
+            $updateTipoSub = [
                 'separacion_anexos' => $tipoProductoBase->separacion_anexos,
                 'nombre_unificado' => $tipoProductoBase->nombre_unificado,
-            ]);
+            ];
+            for ($i = 1; $i <= 8; $i++) {
+                $col = 'plantilla_path_' . $i;
+                $updateTipoSub[$col] = $tipoProductoBase->$col ?? null;
+            }
             
-            // Recargar tipoProductoReal actualizado
+            DB::table('tipo_producto')->where('id', $tipoProductoReal->id)->update($updateTipoSub);
             $tipoProductoReal = DB::table('tipo_producto')->where('id', $tipoProductoReal->id)->first();
         }
 
         $updateData = [];
 
-        // 1. Rutas de plantillas (Desde el tipo_producto_real, ya que los subproductos pueden tener sus propias plantillas)
+        // 1. Rutas de plantillas
         for ($i = 1; $i <= 8; $i++) {
             $colName = 'plantilla_path_' . $i;
             if (Schema::hasColumn($nombreTabla, $colName)) {
                 $updateData[$colName] = $tipoProductoReal->$colName ?? null;
             }
         }
-        
-        Log::info("Regenerar Datos - Plantillas listadas para actualizar", ['plantillas' => array_keys($updateData)]);
 
         // 2. Logo Sociedad y Datos del Socio
         if (Schema::hasColumn($nombreTabla, 'logo_sociedad_path')) {
             $updateData['logo_sociedad_path'] = DB::table('sociedad')->where('id', $instancia->sociedad_id)->value('logo');
-            Log::info("Regenerar Datos - Logo sociedad agregado", ['path' => $updateData['logo_sociedad_path']]);
         }
 
-        // Actualizar datos del socio si existe socio_id
         if (isset($instancia->socio_id) && $instancia->socio_id) {
             $socio = DB::table('socios')->where('id', $instancia->socio_id)->first();
             if ($socio) {
                 if (Schema::hasColumn($nombreTabla, 'nombre_socio')) $updateData['nombre_socio'] = $socio->nombre_socio;
                 if (Schema::hasColumn($nombreTabla, 'apellido_1')) $updateData['apellido_1'] = $socio->apellido_1;
                 if (Schema::hasColumn($nombreTabla, 'apellido_2')) $updateData['apellido_2'] = $socio->apellido_2;
-                Log::info("Regenerar Datos - Datos del socio actualizados desde la tabla maestro");
             }
         }
 
-        // 3. Precios y Tarifas (Tabla hija e instancia base)
-        // Usamos la tarifa del ProductoReal
-        $tarifaIdAUsar = $tipoProductoReal->id;
-
-        Log::info("Regenerar Datos - Consultando tarifa_producto para id_sociedad: {$instancia->sociedad_id}, tipo_producto_id: $tarifaIdAUsar");
-        
+        // 3. Precios y Tarifas
         $tarifa = DB::table('tarifas_producto')
                     ->where('id_sociedad', $instancia->sociedad_id)
-                    ->where('tipo_producto_id', $tarifaIdAUsar)
+                    ->where('tipo_producto_id', $tipoProductoReal->id)
                     ->first();
 
         if ($tarifa) {
-            Log::info("Regenerar Datos - Tarifa encontrada", ['tarifa' => $tarifa->precio_total]);
             $colsToUpdate = ['precio_base', 'extra_1', 'extra_2', 'extra_3', 'precio_total'];
             foreach ($colsToUpdate as $col) {
                 if (Schema::hasColumn($nombreTabla, $col)) {
                     $updateData[$col] = $tarifa->$col;
                 }
             }
-        } else {
-            Log::warning("Regenerar Datos - WARN: Tarifa no encontrada para tipo $tarifaIdAUsar");
         }
 
-        // 4. Metadatos adicionales (nombre_producto o subproducto_codigo)
+        // 4. Metadatos adicionales
         if (Schema::hasColumn($nombreTabla, 'nombre_producto')) {
             $updateData['nombre_producto'] = $tipoProductoReal->nombre;
-            Log::info("Regenerar Datos - Actualizando nombre_producto: " . $tipoProductoReal->nombre);
         }
-        
         if (Schema::hasColumn($nombreTabla, 'subproducto_codigo')) {
             $updateData['subproducto_codigo'] = $tipoProductoReal->nombre;
-            Log::info("Regenerar Datos - Actualizando subproducto_codigo: " . $tipoProductoReal->nombre);
         }
 
         DB::table($nombreTabla)->where('id', $id)->update($updateData);
-        Log::info("Regenerar Datos - Producto principal actualizado exitosamente");
 
-        // 5. Regenerar anexos también (Los anexos se enlazan al PADRE en Base de Datos porque es el que da la Estructura en algunos casos, o al REAL?)
-        // En Kyrema los anexos suelen estar asociados al padre o al hijo. En base a $tipoProductoTabla o $tipoProductoReal?
-        // Revisamos tipo_producto_asociado = $tipoProductoTabla->id (El Padre, porque la tabla de anexos guarda asociaciion con la estructura general)
-        $anexosNames = DB::table('tipo_producto')
+        // 5. Regenerar anexos
+        $anexosTipos = DB::table('tipo_producto')
             ->where('tipo_producto_asociado', $tipoProductoTabla->id)
-            ->pluck('letras_identificacion');
+            ->get();
 
-        Log::info("Regenerar Datos - Tratando anexos. Total encontrados: " . $anexosNames->count(), ['anexos' => $anexosNames]);
         $sumaAnexos = 0;
 
-        foreach ($anexosNames as $letraAnexo) {
-            $tablaAnexo = strtolower($letraAnexo);
+        foreach ($anexosTipos as $tipoAnexo) {
+            $tablaAnexo = strtolower($tipoAnexo->letras_identificacion);
             if (Schema::hasTable($tablaAnexo)) {
                 $anexosInstancia = DB::table($tablaAnexo)
                     ->where('producto_id', $id)
                     ->where('anulado', 0)
                     ->get();
                     
-                Log::info("Regenerar Datos - Procesando tabla anexo: $tablaAnexo. Instancias: " . $anexosInstancia->count());
-                
                 foreach ($anexosInstancia as $anInst) {
                     $updateAnexo = [];
-                    $tipoAnexo = DB::table('tipo_producto')->where('letras_identificacion', $letraAnexo)->first();
-                    
-                    if ($tipoAnexo) {
-                        for ($i = 1; $i <= 8; $i++) {
-                            $colName = 'plantilla_path_' . $i;
-                            if (Schema::hasColumn($tablaAnexo, $colName)) {
-                                $updateAnexo[$colName] = $tipoAnexo->$colName ?? null;
-                            }
-                        }
-
-                        $sociedadAdmin = env('SOCIEDAD_ADMIN_ID', 1);
-                        Log::info("Regenerar Datos - Buscando tarifa anexo para id_sociedad: $sociedadAdmin, tipo_producto_id: {$tipoAnexo->id}");
-                        
-                        $tarifaAnexo = DB::table('tarifas_producto')
-                            ->where('id_sociedad', $sociedadAdmin) // Las tarifas de anexo siempre apuntan a Admin
-                            ->where('tipo_producto_id', $tipoAnexo->id)
-                            ->first();
-
-                        if ($tarifaAnexo) {
-                            $colsToUpdate = ['precio_base', 'extra_1', 'extra_2', 'extra_3', 'precio_total'];
-                            foreach ($colsToUpdate as $col) {
-                                if (Schema::hasColumn($tablaAnexo, $col)) {
-                                    $updateAnexo[$col] = $tarifaAnexo->$col;
-                                }
-                            }
-                            $sumaAnexos += $tarifaAnexo->precio_total;
-                        }
-
-                        if (!empty($updateAnexo)) {
-                            DB::table($tablaAnexo)->where('id', $anInst->id)->update($updateAnexo);
-                            Log::info("Regenerar Datos - Anexo {$anInst->id} de la tabla $tablaAnexo actualizado correctamente");
+                    // Sincronizar plantillas
+                    for ($i = 1; $i <= 8; $i++) {
+                        $colName = 'plantilla_path_' . $i;
+                        if (Schema::hasColumn($tablaAnexo, $colName)) {
+                            $updateAnexo[$colName] = $tipoAnexo->$colName ?? null;
                         }
                     }
+
+                    // Sincronizar precios
+                    $sociedadAdmin = env('SOCIEDAD_ADMIN_ID', 1);
+                    $tarifaAnexo = DB::table('tarifas_producto')
+                        ->where('id_sociedad', $sociedadAdmin)
+                        ->where('tipo_producto_id', $tipoAnexo->id)
+                        ->first();
+
+                    if ($tarifaAnexo) {
+                        $colsToUpdate = ['precio_base', 'extra_1', 'extra_2', 'extra_3', 'precio_total'];
+                        foreach ($colsToUpdate as $col) {
+                            if (Schema::hasColumn($tablaAnexo, $col)) {
+                                $updateAnexo[$col] = $tarifaAnexo->$col;
+                            }
+                        }
+                        $sumaAnexos += $tarifaAnexo->precio_total;
+                    }
+
+                    if (!empty($updateAnexo)) {
+                        DB::table($tablaAnexo)->where('id', $anInst->id)->update($updateAnexo);
+                    }
                 }
-            } else {
-                Log::warning("Regenerar Datos - WARN: Tabla anexo no existe: $tablaAnexo");
             }
         }
 
@@ -1193,12 +1179,11 @@ class ProductoController extends Controller
         if (Schema::hasColumn($nombreTabla, 'precio_final')) {
             $baseTarifa = $tarifa ? ($tarifa->precio_total ?? 0) : ($instancia->precio_total ?? 0);
             $nuevoPrecioFinal = $baseTarifa + $sumaAnexos;
-            Log::info("Regenerar Datos - Actualizando precio_final global. Base: $baseTarifa, SumaAnexos: $sumaAnexos, Total: $nuevoPrecioFinal");
             DB::table($nombreTabla)->where('id', $id)->update(['precio_final' => $nuevoPrecioFinal]);
         }
 
         $instanciaActualizada = DB::table($nombreTabla)->where('id', $id)->first();
-        Log::info("Regenerar Datos - FIN. Operación finalizada exitosamente.");
+        Log::info("Regenerar Datos - FIN exitoso.");
         
         return response()->json([
             'message' => 'Datos regenerados con éxito',
