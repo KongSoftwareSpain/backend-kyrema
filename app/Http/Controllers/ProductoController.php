@@ -1040,14 +1040,14 @@ class ProductoController extends Controller
                         'grupo' => $pCampo->grupo,
                         'opciones' => $pCampo->opciones,
                         'copia' => $pCampo->copia,
-                        'updated_at' => now(),
+                        'updated_at' => now()->format('Y-m-d\TH:i:s'),
                     ]);
                 } else {
                     $campoData = (array)$pCampo;
                     unset($campoData['id']);
                     $campoData['tipo_producto_id'] = $tipoProductoReal->id;
-                    $campoData['created_at'] = now();
-                    $campoData['updated_at'] = now();
+                    $campoData['created_at'] = now()->format('Y-m-d\TH:i:s');
+                    $campoData['updated_at'] = now()->format('Y-m-d\TH:i:s');
                     DB::table('campos')->insert($campoData);
                 }
             }
