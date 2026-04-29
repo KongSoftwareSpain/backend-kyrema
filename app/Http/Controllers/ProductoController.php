@@ -1133,6 +1133,12 @@ class ProductoController extends Controller
             $updateData['subproducto_codigo'] = $tipoProductoReal->nombre;
         }
 
+        if (Schema::hasColumn($nombreTabla, 'blob_name')) {
+            $updateData['blob_name'] = '';
+        }
+
+        $updateData['updated_at'] = Carbon::now()->format('Y-m-d\TH:i:s');
+
         DB::table($nombreTabla)->where('id', $id)->update($updateData);
 
         // 5. Regenerar anexos
@@ -1176,6 +1182,12 @@ class ProductoController extends Controller
                         }
                         $sumaAnexos += $tarifaAnexo->precio_total;
                     }
+
+                    if (Schema::hasColumn($tablaAnexo, 'blob_name')) {
+                        $updateAnexo['blob_name'] = '';
+                    }
+
+                    $updateAnexo['updated_at'] = Carbon::now()->format('Y-m-d\TH:i:s');
 
                     if (!empty($updateAnexo)) {
                         DB::table($tablaAnexo)->where('id', $anInst->id)->update($updateAnexo);

@@ -204,15 +204,20 @@ class ExportController extends Controller
             Log::info(print_r($plantillaPaths, true));
 
             foreach ($plantillaPaths as $path) {
-                if ($path !== null) { // Verifica si no es nulo
-                    $fullPath = storage_path('app/public/' . $path); // Ruta completa
+                if ($path !== null) { 
+                    $fullPath = storage_path('app/public/' . $path);
+                    
+                    if (!file_exists($fullPath)) {
+                        $fullPath = public_path('storage/' . $path);
+                    }
 
-                    if (file_exists($fullPath)) { // Verifica si el archivo existe
+                    if (file_exists($fullPath)) {
                         $imageData = base64_encode(file_get_contents($fullPath));
                         $mimeType = mime_content_type($fullPath);
-                        $plantillasBase64[] = "data:{$mimeType};base64,{$imageData}"; // Agrega la plantilla en base64
+                        $plantillasBase64[] = "data:{$mimeType};base64,{$imageData}"; 
                     } else {
-                        return response()->json(['error' => 'Plantilla no encontrada: ' . $fullPath], 404);
+                        Log::error("Plantilla no encontrada. Intentado en: " . storage_path('app/public/' . $path) . " y " . public_path('storage/' . $path));
+                        return response()->json(['error' => 'Plantilla no encontrada: ' . $path], 404);
                     }
                 }
             }
@@ -313,15 +318,20 @@ class ExportController extends Controller
         ];
 
         foreach ($plantillaPaths as $path) {
-            if ($path !== null) { // Verifica si no es nulo
-                $fullPath = storage_path('app/public/' . $path); // Ruta completa
+            if ($path !== null) { 
+                $fullPath = storage_path('app/public/' . $path);
+                
+                if (!file_exists($fullPath)) {
+                    $fullPath = public_path('storage/' . $path);
+                }
 
-                if (file_exists($fullPath)) { // Verifica si el archivo existe
+                if (file_exists($fullPath)) {
                     $imageData = base64_encode(file_get_contents($fullPath));
                     $mimeType = mime_content_type($fullPath);
-                    $plantillasBase64[] = "data:{$mimeType};base64,{$imageData}"; // Agrega la plantilla en base64
+                    $plantillasBase64[] = "data:{$mimeType};base64,{$imageData}"; 
                 } else {
-                    return response()->json(['error' => 'Plantilla no encontrada: ' . $fullPath], 404);
+                    Log::error("Plantilla de anexo no encontrada. Intentado en: " . storage_path('app/public/' . $path) . " y " . public_path('storage/' . $path));
+                    return response()->json(['error' => 'Plantilla no encontrada: ' . $path], 404);
                 }
             }
         }
