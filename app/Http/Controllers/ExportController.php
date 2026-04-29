@@ -204,9 +204,9 @@ class ExportController extends Controller
             Log::info(print_r($plantillaPaths, true));
 
             foreach ($plantillaPaths as $path) {
-                if ($path !== null) { 
+                if ($path !== null) {
                     $fullPath = storage_path('app/public/' . $path);
-                    
+
                     if (!file_exists($fullPath)) {
                         $fullPath = public_path('storage/' . $path);
                     }
@@ -214,7 +214,7 @@ class ExportController extends Controller
                     if (file_exists($fullPath)) {
                         $imageData = base64_encode(file_get_contents($fullPath));
                         $mimeType = mime_content_type($fullPath);
-                        $plantillasBase64[] = "data:{$mimeType};base64,{$imageData}"; 
+                        $plantillasBase64[] = "data:{$mimeType};base64,{$imageData}";
                     } else {
                         Log::error("Plantilla no encontrada. Intentado en: " . storage_path('app/public/' . $path) . " y " . public_path('storage/' . $path));
                         return response()->json(['error' => 'Plantilla no encontrada: ' . $path], 404);
@@ -285,6 +285,8 @@ class ExportController extends Controller
 
     public function exportAnexoExcelToPdf($tipoAnexoId, Request $request)
     {
+        Log::info("DEBUG: exportAnexoExcelToPdf alcanzado. tipoAnexoId: $tipoAnexoId, id: " . $request->input('id'));
+
         // Obtener el id del request
         $id = $request->input('id');
 
@@ -318,9 +320,9 @@ class ExportController extends Controller
         ];
 
         foreach ($plantillaPaths as $path) {
-            if ($path !== null) { 
+            if ($path !== null) {
                 $fullPath = storage_path('app/public/' . $path);
-                
+
                 if (!file_exists($fullPath)) {
                     $fullPath = public_path('storage/' . $path);
                 }
@@ -328,7 +330,7 @@ class ExportController extends Controller
                 if (file_exists($fullPath)) {
                     $imageData = base64_encode(file_get_contents($fullPath));
                     $mimeType = mime_content_type($fullPath);
-                    $plantillasBase64[] = "data:{$mimeType};base64,{$imageData}"; 
+                    $plantillasBase64[] = "data:{$mimeType};base64,{$imageData}";
                 } else {
                     Log::error("Plantilla de anexo no encontrada. Intentado en: " . storage_path('app/public/' . $path) . " y " . public_path('storage/' . $path));
                     return response()->json(['error' => 'Plantilla no encontrada: ' . $path], 404);
