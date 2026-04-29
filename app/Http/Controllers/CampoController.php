@@ -152,14 +152,14 @@ class CampoController extends Controller
         return Opciones::where('campo_id', $id_campo)->get();
     }
 
-    public function getCamposCertificado($id_tipo_producto)
+    public static function fetchCamposCertificado($id_tipo_producto)
     {
         return Campos::where('tipo_producto_id', $id_tipo_producto)
             ->where('visible', 1)
             ->get();
     }
 
-    public function getCamposLogos($id_tipo_producto)
+    public static function fetchCamposLogos($id_tipo_producto)
     {
         return DB::table('campos_logos')
             ->where('tipo_producto_id', $id_tipo_producto)

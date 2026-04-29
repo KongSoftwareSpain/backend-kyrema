@@ -98,8 +98,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('add-campos/{id_tipo_producto}', [CampoController::class, 'addCampos']);
     Route::post('create-campo-opciones/{id_tipo_producto}', [CampoController::class, 'createCampoConOpcionesHTTP']);
     Route::put('update-campo-opciones/{id}', [CampoController::class, 'updateCampoConOpciones']);
-    Route::get('campos-certificado/{id}', [CampoController::class, 'getCamposCertificado']);
-    Route::get('logos/tipo-producto/{id}', [CampoController::class, 'getCamposLogos']);
+    Route::get('campos-certificado/{id}', [CampoController::class, 'fetchCamposCertificado']);
+    Route::get('logos/tipo-producto/{id}', [CampoController::class, 'fetchCamposLogos']);
 
     // Endpoint específico para borrar un campo (caso subproducto duplicado)
     Route::delete('/campos/{id}', [CampoController::class, 'deleteCampo']);
