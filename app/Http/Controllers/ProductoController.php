@@ -487,9 +487,30 @@ class ProductoController extends Controller
             ->pluck('letras_identificacion');
         Log::info("[PERF] anexos lookup: " . round((microtime(true) - $t2) * 1000, 2) . "ms — count: " . $anexos->count());
 
+        // --- LAZY FETCHING: Seleccionar solo columnas necesarias para la tabla ---
+        $camposVisibles = DB::table('campos')
+            ->where('tipo_producto_id', $tipoProducto->id)
+            ->where('visible', '1')
+            ->get(['nombre', 'nombre_codigo']);
+
+        $columnasSelect = ['id', 'sociedad_id', 'comercial_id', 'anulado', 'updated_at', 'created_at', 'numero_anexos', 'producto_id'];
+
+        foreach ($camposVisibles as $c) {
+            $colName = $c->nombre_codigo ? $c->nombre_codigo : str_replace(' ', '_', strtolower($c->nombre));
+            $columnasSelect[] = $colName;
+        }
+
+        // Añadir obligatorias para ag-grid y formateos (aunque no sean "campos" visibles)
+        $columnasAdicionales = ['codigo_producto', 'subproducto_codigo', 'dni', 'nombre_socio', 'apellido_1', 'apellido_2', 'fecha_de_inicio', 'fecha_de_emision', 'tipo_de_pago'];
+        $columnasSelect = array_unique(array_merge($columnasSelect, $columnasAdicionales));
+
+        // Filtrar contra Schema para evitar errores SQL de columnas que no existan en la tabla actual
+        $validColumns = Cache::remember("schema_cols_{$nombreTabla}", 3600, fn() => Schema::getColumnListing($nombreTabla));
+        $finalSelect = array_intersect($columnasSelect, $validColumns);
+
         // Query principal
         $t3 = microtime(true);
-        $query = DB::table($nombreTabla);
+        $query = DB::table($nombreTabla)->select($finalSelect);
 
         if (!$isAdmin) {
             $query->whereIn('sociedad_id', $sociedades);
@@ -544,8 +565,27 @@ class ProductoController extends Controller
         // Convertir letras de identificación a nombre de tabla
         $nombreTabla = strtolower($letrasIdentificacion);
 
+        // --- LAZY FETCHING: Seleccionar solo columnas necesarias para la tabla ---
+        $camposVisibles = DB::table('campos')
+            ->where('tipo_producto_id', $tipoProducto->id)
+            ->where('visible', '1')
+            ->get(['nombre', 'nombre_codigo']);
+
+        $columnasSelect = ['id', 'sociedad_id', 'comercial_id', 'anulado', 'updated_at', 'created_at', 'numero_anexos', 'producto_id'];
+
+        foreach ($camposVisibles as $c) {
+            $colName = $c->nombre_codigo ? $c->nombre_codigo : str_replace(' ', '_', strtolower($c->nombre));
+            $columnasSelect[] = $colName;
+        }
+
+        $columnasAdicionales = ['codigo_producto', 'subproducto_codigo', 'dni', 'nombre_socio', 'apellido_1', 'apellido_2', 'fecha_de_inicio', 'fecha_de_emision', 'tipo_de_pago'];
+        $columnasSelect = array_unique(array_merge($columnasSelect, $columnasAdicionales));
+
+        $validColumns = Cache::remember("schema_cols_{$nombreTabla}", 3600, fn() => Schema::getColumnListing($nombreTabla));
+        $finalSelect = array_intersect($columnasSelect, $validColumns);
+
         // OPTIMIZACIÓN: 1 sola query con OR EXISTS en lugar de N queries + merge PHP
-        $query = DB::table($nombreTabla)->where('comercial_id', $comercial_id);
+        $query = DB::table($nombreTabla)->select($finalSelect)->where('comercial_id', $comercial_id);
 
         if ($anexos->isNotEmpty()) {
             $query->where(function ($q) use ($anexos, $nombreTabla, $comercial_id) {
