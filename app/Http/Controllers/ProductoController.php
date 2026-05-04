@@ -16,6 +16,7 @@ use App\Models\Comercial;
 use App\Models\SocioProducto;
 use App\Services\ReferenceService;
 use App\Support\Dni;
+use Illuminate\Support\Facades\Cache;
 
 class ProductoController extends Controller
 {
@@ -454,72 +455,79 @@ class ProductoController extends Controller
 
     public function getProductosByTipoAndSociedades($letrasIdentificacion, Request $request)
     {
-        // Obtener las sociedades del request
-        $sociedades = $request->query('sociedades');
+        $t0 = microtime(true);
+        Log::info("[PERF] getProductosByTipoAndSociedades START — tabla: {$letrasIdentificacion}");
 
+        $sociedades = $request->query('sociedades');
         if ($sociedades) {
             $sociedades = explode(',', $sociedades);
         } else {
             $sociedades = [];
         }
 
-        // Convertir letras de identificación a nombre de tabla
         $nombreTabla = strtolower($letrasIdentificacion);
 
-        // Obtener la fecha y hora actual
-        $fechaActual = Carbon::now()->format('Y-m-d\TH:i:s');
-
-        // Obtener el tipo de producto por las letras de identificación
+        // Fetch tipo_producto (Direct query, <2ms)
+        $t1 = microtime(true);
         $tipoProducto = DB::table('tipo_producto')
             ->where('letras_identificacion', $letrasIdentificacion)
             ->first();
+        Log::info("[PERF] tipo_producto lookup: " . round((microtime(true) - $t1) * 1000, 2) . "ms");
 
         if (!$tipoProducto) {
             return response()->json(['error' => 'Tipo de producto no encontrado'], 404);
         }
 
-        // Obtener todas las tablas de anexos asociados al tipo de producto
+        $isAdmin = count($sociedades) === 0 || in_array(env('SOCIEDAD_ADMIN_ID', 1), $sociedades);
+
+        // Fetch listado de anexos (Direct query, <2ms)
+        $t2 = microtime(true);
         $anexos = DB::table('tipo_producto')
             ->where('tipo_producto_asociado', $tipoProducto->id)
-            ->pluck('letras_identificacion'); // Solo letras de identificación para las tablas de anexos
+            ->pluck('letras_identificacion');
+        Log::info("[PERF] anexos lookup: " . round((microtime(true) - $t2) * 1000, 2) . "ms — count: " . $anexos->count());
 
-        // 1. Consulta principal: Obtener productos vigentes por fecha y sociedades
-        $productosVigentes = DB::table($nombreTabla)
-            ->when(count($sociedades) > 0 && !in_array(env('SOCIEDAD_ADMIN_ID', 1), $sociedades), function ($query) use ($sociedades) {
-                $query->whereIn('sociedad_id', $sociedades);
-            })
-            ->orderBy('updated_at', 'desc')
-            ->get();
+        // Query principal
+        $t3 = microtime(true);
+        $query = DB::table($nombreTabla);
 
-        // 2. Consulta de productos con anexos vigentes en las tablas asociadas
-        $productosConAnexosVigentes = collect(); // Inicializar colección vacía para productos con anexos
-
-        foreach ($anexos as $letraAnexo) {
-            // Convertir letra del anexo en nombre de tabla
-            $nombreTablaAnexo = strtolower($letraAnexo);
-
-            // Consultar productos que tienen anexos vigentes en cada tabla de anexos
-            $productosAnexoVigentes = DB::table($nombreTablaAnexo)
-                ->join($nombreTabla, "$nombreTablaAnexo.producto_id", '=', "$nombreTabla.id")
-                ->when(count($sociedades) > 0 && !in_array(env('SOCIEDAD_ADMIN_ID', 1), $sociedades), function ($query) use ($sociedades, $nombreTabla) {
-                    $query->whereIn("$nombreTabla.sociedad_id", $sociedades);
-                })
-                ->select("$nombreTabla.*") // Seleccionar solo los productos
-                ->orderBy("$nombreTabla.updated_at", 'desc')
-                ->get();
-
-            // Combinar productos con anexos vigentes en la colección
-            $productosConAnexosVigentes = $productosConAnexosVigentes->merge($productosAnexoVigentes);
+        if (!$isAdmin) {
+            $query->whereIn('sociedad_id', $sociedades);
         }
 
-        // 3. Combinar los productos vigentes directamente con los productos que tienen anexos vigentes
-        $productosFinales = $productosVigentes->merge($productosConAnexosVigentes)->unique('id')->values();
+        if ($anexos->isNotEmpty()) {
+            $query->where(function ($q) use ($anexos, $nombreTabla) {
+                $q->whereRaw('1=1');
+                foreach ($anexos as $letraAnexo) {
+                    $nombreTablaAnexo = strtolower($letraAnexo);
+                    $q->orWhereExists(function ($sub) use ($nombreTablaAnexo, $nombreTabla) {
+                        $sub->select(DB::raw(1))
+                            ->from($nombreTablaAnexo)
+                            ->whereColumn("$nombreTablaAnexo.producto_id", "$nombreTabla.id");
+                    });
+                }
+            });
+        }
 
-        return response()->json($productosFinales);
+        $query->orderBy('updated_at', 'desc');
+
+        $productosFinales = collect($query->get());
+        $productosFinales = self::appendNumeroAnexos($nombreTabla, $tipoProducto->id, $productosFinales);
+        $productosFinales = $this->appendApellidos($nombreTabla, $productosFinales);
+
+        Log::info("[PERF] main query + fetch: " . round((microtime(true) - $t3) * 1000, 2) . "ms — rows returned: " . $productosFinales->count());
+
+        $t4 = microtime(true);
+        $response = response()->json($productosFinales);
+        Log::info("[PERF] json encode: " . round((microtime(true) - $t4) * 1000, 2) . "ms");
+        Log::info("[PERF] TOTAL: " . round((microtime(true) - $t0) * 1000, 2) . "ms");
+
+        return $response;
     }
 
-    public function getProductosByTipoAndComercial($letrasIdentificacion, $comercial_id)
+    public function getProductosByTipoAndComercial($letrasIdentificacion, $comercial_id, Request $request)
     {
+        // Fetch tipo_producto (Direct query)
         $tipoProducto = DB::table('tipo_producto')
             ->where('letras_identificacion', $letrasIdentificacion)
             ->first();
@@ -528,49 +536,39 @@ class ProductoController extends Controller
             return response()->json(['error' => 'Tipo de producto no encontrado'], 404);
         }
 
-        // Obtener todas las tablas de anexos asociados
+        // Fetch listado de anexos (Direct query)
         $anexos = DB::table('tipo_producto')
             ->where('tipo_producto_asociado', $tipoProducto->id)
-            ->pluck('letras_identificacion'); // Obtener letras identificativas de las tablas de anexos
+            ->pluck('letras_identificacion');
 
         // Convertir letras de identificación a nombre de tabla
         $nombreTabla = strtolower($letrasIdentificacion);
 
-        // Obtener la fecha y hora actual
-        $fechaActual = Carbon::now()->format('Y-m-d\TH:i:s');
+        // OPTIMIZACIÓN: 1 sola query con OR EXISTS en lugar de N queries + merge PHP
+        $query = DB::table($nombreTabla)->where('comercial_id', $comercial_id);
 
-        // Obtener los productos que están asociados al comercial
-        $productosVigentes = DB::table($nombreTabla)
-            ->where('comercial_id', $comercial_id)
-            ->orderBy('updated_at', 'desc')
-            ->get();
-
-        // Ahora procesamos los productos que tienen anexos
-        $productosConAnexosVigentes = collect(); // Inicializar una colección vacía
-
-        foreach ($anexos as $letraAnexo) {
-            // Convertir letra del anexo en nombre de tabla
-            $nombreTablaAnexo = strtolower($letraAnexo);
-
-            // Consultar los productos con anexos en cada tabla de anexos
-            $productosAnexoVigentes = DB::table($nombreTablaAnexo)
-                ->join($nombreTabla, "$nombreTablaAnexo.producto_id", '=', "$nombreTabla.id")
-                ->where("$nombreTabla.comercial_id", $comercial_id)
-                ->select("$nombreTabla.*") // Seleccionar solo los productos
-                ->orderBy("$nombreTabla.updated_at", 'desc')
-                ->get();
-
-            // Añadir los productos con anexos vigentes a la colección
-            $productosConAnexosVigentes = $productosConAnexosVigentes->merge($productosAnexoVigentes);
+        if ($anexos->isNotEmpty()) {
+            $query->where(function ($q) use ($anexos, $nombreTabla, $comercial_id) {
+                $q->whereRaw('1=1');
+                foreach ($anexos as $letraAnexo) {
+                    $nombreTablaAnexo = strtolower($letraAnexo);
+                    $q->orWhereExists(function ($sub) use ($nombreTablaAnexo, $nombreTabla) {
+                        $sub->select(DB::raw(1))
+                            ->from($nombreTablaAnexo)
+                            ->whereColumn("$nombreTablaAnexo.producto_id", "$nombreTabla.id");
+                    });
+                }
+            });
         }
 
-        // Combinar productos vigentes y productos con anexos vigentes
-        $productosFinales = $productosVigentes->merge($productosConAnexosVigentes)->unique('id');
+        $query->orderBy('updated_at', 'desc');
 
-        $productosFinales = self::appendNumeroAnexos($nombreTabla, $tipoProducto->id, collect($productosFinales->values()));
+        $productosFinales = collect($query->get());
 
-        // Devolver los productos como respuesta JSON
-        return response()->json($this->appendApellidos($nombreTabla, $productosFinales));
+        $productosFinales = self::appendNumeroAnexos($nombreTabla, $tipoProducto->id, $productosFinales);
+        $productosFinales = $this->appendApellidos($nombreTabla, $productosFinales);
+
+        return response()->json($productosFinales);
     }
 
     public function getHistorialProductosByTipoAndSociedades($letrasIdentificacion, Request $request)
@@ -640,6 +638,7 @@ class ProductoController extends Controller
      */
     private function appendApellidos(string $nombreTabla, $productos)
     {
+        // Direct call (only runs twice per request regardless of rows)
         $hasApe1 = Schema::hasColumn($nombreTabla, 'apellido_1');
         $hasApe2 = Schema::hasColumn($nombreTabla, 'apellido_2');
 
@@ -647,7 +646,6 @@ class ProductoController extends Controller
             return $productos;
         }
 
-        // If the collection was returned from ->get() the items are stdClass objects.
         return $productos->map(function ($row) use ($hasApe1, $hasApe2) {
             $row = (array) $row;
             if ($hasApe1 && !array_key_exists('apellido_1', $row)) {
@@ -666,11 +664,13 @@ class ProductoController extends Controller
             return $productos;
         }
 
+        // Direct call
         $hasNumeroAnexos = Schema::hasColumn($nombreTabla, 'numero_anexos');
         if (!$hasNumeroAnexos) {
             return $productos;
         }
 
+        // Direct call
         $anexos = DB::table('tipo_producto')
             ->where('tipo_producto_asociado', $tipoProductoId)
             ->pluck('letras_identificacion');
@@ -684,7 +684,9 @@ class ProductoController extends Controller
 
         foreach ($anexos as $letraAnexo) {
             $nombreTablaAnexo = strtolower($letraAnexo);
-            if (!Schema::hasTable($nombreTablaAnexo)) continue;
+            // Cache Schema::hasTable — TTL 1h
+            $tableExists = Cache::remember("schema_table_{$nombreTablaAnexo}", 3600, fn() => Schema::hasTable($nombreTablaAnexo));
+            if (!$tableExists) continue;
 
             $chunks = array_chunk($productIds, 500);
             foreach ($chunks as $chunk) {

@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Cache;
 
 class TipoProductoController extends Controller
 {
@@ -47,15 +48,22 @@ class TipoProductoController extends Controller
 
     public function getByLetras($letras)
     {
-        // Buscar el tipo de producto cuya ruta contiene la ruta pasada como parámetro
-        $tipoProducto = TipoProducto::where('letras_identificacion', $letras)->first();
+        // Cache TTL 5 min: tipo_producto + subproductos son config casi estática
+        $tipoProducto = Cache::remember("tipo_producto_by_letras_{$letras}", 300, function () use ($letras) {
+            $tp = TipoProducto::where('letras_identificacion', $letras)->first();
 
-        // Si tiene subproductos (hay algun tipo_producto con su id en padre_id), devolverlos
-        $subproductos = TipoProducto::activos()->where('padre_id', $tipoProducto->id)->get();
-        if ($subproductos->count() > 0) {
-            $tipoProducto['subproductos'] = self::getSubproductosPorPadreId($tipoProducto->id, $subproductos);
-        }
+            if (!$tp) {
+                return null;
+            }
 
+            // Si tiene subproductos, devolverlos enriquecidos
+            $subproductos = TipoProducto::activos()->where('padre_id', $tp->id)->get();
+            if ($subproductos->count() > 0) {
+                $tp['subproductos'] = self::getSubproductosPorPadreId($tp->id, $subproductos);
+            }
+
+            return $tp;
+        });
 
         if (!$tipoProducto) {
             return response()->json(['message' => 'No se encontraron resultados'], 404);
