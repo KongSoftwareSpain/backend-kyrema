@@ -160,7 +160,8 @@ class CampoController extends Controller
     public static function fetchCamposCertificado($id_tipo_producto)
     {
         return Campos::where('tipo_producto_id', $id_tipo_producto)
-            ->where('visible', 1)
+            ->whereNotNull('columna')
+            ->whereNotNull('fila')
             ->get();
     }
 
