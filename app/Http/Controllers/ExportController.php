@@ -172,7 +172,7 @@ class ExportController extends Controller
             $valores = DB::table($letrasIdentificacion)->where('id', $id)->first();
 
             if (!$valores) {
-                return response()->json(['error' => 'Valores no encontrados'], 404);
+                return response()->json(['error' => 'Valores no encontrados'], 400);
             }
 
             // Comprobar que $valores no tiene el campo 'subproducto'
@@ -184,7 +184,7 @@ class ExportController extends Controller
             }
 
             if (!$tipoProducto) {
-                return response()->json(['error' => 'Tipo de producto no encontrado'], 404);
+                return response()->json(['error' => 'Tipo de producto no encontrado'], 400);
             }
 
             $plantillasBase64 = [];
@@ -217,7 +217,7 @@ class ExportController extends Controller
                         $plantillasBase64[] = "data:{$mimeType};base64,{$imageData}";
                     } else {
                         Log::error("Plantilla no encontrada. Intentado en: " . storage_path('app/public/' . $path) . " y " . public_path('storage/' . $path));
-                        return response()->json(['error' => 'Plantilla no encontrada: ' . $path], 404);
+                        return response()->json(['error' => 'Plantilla no encontrada: ' . $path], 400);
                     }
                 }
             }
@@ -333,7 +333,7 @@ class ExportController extends Controller
                     $plantillasBase64[] = "data:{$mimeType};base64,{$imageData}";
                 } else {
                     Log::error("Plantilla de anexo no encontrada. Intentado en: " . storage_path('app/public/' . $path) . " y " . public_path('storage/' . $path));
-                    return response()->json(['error' => 'Plantilla no encontrada: ' . $path], 404);
+                    return response()->json(['error' => 'Plantilla no encontrada: ' . $path], 400);
                 }
             }
         }
