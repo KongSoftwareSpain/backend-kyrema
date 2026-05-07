@@ -142,6 +142,8 @@ class TipoProductoController extends Controller
                 'page' => $campo_logo['page'] ?? null,
                 'altura' => $campo_logo['altura'] ?? null,
                 'ancho' => $campo_logo['ancho'] ?? null,
+                'salto_linea_x' => $campo_logo['salto_linea_x'] ?? null,
+                'salto_linea_y' => $campo_logo['salto_linea_y'] ?? null,
             ]);
         }
 

@@ -179,7 +179,9 @@ class PolizaController extends Controller
                 'columna_logo',
                 'page_logo',
                 'font_size',
-                'copia'
+                'copia',
+                'salto_linea_x',
+                'salto_linea_y'
             )
             ->where('tipo_producto_id', $id)
             ->get();
@@ -212,6 +214,8 @@ class PolizaController extends Controller
                     'page_logo' => $poliza['page_logo'] ?? null,
                     'font_size' => $poliza['font_size'] ?? null,
                     'copia' => $poliza['copia'] ?? 0,
+                    'salto_linea_x' => $poliza['salto_linea_x'] ?? null,
+                    'salto_linea_y' => $poliza['salto_linea_y'] ?? null,
                 ]);
         }
 

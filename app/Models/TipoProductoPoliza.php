@@ -20,6 +20,10 @@ class TipoProductoPoliza extends Model
         'page',
         'fila_logo',
         'columna_logo',
-        'page_logo'
+        'page_logo',
+        'font_size',
+        'copia',
+        'salto_linea_x',
+        'salto_linea_y'
     ];
 }

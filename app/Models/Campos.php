@@ -37,10 +37,14 @@ class Campos extends Model
         'columna',
         'fila',
         'page',
+        'font_size',
         'tipo_dato',
         'visible',
         'obligatorio',
         'grupo',
+        'copia',
+        'salto_linea_x',
+        'salto_linea_y',
     ];
 
     public function tipoProducto()
