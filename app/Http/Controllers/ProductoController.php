@@ -1079,89 +1079,44 @@ class ProductoController extends Controller
         // Determinar el tipo de producto real (podría ser un subproducto)
         $tipoProductoReal = $tipoProductoBase;
         if (isset($instancia->subproducto) && $instancia->subproducto) {
-            $tipoProductoReal = DB::table('tipo_producto')->where('id', $instancia->subproducto)->first();
+            // Intentar encontrar por ID, letras o nombre (el campo subproducto puede guardar cualquiera de estos)
+            $found = DB::table('tipo_producto')
+                ->where('id', $instancia->subproducto)
+                ->orWhere('letras_identificacion', $instancia->subproducto)
+                ->orWhere('nombre', $instancia->subproducto)
+                ->first();
+            
+            if ($found) {
+                $tipoProductoReal = $found;
+            }
             Log::info("Regenerar Datos - Identificado subproducto: " . ($tipoProductoReal->id ?? 'desconocido'));
         }
 
-        // SI ES UN SUBPRODUCTO, SINCRONIZAR CON EL PADRE
-        if ($tipoProductoReal && $tipoProductoReal->padre_id != null) {
-            Log::info("Regenerar Datos - Sincronizando subproducto {$tipoProductoReal->id} con padre {$tipoProductoReal->padre_id}");
-            
-            // 1. Sincronizar campos (posiciones, font_size, nuevos campos, etc)
-            $parentCampos = DB::table('campos')->where('tipo_producto_id', $tipoProductoReal->padre_id)->get();
-            foreach ($parentCampos as $pCampo) {
-                $exists = DB::table('campos')
-                    ->where('tipo_producto_id', $tipoProductoReal->id)
-                    ->where('nombre_codigo', $pCampo->nombre_codigo)
-                    ->first();
+        // NOTA: Se ha eliminado el bloque que sincronizaba físicamente la tabla 'campos' del subproducto con el padre.
+        // La regeneración de una instancia no debe alterar la configuración global del producto, solo los datos de la instancia.
 
-                if ($exists) {
-                    DB::table('campos')->where('id', $exists->id)->update([
-                        'columna' => $pCampo->columna,
-                        'fila' => $pCampo->fila,
-                        'page' => $pCampo->page,
-                        'font_size' => $pCampo->font_size,
-                        'visible' => $pCampo->visible,
-                        'obligatorio' => $pCampo->obligatorio,
-                        'tipo_dato' => $pCampo->tipo_dato,
-                        'grupo' => $pCampo->grupo,
-                        'opciones' => $pCampo->opciones,
-                        'copia' => $pCampo->copia,
-                        'updated_at' => now()->format('Y-m-d\TH:i:s'),
-                    ]);
-                } else {
-                    $campoData = (array)$pCampo;
-                    unset($campoData['id']);
-                    $campoData['tipo_producto_id'] = $tipoProductoReal->id;
-                    $campoData['created_at'] = now()->format('Y-m-d\TH:i:s');
-                    $campoData['updated_at'] = now()->format('Y-m-d\TH:i:s');
-                    DB::table('campos')->insert($campoData);
-                }
-            }
-
-            // 2. Sincronizar logos
-            DB::table('campos_logos')->where('tipo_producto_id', $tipoProductoReal->id)->delete();
-            $parentLogos = DB::table('campos_logos')->where('tipo_producto_id', $tipoProductoReal->padre_id)->get();
-            foreach ($parentLogos as $pLogo) {
-                $newLogo = (array)$pLogo;
-                unset($newLogo['id']);
-                $newLogo['tipo_producto_id'] = $tipoProductoReal->id;
-                DB::table('campos_logos')->insert($newLogo);
-            }
-
-            // 3. Sincronizar pólizas
-            DB::table('tipo_producto_polizas')->where('tipo_producto_id', $tipoProductoReal->id)->delete();
-            $parentPolizas = DB::table('tipo_producto_polizas')->where('tipo_producto_id', $tipoProductoReal->padre_id)->get();
-            foreach ($parentPolizas as $pPoliza) {
-                $newPoliza = (array)$pPoliza;
-                unset($newPoliza['id']);
-                $newPoliza['tipo_producto_id'] = $tipoProductoReal->id;
-                DB::table('tipo_producto_polizas')->insert($newPoliza);
-            }
-
-            // 4. Sincronizar metadatos de tipo_producto (PDF Builder y Plantillas)
-            $updateTipoSub = [
-                'separacion_anexos' => $tipoProductoBase->separacion_anexos,
-                'nombre_unificado' => $tipoProductoBase->nombre_unificado,
-            ];
-            for ($i = 1; $i <= 8; $i++) {
-                $col = 'plantilla_path_' . $i;
-                $updateTipoSub[$col] = $tipoProductoBase->$col ?? null;
-            }
-            
-            DB::table('tipo_producto')->where('id', $tipoProductoReal->id)->update($updateTipoSub);
-            $tipoProductoReal = DB::table('tipo_producto')->where('id', $tipoProductoReal->id)->first();
-        }
 
         $updateData = [];
 
-        // 1. Rutas de plantillas
+        // 1. Rutas de plantillas (con fallback al padre si el subproducto no tiene propia)
+        $parentReal = null;
+        if ($tipoProductoReal && $tipoProductoReal->padre_id) {
+            $parentReal = DB::table('tipo_producto')->where('id', $tipoProductoReal->padre_id)->first();
+        }
+
         for ($i = 1; $i <= 8; $i++) {
             $colName = 'plantilla_path_' . $i;
             if (Schema::hasColumn($nombreTabla, $colName)) {
-                $updateData[$colName] = $tipoProductoReal->$colName ?? null;
+                $val = $tipoProductoReal->$colName ?? null;
+                // Si el subproducto no tiene plantilla en esta posición, intentamos usar la del padre
+                if (empty($val) && $parentReal) {
+                    $colNameParent = 'plantilla_path_' . $i;
+                    $val = $parentReal->$colNameParent ?? null;
+                }
+                $updateData[$colName] = $val;
             }
         }
+
 
         // 2. Logo Sociedad y Datos del Socio
         if (Schema::hasColumn($nombreTabla, 'logo_sociedad_path')) {
@@ -1182,6 +1137,14 @@ class ProductoController extends Controller
                     ->where('id_sociedad', $instancia->sociedad_id)
                     ->where('tipo_producto_id', $tipoProductoReal->id)
                     ->first();
+        
+        // Si no hay tarifa específica para el subproducto, intentar con la del padre
+        if (!$tarifa && $parentReal) {
+            $tarifa = DB::table('tarifas_producto')
+                        ->where('id_sociedad', $instancia->sociedad_id)
+                        ->where('tipo_producto_id', $parentReal->id)
+                        ->first();
+        }
 
         if ($tarifa) {
             $colsToUpdate = ['precio_base', 'extra_1', 'extra_2', 'extra_3', 'precio_total'];
@@ -1191,6 +1154,7 @@ class ProductoController extends Controller
                 }
             }
         }
+
 
         // 4. Metadatos adicionales
         if (Schema::hasColumn($nombreTabla, 'nombre_producto')) {
