@@ -22,14 +22,15 @@ class ReferenceService
         $letrasSinPrefijo = str_replace($prefijo, '', $letras);
 
         // Calcular número máximo y actualizar contador
-        $maximo = pow(10, 10 - strlen($letrasSinPrefijo));
+        $longitudSecuencia = max(6, 10 - strlen($letrasSinPrefijo));
+        $maximo = pow(10, $longitudSecuencia);
         $secuencia->ultimo_producto = ($secuencia->ultimo_producto + 1) % $maximo;
         $secuencia->save();
 
         // Generar parte numérica rellenada con ceros
         $numeroFormateado = str_pad(
             (string) $secuencia->ultimo_producto,
-            10 - strlen($letrasSinPrefijo),
+            $longitudSecuencia,
             '0',
             STR_PAD_LEFT
         );

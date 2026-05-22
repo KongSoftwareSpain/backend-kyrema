@@ -38,7 +38,7 @@ class TipoProductoController extends Controller
     {
         $request->validate([
             'nombre' => 'required|string|max:255',
-            'letras_identificacion' => 'required|string|max:10',
+            'letras_identificacion' => 'required|string|max:32',
         ]);
 
         $tipoProducto = TipoProducto::create($request->all());
@@ -103,7 +103,7 @@ class TipoProductoController extends Controller
     {
         $request->validate([
             'nombre' => 'string|max:255',
-            'letras_identificacion' => 'string|max:10',
+            'letras_identificacion' => 'string|max:32',
         ]);
 
         $tipoProducto = TipoProducto::findOrFail($id);
