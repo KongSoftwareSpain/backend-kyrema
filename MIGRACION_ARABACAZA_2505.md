@@ -239,3 +239,37 @@ GROUP BY subproducto_codigo
 - Los seguros con `finalizado=1` (1.325) **no se migran** por diseño: son pólizas expiradas/cerradas sin relevancia operativa.
 - Los seguros con `borrado=1` tampoco se migran.
 - `pago_id` se deja `NULL` en todos los registros: el campo `pagado` de MySQL es un flag (0/1), no una FK, y no hay registros de pago reales que vincular.
+
+---
+
+## Saneamientos y Correcciones Adicionales (Sesión 25/05/2026)
+
+### 1. Corrección Visual de Nombres de Sociedad en Frontend
+Se detectó que en las vistas de operaciones (`Vigentes` e `Historial`) el nombre de la sociedad aparecía vacío para casi todos los registros.
+- **Causa Raíz:** En SQL Server, las tablas como `producto_k` tienen una columna `sociedad` vacía. Al realizar un `leftJoin('sociedad', ...)` en Laravel para obtener `sociedad.nombre as sociedad`, el valor de la columna `sociedad` vacía de la tabla origen colisionaba en el PDO de SQL Server, machacando el valor correcto del join.
+- **Solución:** Modificado [ProductoController.php](file:///c:/Users/marav/source/repos/backend-kyrema/app/Http/Controllers/ProductoController.php) para excluir explícitamente la columna `sociedad` local de la consulta e incluir únicamente `sociedad.nombre as sociedad`. Se ajustaron los métodos:
+  - `getProductosByTipoAndSociedades`
+  - `getProductosByTipoAndComercial`
+  - `getHistorialProductosByTipoAndSociedades`
+  - `getHistorialProductosByTipoAndComercial`
+
+### 2. Saneamiento de Sociedades Duplicadas (Estructura Jerárquica)
+Se detectaron duplicados en la tabla `sociedad` de SQL Server. Los registros de prueba (con IDs bajos) colisionaban con los registros migrados reales (IDs +10000). Al migrar productos por coincidencia de nombre, se vinculaban a los IDs bajos, pero la estructura jerárquica de sociedades hijas dependía de los IDs altos, lo que rompía la visibilidad y permisos de los comerciales.
+Se realizó un proceso de fusión de las siguientes sociedades duplicadas:
+- **Kyrema:** ID `19` unificado con ID `10026`
+- **Canama Seguros:** ID `26` unificado con ID `10027` (que posee 16 sociedades hijas)
+- **Mesa Galega Pola Caza:** ID `24` unificado con ID `10028` (que posee 21 sociedades hijas)
+
+**Acciones ejecutadas:**
+- Reasociación en `tipo_producto_sociedad` (17 de Canama, 22 de Mesa Galega) hacia los IDs altos correctos.
+- Reasociación en `tipo_pago_producto_sociedad` (14 de Canama, 12 de Mesa Galega) hacia los IDs correctos.
+- Actualización de `comercial` (ej. Joaquín Canalejo asociado al ID correcto `10027`).
+- Actualización de FKs en `pagos`, `producto_c`, `producto_k`, y `producto_rehal`.
+- Eliminación física de los duplicados con IDs obsoletos (`19`, `24`, `26`).
+
+### 3. Ajuste de Estado de Pólizas Migradas (`anulado = 0`)
+En MySQL, algunos seguros válidos (`borrado = 0 AND finalizado = 0`) figuraban con `cancelado = 1` por cancelaciones tempranas. Al migrar, se mapearon inicialmente como `anulado = 1`, quedando ocultos en la pestaña principal de operaciones vigentes.
+- **Acción:** Se actualizó masivamente el estado `anulado` a `0` (Activo) en la base de datos de producción SQL Server para todos los registros migrados:
+  - **`producto_k`**: 4.789 registros corregidos.
+  - **`producto_c`**: 10 registros corregidos.
+  - **`producto_rehal`**: 3 registros corregidos.
