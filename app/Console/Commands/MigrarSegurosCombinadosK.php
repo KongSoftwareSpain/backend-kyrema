@@ -16,7 +16,8 @@ class MigrarSegurosCombinadosK extends Command
                             {--dry-run : Muestra 5 ejemplos sin insertar}
                             {--force : Forzar migración sin confirmación}
                             {--rebuild-map : Reconstruir mapeo de comerciales, socios y productos}
-                            {--default-comercial=1 : ID comercial por defecto para no mapeados}';
+                            {--default-comercial=1 : ID comercial por defecto para no mapeados}
+                            {--sociedad-id= : Filtrar solo por este id_sociedad en MySQL (ej: 90 para ArabaCaza)}';
 
     protected $description = 'Migrar registros de seguros_combinados a producto_k (solo borrado=0 Y finalizado=0)';
 
@@ -86,23 +87,38 @@ class MigrarSegurosCombinadosK extends Command
         $oldConnection = 'mysql';
         $newConnection = 'sqlsrv';
 
+        // Filtro opcional por sociedad
+        $sociedadId = $this->option('sociedad-id') ? (int) $this->option('sociedad-id') : null;
+        if ($sociedadId) {
+            $this->warn("🔍 Filtrando solo seguros de id_sociedad={$sociedadId} en MySQL");
+            Log::channel($this->logChannel)->info("Filtro de sociedad activo: id_sociedad={$sociedadId}");
+        }
+
         // Contar registros totales CON EL FILTRO CORRECTO
-        $totalRegistros = DB::connection($oldConnection)
+        $queryBase = DB::connection($oldConnection)
             ->table('seguros_combinados')
             ->where('borrado', 0)
-            ->where('finalizado', 0) // ← NUEVO FILTRO
-            ->count();
+            ->where('finalizado', 0); // ← FILTRO
+
+        if ($sociedadId) {
+            $queryBase->where('id_sociedad', $sociedadId);
+        }
+
+        $totalRegistros = $queryBase->count();
 
         $this->stats['total'] = $totalRegistros;
         $this->info("📊 Total de registros a migrar (borrado=0 Y finalizado=0): {$totalRegistros}");
         Log::channel($this->logChannel)->info("Total de registros a migrar: {$totalRegistros}");
 
         // Mostrar estadísticas de exclusión
-        $totalExcluidos = DB::connection($oldConnection)
+        $queryExcluidos = DB::connection($oldConnection)
             ->table('seguros_combinados')
             ->where('borrado', 0)
-            ->where('finalizado', 1)
-            ->count();
+            ->where('finalizado', 1);
+        if ($sociedadId) {
+            $queryExcluidos->where('id_sociedad', $sociedadId);
+        }
+        $totalExcluidos = $queryExcluidos->count();
 
         $this->warn("   Registros EXCLUIDOS (finalizado=1): {$totalExcluidos}");
         Log::channel($this->logChannel)->info("Registros excluidos (finalizado=1): {$totalExcluidos}");
@@ -134,8 +150,12 @@ class MigrarSegurosCombinadosK extends Command
         $query = DB::connection($oldConnection)
             ->table('seguros_combinados')
             ->where('borrado', 0)
-            ->where('finalizado', 0) // ← NUEVO FILTRO
+            ->where('finalizado', 0) // ← FILTRO
             ->orderBy('id_seguro');
+
+        if ($sociedadId) {
+            $query->where('id_sociedad', $sociedadId);
+        }
 
         if ($this->option('offset')) {
             $query->skip($this->option('offset'));
@@ -618,7 +638,7 @@ class MigrarSegurosCombinadosK extends Command
             'telefono' => $datosSocio->telefono ?? null,
             'sexo' => $datosSocio->sexo ?? '',
             'dirección' => $datosSocio->direccion ?? null,
-            'codigo_postal' => $datosSocio->codigo_postal ?? null,
+            'codigo_postal' => $this->limpiarCodigoPostalInt($datosSocio->codigo_postal ?? null),
             'población' => $datosSocio->poblacion ?? null,
             'provincia' => $datosSocio->provincia ?? null,
 
@@ -1190,5 +1210,27 @@ class MigrarSegurosCombinadosK extends Command
         } catch (\Exception $e) {
             return '0';
         }
+    }
+
+    /**
+     * Devuelve el código postal como entero extrayendo solo los dígitos.
+     * Si el resultado no es un número de 4 o 5 dígitos, devuelve null.
+     * Necesario porque en la BD de socios algunos códigos postales tienen
+     * puntos, letras o texto libre (ej: '01015.', 'ARABA').
+     */
+    private function limpiarCodigoPostalInt($valor): ?int
+    {
+        if ($valor === null || $valor === '') {
+            return null;
+        }
+
+        // Quitar cualquier carácter no numérico
+        $soloDigitos = preg_replace('/[^0-9]/', '', (string) $valor);
+
+        if ($soloDigitos === '' || strlen($soloDigitos) < 4 || strlen($soloDigitos) > 5) {
+            return null;
+        }
+
+        return (int) $soloDigitos;
     }
 }

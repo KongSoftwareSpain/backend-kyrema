@@ -9,6 +9,7 @@ class TarifasAnexos extends Model
 {
     // Nombre de la tabla
     protected $table = 'tarifas_anexos';
+    protected $dateFormat = 'Y-m-d\TH:i:s';
 
     // Clave primaria
     protected $primaryKey = 'id';

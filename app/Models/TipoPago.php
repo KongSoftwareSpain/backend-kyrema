@@ -10,6 +10,7 @@ class TipoPago extends Model
     use HasFactory;
 
     protected $table = 'tipos_pago';
+    protected $dateFormat = 'Y-m-d\TH:i:s';
 
     protected $fillable = [
         'nombre',

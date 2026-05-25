@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class TiposAnexos extends Model
 {
     protected $table = 'tipos_anexos';
+    protected $dateFormat = 'Y-m-d\TH:i:s';
     protected $primaryKey = 'id';
     protected $keyType = 'string';
 

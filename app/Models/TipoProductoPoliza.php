@@ -10,6 +10,7 @@ class TipoProductoPoliza extends Model
     use HasFactory;
 
     protected $table = 'tipo_producto_polizas';
+    protected $dateFormat = 'Y-m-d\TH:i:s';
 
     // Si deseas permitir asignación masiva en ciertos campos
     protected $fillable = [

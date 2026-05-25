@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class TipoProductoSociedad extends Model
 {
     protected $table = 'tipo_producto_sociedad';
+    protected $dateFormat = 'Y-m-d\TH:i:s';
 
     protected $fillable = [
         'id',

@@ -11,6 +11,7 @@ class Compania extends Model
 
     // Definir la tabla asociada
     protected $table = 'companias';
+    protected $dateFormat = 'Y-m-d\TH:i:s';
 
     // Los campos que pueden ser rellenables masivamente
     protected $fillable = [
