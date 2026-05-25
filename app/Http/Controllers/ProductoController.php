@@ -507,13 +507,19 @@ class ProductoController extends Controller
         // Filtrar contra Schema para evitar errores SQL de columnas que no existan en la tabla actual
         $validColumns = Cache::remember("schema_cols_{$nombreTabla}", 3600, fn() => Schema::getColumnListing($nombreTabla));
         $finalSelect = array_intersect($columnasSelect, $validColumns);
+        $finalSelect = array_filter($finalSelect, fn($col) => $col !== 'sociedad');
 
         // Query principal
         $t3 = microtime(true);
-        $query = DB::table($nombreTabla)->select($finalSelect);
+        $selectColumns = array_map(fn($col) => "$nombreTabla.$col", $finalSelect);
+        $selectColumns[] = 'sociedad.nombre as sociedad';
+
+        $query = DB::table($nombreTabla)
+            ->leftJoin('sociedad', "$nombreTabla.sociedad_id", '=', 'sociedad.id')
+            ->select($selectColumns);
 
         if (!$isAdmin) {
-            $query->whereIn('sociedad_id', $sociedades);
+            $query->whereIn("$nombreTabla.sociedad_id", $sociedades);
         }
 
         if ($anexos->isNotEmpty()) {
@@ -530,7 +536,7 @@ class ProductoController extends Controller
             });
         }
 
-        $query->orderBy('updated_at', 'desc');
+        $query->orderBy("$nombreTabla.updated_at", 'desc');
 
         $productosFinales = collect($query->get());
         $productosFinales = self::appendNumeroAnexos($nombreTabla, $tipoProducto->id, $productosFinales);
@@ -583,9 +589,16 @@ class ProductoController extends Controller
 
         $validColumns = Cache::remember("schema_cols_{$nombreTabla}", 3600, fn() => Schema::getColumnListing($nombreTabla));
         $finalSelect = array_intersect($columnasSelect, $validColumns);
+        $finalSelect = array_filter($finalSelect, fn($col) => $col !== 'sociedad');
 
         // OPTIMIZACIÓN: 1 sola query con OR EXISTS en lugar de N queries + merge PHP
-        $query = DB::table($nombreTabla)->select($finalSelect)->where('comercial_id', $comercial_id);
+        $selectColumns = array_map(fn($col) => "$nombreTabla.$col", $finalSelect);
+        $selectColumns[] = 'sociedad.nombre as sociedad';
+
+        $query = DB::table($nombreTabla)
+            ->leftJoin('sociedad', "$nombreTabla.sociedad_id", '=', 'sociedad.id')
+            ->select($selectColumns)
+            ->where("$nombreTabla.comercial_id", $comercial_id);
 
         if ($anexos->isNotEmpty()) {
             $query->where(function ($q) use ($anexos, $nombreTabla, $comercial_id) {
@@ -601,7 +614,7 @@ class ProductoController extends Controller
             });
         }
 
-        $query->orderBy('updated_at', 'desc');
+        $query->orderBy("$nombreTabla.updated_at", 'desc');
 
         $productosFinales = collect($query->get());
 
@@ -633,13 +646,20 @@ class ProductoController extends Controller
             ->where('letras_identificacion', $letrasIdentificacion)
             ->first();
 
+        $columns = Schema::getColumnListing($nombreTabla);
+        $columns = array_filter($columns, fn($col) => $col !== 'sociedad');
+        $selectColumns = array_map(fn($col) => "$nombreTabla.$col", $columns);
+        $selectColumns[] = 'sociedad.nombre as sociedad';
+
         // Realizar consulta dinámica usando el nombre de la tabla
         $productos = DB::table($nombreTabla)
-            ->when(count($sociedades) > 0 && !in_array(env('SOCIEDAD_ADMIN_ID', 1), $sociedades), function ($query) use ($sociedades) {
-                $query->whereIn('sociedad_id', $sociedades);
+            ->leftJoin('sociedad', "$nombreTabla.sociedad_id", '=', 'sociedad.id')
+            ->select($selectColumns)
+            ->when(count($sociedades) > 0 && !in_array(env('SOCIEDAD_ADMIN_ID', 1), $sociedades), function ($query) use ($sociedades, $nombreTabla) {
+                $query->whereIn("$nombreTabla.sociedad_id", $sociedades);
             })
-            ->where('fecha_de_fin', '<', $fechaActual) // Filtrar productos con fecha_de_fin mayor que la fecha actual
-            ->orderBy('updated_at', 'desc') // Ordenar por fecha de actualización de forma descendente
+            ->where("$nombreTabla.fecha_de_fin", '<', $fechaActual) // Filtrar productos con fecha_de_fin mayor que la fecha actual
+            ->orderBy("$nombreTabla.updated_at", 'desc') // Ordenar por fecha de actualización de forma descendente
             ->get();
 
         $productos = self::appendNumeroAnexos($nombreTabla, $tipoProducto->id, $productos);
@@ -660,11 +680,18 @@ class ProductoController extends Controller
             ->where('letras_identificacion', $letrasIdentificacion)
             ->first();
 
+        $columns = Schema::getColumnListing($nombreTabla);
+        $columns = array_filter($columns, fn($col) => $col !== 'sociedad');
+        $selectColumns = array_map(fn($col) => "$nombreTabla.$col", $columns);
+        $selectColumns[] = 'sociedad.nombre as sociedad';
+
         // Realizar consulta dinámica usando el nombre de la tabla
         $productos = DB::table($nombreTabla)
-            ->where('comercial_id', $comercial_id)
-            ->where('fecha_de_fin', '<', $fechaActual)
-            ->orderBy('updated_at', 'desc') // Ordenar por fecha de actualización de forma descendente
+            ->leftJoin('sociedad', "$nombreTabla.sociedad_id", '=', 'sociedad.id')
+            ->select($selectColumns)
+            ->where("$nombreTabla.comercial_id", $comercial_id)
+            ->where("$nombreTabla.fecha_de_fin", '<', $fechaActual)
+            ->orderBy("$nombreTabla.updated_at", 'desc') // Ordenar por fecha de actualización de forma descendente
             ->get();
 
         $productos = self::appendNumeroAnexos($nombreTabla, $tipoProducto->id, $productos);
