@@ -501,7 +501,7 @@ class ProductoController extends Controller
         }
 
         // Añadir obligatorias para ag-grid y formateos (aunque no sean "campos" visibles)
-        $columnasAdicionales = ['codigo_producto', 'subproducto_codigo', 'dni', 'nombre_socio', 'apellido_1', 'apellido_2', 'fecha_de_inicio', 'fecha_de_emision', 'tipo_de_pago'];
+        $columnasAdicionales = ['codigo_producto', 'subproducto_codigo', 'dni', 'nombre_socio', 'apellido_1', 'apellido_2', 'fecha_de_inicio', 'fecha_de_emision', 'tipo_de_pago', 'puestos', 'numero_de_puestos'];
         $columnasSelect = array_unique(array_merge($columnasSelect, $columnasAdicionales));
 
         // Filtrar contra Schema para evitar errores SQL de columnas que no existan en la tabla actual
@@ -541,6 +541,7 @@ class ProductoController extends Controller
         $productosFinales = collect($query->get());
         $productosFinales = self::appendNumeroAnexos($nombreTabla, $tipoProducto->id, $productosFinales);
         $productosFinales = $this->appendApellidos($nombreTabla, $productosFinales);
+        $productosFinales = $this->normalizePuestos($productosFinales);
 
         Log::info("[PERF] main query + fetch: " . round((microtime(true) - $t3) * 1000, 2) . "ms — rows returned: " . $productosFinales->count());
 
@@ -584,7 +585,7 @@ class ProductoController extends Controller
             $columnasSelect[] = $colName;
         }
 
-        $columnasAdicionales = ['codigo_producto', 'subproducto_codigo', 'dni', 'nombre_socio', 'apellido_1', 'apellido_2', 'fecha_de_inicio', 'fecha_de_emision', 'tipo_de_pago'];
+        $columnasAdicionales = ['codigo_producto', 'subproducto_codigo', 'dni', 'nombre_socio', 'apellido_1', 'apellido_2', 'fecha_de_inicio', 'fecha_de_emision', 'tipo_de_pago', 'puestos', 'numero_de_puestos'];
         $columnasSelect = array_unique(array_merge($columnasSelect, $columnasAdicionales));
 
         $validColumns = Cache::remember("schema_cols_{$nombreTabla}", 3600, fn() => Schema::getColumnListing($nombreTabla));
@@ -620,6 +621,7 @@ class ProductoController extends Controller
 
         $productosFinales = self::appendNumeroAnexos($nombreTabla, $tipoProducto->id, $productosFinales);
         $productosFinales = $this->appendApellidos($nombreTabla, $productosFinales);
+        $productosFinales = $this->normalizePuestos($productosFinales);
 
         return response()->json($productosFinales);
     }
@@ -663,8 +665,10 @@ class ProductoController extends Controller
             ->get();
 
         $productos = self::appendNumeroAnexos($nombreTabla, $tipoProducto->id, $productos);
+        $productos = $this->appendApellidos($nombreTabla, $productos);
+        $productos = $this->normalizePuestos($productos);
 
-        return response()->json($this->appendApellidos($nombreTabla, $productos));
+        return response()->json($productos);
     }
 
 
@@ -695,8 +699,10 @@ class ProductoController extends Controller
             ->get();
 
         $productos = self::appendNumeroAnexos($nombreTabla, $tipoProducto->id, $productos);
+        $productos = $this->appendApellidos($nombreTabla, $productos);
+        $productos = $this->normalizePuestos($productos);
 
-        return response()->json($this->appendApellidos($nombreTabla, $productos));
+        return response()->json($productos);
     }
 
     /**
@@ -722,6 +728,23 @@ class ProductoController extends Controller
                 $row['apellido_2'] = null;
             }
             return (object) $row;
+        });
+    }
+
+    /**
+     * Normaliza la columna de puestos para cacerías de Portugal (donde se almacena en numero_de_puestos).
+     */
+    private function normalizePuestos($productos)
+    {
+        return $productos->map(function ($row) {
+            $rowArray = (array) $row;
+            if (array_key_exists('numero_de_puestos', $rowArray) && (!isset($rowArray['puestos']) || $rowArray['puestos'] === null || $rowArray['puestos'] === '')) {
+                $rowArray['puestos'] = $rowArray['numero_de_puestos'];
+            }
+            if (array_key_exists('puestos', $rowArray) && ($rowArray['puestos'] === null || $rowArray['puestos'] === '')) {
+                $rowArray['puestos'] = 'Sin puestos';
+            }
+            return (object) $rowArray;
         });
     }
 
