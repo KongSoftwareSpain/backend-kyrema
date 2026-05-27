@@ -1174,11 +1174,55 @@ class ProductoController extends Controller
         }
 
         if ($tarifa) {
-            $colsToUpdate = ['precio_base', 'extra_1', 'extra_2', 'extra_3', 'precio_total'];
-            foreach ($colsToUpdate as $col) {
-                if (Schema::hasColumn($nombreTabla, $col)) {
-                    $updateData[$col] = $tarifa->$col;
+            $caceriasSubproductIds = [10237, 10252, 223];
+            $caceriasSubproductLetras = ['PRODUCTO_C3', 'PRODUCTO_C6E', 'PRODUCTO_C6P'];
+            $esCaceriaConPuestos = in_array($tipoProductoReal->id, $caceriasSubproductIds) 
+                || in_array($tipoProductoReal->letras_identificacion, $caceriasSubproductLetras);
+
+            $precioBaseCalculado = (float) ($tarifa->precio_base ?? 0);
+
+            if ($esCaceriaConPuestos) {
+                // Recalcular base por opciones (ej: puestos o numero_de_puestos)
+                $opcionesPrecio = 0;
+                $camposConOpciones = DB::table('campos')
+                    ->where('tipo_producto_id', $tipoProductoReal->id)
+                    ->whereNotNull('opciones')
+                    ->get();
+
+                foreach ($camposConOpciones as $campo) {
+                    $colName = $campo->nombre_codigo ? $campo->nombre_codigo : strtolower(str_replace(' ', '_', $campo->nombre));
+                    if (Schema::hasColumn($nombreTabla, $colName)) {
+                        $selectedValue = $instancia->$colName ?? null;
+                        if ($selectedValue && Schema::hasTable($campo->opciones)) {
+                            $opcion = DB::table($campo->opciones)->where('nombre', $selectedValue)->first();
+                            if ($opcion && isset($opcion->precio)) {
+                                $opcionesPrecio += (float) $opcion->precio;
+                            }
+                        }
+                    }
                 }
+                $precioBaseCalculado += $opcionesPrecio;
+            }
+
+            $extra1 = (float) ($tarifa->extra_1 ?? 0);
+            $extra2 = (float) ($tarifa->extra_2 ?? 0);
+            $extra3 = (float) ($tarifa->extra_3 ?? 0);
+            $precioTotalCalculado = $precioBaseCalculado + $extra1 + $extra2 + $extra3;
+
+            if (Schema::hasColumn($nombreTabla, 'precio_base')) {
+                $updateData['precio_base'] = $precioBaseCalculado;
+            }
+            if (Schema::hasColumn($nombreTabla, 'extra_1')) {
+                $updateData['extra_1'] = $extra1;
+            }
+            if (Schema::hasColumn($nombreTabla, 'extra_2')) {
+                $updateData['extra_2'] = $extra2;
+            }
+            if (Schema::hasColumn($nombreTabla, 'extra_3')) {
+                $updateData['extra_3'] = $extra3;
+            }
+            if (Schema::hasColumn($nombreTabla, 'precio_total')) {
+                $updateData['precio_total'] = $precioTotalCalculado;
             }
         }
 
@@ -1256,7 +1300,7 @@ class ProductoController extends Controller
 
         // 6. Actualizar precio_final global
         if (Schema::hasColumn($nombreTabla, 'precio_final')) {
-            $baseTarifa = $tarifa ? ($tarifa->precio_total ?? 0) : ($instancia->precio_total ?? 0);
+            $baseTarifa = isset($precioTotalCalculado) ? $precioTotalCalculado : ($tarifa ? ($tarifa->precio_total ?? 0) : ($instancia->precio_total ?? 0));
             $nuevoPrecioFinal = $baseTarifa + $sumaAnexos;
             DB::table($nombreTabla)->where('id', $id)->update(['precio_final' => $nuevoPrecioFinal]);
         }
