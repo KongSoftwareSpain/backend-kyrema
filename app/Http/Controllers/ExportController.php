@@ -79,7 +79,7 @@ class ExportController extends Controller
                 'pc.tipo_de_pago',
             ])
             ->leftJoin('comercial as c', 'pc.comercial_creador_id', '=', 'c.id')
-            ->selectRaw("CASE WHEN pc.comercial_creador_id IS NOT NULL THEN c.nombre ELSE NULL END as referidos");
+            ->selectRaw("CASE WHEN pc.comercial_creador_id IS NOT NULL AND c.nombre IS NOT NULL THEN c.nombre ELSE 'No hay' END as referidos");
 
         // Producto (con bindings, nada de concatenar PHP dentro del SQL)
         if ($hasSubproductoColumn) {
