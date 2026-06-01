@@ -124,10 +124,27 @@ class ExportController extends Controller
                 return $group->pluck('numero')->unique()->implode(' / ');
             });
 
-        // Asignar pólizas a cada fila
+        // Asignar pólizas y formatear fechas a cada fila
         $results->transform(function ($item) use ($polizasMap, $tipoProductoId) {
             $pid = property_exists($item, 'subproducto') && $item->subproducto !== null ? $item->subproducto : $tipoProductoId;
             $item->poliza = $polizasMap->get($pid) ?: 'N/A';
+
+            if (!empty($item->fecha_de_emision)) {
+                try {
+                    $item->fecha_de_emision = Carbon::parse($item->fecha_de_emision)->format('Y-m-d H:i:s');
+                } catch (\Exception $e) {
+                    // Fallback
+                }
+            }
+
+            if (!empty($item->fecha_de_inicio)) {
+                try {
+                    $item->fecha_de_inicio = Carbon::parse($item->fecha_de_inicio)->format('Y-m-d H:i:s');
+                } catch (\Exception $e) {
+                    // Fallback
+                }
+            }
+
             return $item;
         });
 
