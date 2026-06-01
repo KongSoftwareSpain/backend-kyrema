@@ -938,6 +938,11 @@ class ProductoController extends Controller
         $datos['hora_de_emisión'] = $horaActual;
 
         unset($datos['nombre_producto'], $datos['letras_identificacion'], $datos['categoria'], $datos['referencia']);
+
+        // Filtrar datos para que solo contengan columnas existentes en la tabla
+        $columnasValidas = Schema::getColumnListing($nombreTabla);
+        $datos = array_intersect_key($datos, array_flip($columnasValidas));
+
         $registro = DB::transaction(function () use ($nombreTabla, $datos) {
             $id = DB::table($nombreTabla)->insertGetId($datos);
             // Si la PK no se llama "id", ajusta el campo:
@@ -1016,6 +1021,10 @@ class ProductoController extends Controller
                 $datos[$campo] = Carbon::parse($datos[$campo])->format($isoFormat);
             }
         }
+
+        // Filtrar datos para que solo contengan columnas existentes en la tabla
+        $columnasValidas = Schema::getColumnListing($nombreTabla);
+        $datos = array_intersect_key($datos, array_flip($columnasValidas));
 
         // Actualizar los datos en la tabla correspondiente
         DB::table($nombreTabla)

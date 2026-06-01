@@ -124,9 +124,12 @@ class AnexosController extends Controller
                 $data['plantilla_path_7'] = $plantillasPaths[6];
                 $data['plantilla_path_8'] = $plantillasPaths[7];
 
+                $columnasValidas = Schema::getColumnListing($letrasIdentificacion);
+
                 if ($anexoId) {
                     // Si el anexo tiene un ID, se actualiza el registro existente
-                    DB::table($letrasIdentificacion)->where('id', $anexoId)->update($data);
+                    $datosFiltrados = array_intersect_key($data, array_flip($columnasValidas));
+                    DB::table($letrasIdentificacion)->where('id', $anexoId)->update($datosFiltrados);
                 } else {
                     // Si no tiene ID, se crea un nuevo registro
                     // Se añade el dato de created_at a data:
@@ -166,7 +169,8 @@ class AnexosController extends Controller
                             ->format('Y-m-d\TH:i:s');
                     }
                     
-                    DB::table($letrasIdentificacion)->insert($data);
+                    $datosFiltrados = array_intersect_key($data, array_flip($columnasValidas));
+                    DB::table($letrasIdentificacion)->insert($datosFiltrados);
                 }
             } else {
                 return response()->json(['error' => "La tabla {$letrasIdentificacion} no existe."], 400);

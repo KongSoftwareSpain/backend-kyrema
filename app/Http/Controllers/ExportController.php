@@ -74,8 +74,8 @@ class ExportController extends Controller
             // Si quieres devolver también las fechas ya convertidas:
             ->selectRaw("TRY_CONVERT(datetime2, pc.[fecha_de_emisión], {$style}) as fecha_de_emision")
             ->selectRaw("TRY_CONVERT(datetime2, pc.[fecha_de_inicio], {$style})  as fecha_de_inicio")
+            ->selectRaw("COALESCE((SELECT TOP 1 soc.nombre FROM socios_comerciales sc JOIN comercial cs ON sc.id_comercial = cs.id JOIN sociedad soc ON cs.id_sociedad = soc.id WHERE sc.id_socio = pc.socio_id), pc.sociedad) as sociedad")
             ->addSelect([
-                'pc.sociedad',
                 'pc.tipo_de_pago',
             ])
             ->leftJoin('comercial as c', 'pc.comercial_creador_id', '=', 'c.id')
@@ -83,6 +83,7 @@ class ExportController extends Controller
 
         // Producto (con bindings, nada de concatenar PHP dentro del SQL)
         if ($hasSubproductoColumn) {
+            $query->addSelect('pc.subproducto');
             $query->selectRaw(
                 "CASE WHEN pc.subproducto IS NOT NULL THEN ? + ' - ' + pc.subproducto_codigo ELSE ? END as producto",
                 [$tipoProducto->nombre, $tipoProducto->nombre]
@@ -104,6 +105,31 @@ class ExportController extends Controller
 
         // Ejecutar la consulta
         $results = $query->get();
+
+        // Obtener los ids de los tipos de producto (padre y subproductos si existen)
+        $tipoProductoIds = collect([$tipoProductoId]);
+        if ($hasSubproductoColumn) {
+            $subIds = $results->pluck('subproducto')->filter()->unique();
+            $tipoProductoIds = $tipoProductoIds->merge($subIds);
+        }
+
+        // Obtener las pólizas asociadas
+        $polizasMap = DB::table('tipo_producto_polizas as tpp')
+            ->join('polizas as p', 'tpp.poliza_id', '=', 'p.id')
+            ->whereIn('tpp.tipo_producto_id', $tipoProductoIds)
+            ->select('tpp.tipo_producto_id', 'p.numero')
+            ->get()
+            ->groupBy('tipo_producto_id')
+            ->map(function ($group) {
+                return $group->pluck('numero')->unique()->implode(' / ');
+            });
+
+        // Asignar pólizas a cada fila
+        $results->transform(function ($item) use ($polizasMap, $tipoProductoId) {
+            $pid = property_exists($item, 'subproducto') && $item->subproducto !== null ? $item->subproducto : $tipoProductoId;
+            $item->poliza = $polizasMap->get($pid) ?: 'N/A';
+            return $item;
+        });
 
         if (!$hasSubproductoColumn) {
             $countsQuery = DB::table($tableName)
@@ -151,8 +177,6 @@ class ExportController extends Controller
             )
                 ->get();
         }
-
-
 
         return response()->json(['data' => $results, 'counts' => $counts]);
     }
