@@ -90,4 +90,14 @@ class Comercial extends Authenticatable
         $comercial = Comercial::find($id_comercial);
         return $comercial->responsable;
     }
+
+    /**
+     * Get the password for the user.
+     *
+     * @return string
+     */
+    public function getAuthPassword()
+    {
+        return $this->contraseña;
+    }
 }
