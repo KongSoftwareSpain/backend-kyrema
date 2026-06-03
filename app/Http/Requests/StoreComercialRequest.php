@@ -30,7 +30,7 @@ class StoreComercialRequest extends FormRequest
             'id_sociedad' => ['required', 'numeric', 'exists:sociedad,id'],
             'comercial_responsable_categoria' => ['nullable', 'boolean'],
             'usuario' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email:rfc,dns', 'max:255', Rule::unique('comercial', 'email')],
+            'email' => ['required', 'email', 'max:255', Rule::unique('comercial', 'email')],
             'responsable' => ['nullable', 'string', 'max:255'],
             'dni' => ['nullable', 'string', 'max:255'],
             'sexo' => ['nullable', 'string', 'max:10'],

@@ -91,40 +91,68 @@ class ComercialController extends Controller
 
     public function update(Request $request, $id)
     {
-        $request->validate([
-            'nombre' => 'required|string|max:255',
-            'id_sociedad' => 'required|numeric|exists:sociedad,id',
+        $validated = $request->validate([
+            'nombre'                          => 'required|string|max:255',
+            'id_sociedad'                     => 'required|numeric|exists:sociedad,id',
             'comercial_responsable_categoria' => 'nullable|string',
-            'usuario' => 'required|string|max:255',
-            'email' => 'required|string|max:255',
-            'responsable' => 'nullable|string|max:1',
-            'dni' => 'nullable|string|max:255',
-            'sexo' => 'nullable|string|max:10',
-            'fecha_nacimiento' => 'required|date',
-            'fecha_alta' => 'nullable|date',
-            'referido' => 'nullable|string|max:255',
-            'direccion' => 'nullable|string|max:255',
-            'poblacion' => 'nullable|string|max:255',
-            'provincia' => 'nullable|string|max:255',
-            'cod_postal' => 'nullable|string|max:10',
-            'telefono' => 'nullable|string|max:20',
-            'fax' => 'nullable|string|max:20',
-            'path_licencia_cazador' => 'nullable|string|max:255',
-            'path_dni' => 'nullable|string|max:255',
-            'path_justificante_iban' => 'nullable|string|max:255',
-            'path_otros' => 'nullable|string|max:255',
-            'path_foto' => 'nullable|file|mimes:jpeg,png,jpg,gif|max:4096',
+            'usuario'                         => 'required|string|max:255',
+            'email'                           => 'required|email|max:255',
+            'responsable'                     => 'nullable|string|max:1',
+            'dni'                             => 'nullable|string|max:255',
+            'sexo'                            => 'nullable|string|max:10',
+            'fecha_nacimiento'                => 'nullable|date',
+            'fecha_alta'                      => 'nullable|date',
+            'referido'                        => 'nullable|string|max:255',
+            'direccion'                       => 'nullable|string|max:255',
+            'poblacion'                       => 'nullable|string|max:255',
+            'provincia'                       => 'nullable|string|max:255',
+            'cod_postal'                      => 'nullable|string|max:10',
+            'telefono'                        => 'nullable|string|max:20',
+            'fax'                             => 'nullable|string|max:20',
+            'path_licencia_cazador'           => 'nullable|string|max:255',
+            'path_dni'                        => 'nullable|string|max:255',
+            'path_justificante_iban'          => 'nullable|string|max:255',
+            'path_otros'                      => 'nullable|string|max:255',
+            'path_foto'                       => 'nullable|file|mimes:jpeg,png,jpg,gif|max:4096',
+        ], [
+            'nombre.required'      => 'El nombre es obligatorio.',
+            'id_sociedad.required' => 'La sociedad es obligatoria.',
+            'id_sociedad.exists'   => 'La sociedad seleccionada no existe.',
+            'usuario.required'     => 'El usuario es obligatorio.',
+            'email.required'       => 'El correo electrónico es obligatorio.',
+            'email.email'          => 'El correo electrónico no tiene un formato válido.',
+            'fecha_nacimiento.date'=> 'La fecha de nacimiento no tiene un formato válido.',
+            'fecha_alta.date'      => 'La fecha de alta no tiene un formato válido.',
         ]);
 
         // Preparar los datos a actualizar
         $data = $request->except(['path_foto', 'created_at', 'updated_at', 'contraseña', '_method']);
 
-        // Formatear fechas antes de actualizar
+        // DNI es obligatorio en BD pero opcional en frontend. Si llega vacío o nulo, guardar como cadena vacía.
+        if (!isset($data['dni']) || is_null($data['dni'])) {
+            $data['dni'] = '';
+        }
+
+        // Si tipo comercial responsable es '2' (Pagina Web), poner responsable '1' y pagina_web '1'
+        if (isset($data['responsable'])) {
+            if ($data['responsable'] == '2') {
+                $data['responsable'] = '1';
+                $data['pagina_web'] = '1';
+            } else {
+                $data['pagina_web'] = '0';
+            }
+        }
+
+        // Formatear fechas antes de actualizar (solo si vienen rellenas)
         if (!empty($data['fecha_nacimiento'])) {
             $data['fecha_nacimiento'] = date('Y-m-d', strtotime($data['fecha_nacimiento']));
+        } else {
+            $data['fecha_nacimiento'] = null;
         }
         if (!empty($data['fecha_alta'])) {
             $data['fecha_alta'] = date('Y-m-d', strtotime($data['fecha_alta']));
+        } else {
+            $data['fecha_alta'] = null;
         }
 
         // Actualizar en la base de datos
