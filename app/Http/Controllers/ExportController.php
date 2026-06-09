@@ -471,20 +471,15 @@ class ExportController extends Controller
         }
 
         // Obtener y colocar los datos de tipo_producto_polizas y las pólizas relacionadas
+        // NOTA: Las pólizas están configuradas en el tipo_producto PADRE, no en el tipo_anexo.
+        // Por eso buscamos con $tipoProducto->id (el producto padre) en lugar de $tipoAnexoId.
         $polizasTipoProducto = DB::table('tipo_producto_polizas')
-            ->where('tipo_producto_id', $tipoAnexoId)
+            ->where('tipo_producto_id', $tipoProducto->id)
             ->get();
 
         $polizas = DB::table('polizas')
             ->whereIn('id', $polizasTipoProducto->pluck('poliza_id'))
             ->get();
-
-
-        // Agregar el logo y número de póliza de cada compañía en las celdas correspondientes
-        foreach ($polizasTipoProducto as $tipoPoliza) {
-            $poliza = $polizas->firstWhere('id', $tipoPoliza->poliza_id);
-            $numeroPoliza = $poliza ? $poliza->numero : 'N/A';
-        }
 
         $data = [
             'tipoProducto' => $tipoAnexo,
