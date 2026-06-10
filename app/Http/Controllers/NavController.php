@@ -171,18 +171,19 @@ class NavController extends Controller
             }));
         }
 
-        // Si no es responsable
-        // Si no es responsable y NO es la sociedad admin (id 1)
-        if ($responsable != 1 && $id_sociedad != env('SOCIEDAD_ADMIN_ID', 1)) {
-            // Quitar el apartado de Gestión excepto Socios.
-            $navegacion[1]["children"] = array_values(array_filter($navegacion[1]["children"], function ($child) {
-                return in_array($child["label"], ["Socios"]);
-            }));
-        } else {
+        // Gestión de pagos solo para la sociedad admin
+        if ($id_sociedad == env('SOCIEDAD_ADMIN_ID', 1)) {
             array_unshift($navegacion[0]["children"], [
                 "label" => "Gestión de pagos",
                 "link" => "/gestion-pagos"
             ]);
+        }
+
+        // Si no es responsable y NO es la sociedad admin, solo Socios en Gestión
+        if ($responsable != 1 && $id_sociedad != env('SOCIEDAD_ADMIN_ID', 1)) {
+            $navegacion[1]["children"] = array_values(array_filter($navegacion[1]["children"], function ($child) {
+                return in_array($child["label"], ["Socios"]);
+            }));
         }
 
         return response()->json($navegacion);
