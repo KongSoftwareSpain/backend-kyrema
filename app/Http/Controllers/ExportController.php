@@ -470,11 +470,8 @@ class ExportController extends Controller
             }
         }
 
-        // Obtener y colocar los datos de tipo_producto_polizas y las pólizas relacionadas
-        // NOTA: Las pólizas están configuradas en el tipo_producto PADRE, no en el tipo_anexo.
-        // Por eso buscamos con $tipoProducto->id (el producto padre) en lugar de $tipoAnexoId.
         $polizasTipoProducto = DB::table('tipo_producto_polizas')
-            ->where('tipo_producto_id', $tipoProducto->id)
+            ->where('tipo_producto_id', $tipoAnexoId)
             ->get();
 
         $polizas = DB::table('polizas')
