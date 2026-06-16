@@ -161,6 +161,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // Conectar anexo con producto:
     Route::post('anexos/{id_producto}', [AnexosController::class, 'conectarAnexosConProducto']);
 
+    // Eliminar una INSTANCIA de anexo (fila de la tabla ANEXOS_*) de un producto:
+    Route::delete('anexos/instancia/{letrasIdentificacion}/{id}', [AnexosController::class, 'eliminarAnexoInstancia']);
+
     //Tipo anexo:
     Route::delete('anexos/{id}', [AnexosController::class, 'destroy']);
 

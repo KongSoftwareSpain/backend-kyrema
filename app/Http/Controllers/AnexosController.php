@@ -179,6 +179,58 @@ class AnexosController extends Controller
         return response()->json(['message' => 'Anexos conectados con éxito'], 200);
     }
 
+    /**
+     * Elimina una INSTANCIA de anexo (una fila de la tabla ANEXOS_*) de un producto.
+     * No confundir con destroy(), que borra un TIPO de anexo.
+     * Tras borrar, recalcula numero_anexos del producto padre.
+     */
+    public function eliminarAnexoInstancia($letrasIdentificacion, $id)
+    {
+        $nombreTabla = strtolower($letrasIdentificacion);
+
+        if (!Schema::hasTable($nombreTabla)) {
+            return response()->json(['error' => "La tabla {$nombreTabla} no existe."], 400);
+        }
+
+        $anexo = DB::table($nombreTabla)->where('id', $id)->first();
+        if (!$anexo) {
+            return response()->json(['error' => 'Anexo no encontrado.'], 404);
+        }
+
+        $idProducto = $anexo->producto_id;
+
+        DB::table($nombreTabla)->where('id', $id)->delete();
+
+        // Recalcular numero_anexos del producto padre con los anexos activos restantes
+        $tipoAnexo = DB::table('tipo_producto')->where('letras_identificacion', $letrasIdentificacion)->first();
+        if ($tipoAnexo && $tipoAnexo->tipo_producto_asociado && $idProducto) {
+            $padre = DB::table('tipo_producto')->where('id', $tipoAnexo->tipo_producto_asociado)->first();
+            if ($padre && $padre->letras_identificacion) {
+                $tablaPadre = strtolower($padre->letras_identificacion);
+                if (Schema::hasTable($tablaPadre) && Schema::hasColumn($tablaPadre, 'numero_anexos')) {
+                    $tiposAnexo = DB::table('tipo_producto')
+                        ->where('tipo_producto_asociado', $padre->id)
+                        ->pluck('letras_identificacion');
+
+                    $total = 0;
+                    foreach ($tiposAnexo as $la) {
+                        $tabla = strtolower($la);
+                        if (Schema::hasTable($tabla)) {
+                            $total += DB::table($tabla)
+                                ->where('producto_id', $idProducto)
+                                ->where('anulado', 0)
+                                ->count();
+                        }
+                    }
+
+                    DB::table($tablaPadre)->where('id', $idProducto)->update(['numero_anexos' => $total]);
+                }
+            }
+        }
+
+        return response()->json(['message' => 'Anexo eliminado correctamente'], 200);
+    }
+
     public function createTipoAnexo(Request $request){
          // Validar los datos recibidos
         $request->validate([
