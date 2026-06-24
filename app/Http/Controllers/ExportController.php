@@ -81,15 +81,11 @@ class ExportController extends Controller
             ->leftJoin('comercial as c', 'pc.comercial_creador_id', '=', 'c.id')
             ->selectRaw("CASE WHEN pc.comercial_creador_id IS NOT NULL AND c.nombre IS NOT NULL THEN c.nombre ELSE 'No hay' END as referidos");
 
-        // Producto (con bindings, nada de concatenar PHP dentro del SQL)
+        // Producto = solo el nombre base. Las siglas (K1, K3, KVIP...) van aparte en subproducto_codigo.
+        $query->selectRaw("? as producto", [$tipoProducto->nombre]);
         if ($hasSubproductoColumn) {
             $query->addSelect('pc.subproducto');
-            $query->selectRaw(
-                "CASE WHEN pc.subproducto IS NOT NULL THEN ? + ' - ' + pc.subproducto_codigo ELSE ? END as producto",
-                [$tipoProducto->nombre, $tipoProducto->nombre]
-            );
-        } else {
-            $query->selectRaw("? as producto", [$tipoProducto->nombre]);
+            $query->addSelect('pc.subproducto_codigo');
         }
 
         // Filtro de fechas con conversión explícita + rango semiclosed
