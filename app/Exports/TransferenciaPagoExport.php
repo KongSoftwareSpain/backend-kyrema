@@ -9,42 +9,32 @@ class TransferenciaPagoExport implements PagoExportInterface
 {
     public function getPagos(int $sociedadId, ?string $desde = null, ?string $hasta = null): Collection
     {
-        $query = Transferencia::with('pago', 'cliente')
-            ->whereHas('pago', function ($query) use ($sociedadId) {
+        // Filtramos por la fecha del pago (pagos.fecha), que siempre está poblada,
+        // en lugar de por la fecha_de_inicio del producto relacionado (que dependía
+        // de pagos.producto_id, una columna que nunca se rellena).
+        $transferencias = Transferencia::with('pago')
+            ->whereHas('pago', function ($query) use ($sociedadId, $desde, $hasta) {
                 if ($sociedadId !== 0) {
                     $query->where('sociedad_id', $sociedadId);
                 }
-            });
-
-        $transferencias = $query->get();
-
-        // Filtrar por fecha_de_inicio del producto relacionado
-        if ($desde || $hasta) {
-            $transferencias = $transferencias->filter(function ($trans) use ($desde, $hasta) {
-                $producto = $trans->pago ? $trans->pago->obtenerProductoRelacionado() : null;
-                if (!$producto || !isset($producto->fecha_de_inicio)) {
-                    return false;
+                if ($desde) {
+                    $query->whereDate('fecha', '>=', $desde);
                 }
-                $fechaInicio = \Carbon\Carbon::parse($producto->fecha_de_inicio);
-
-                if ($desde && $fechaInicio->lt(\Carbon\Carbon::parse($desde))) {
-                    return false;
+                if ($hasta) {
+                    $query->whereDate('fecha', '<=', $hasta);
                 }
-                if ($hasta && $fechaInicio->gt(\Carbon\Carbon::parse($hasta))) {
-                    return false;
-                }
-                return true;
-            });
-        }
+            })
+            ->get();
 
-        return $transferencias->map(function ($pago) {
-            $producto = $pago->pago ? $pago->pago->obtenerProductoRelacionado() : null;
+        return $transferencias->map(function ($trans) {
             return [
-                'ID' => $pago->id,
-                'Cliente' => $pago->cliente->nombre ?? 'N/A',
-                'Fecha de inicio' => $producto ? \Carbon\Carbon::parse($producto->fecha_de_inicio)->format('Y-m-d') : 'N/A',
-                'Importe' => number_format($pago->monto, 2, ',', '.'),
-                'Estado' => ucfirst($pago->estado),
+                'ID' => $trans->id,
+                'Cliente' => $trans->nombre_cliente ?? 'N/A',
+                'Fecha de pago' => $trans->pago && $trans->pago->fecha
+                    ? \Carbon\Carbon::parse($trans->pago->fecha)->format('Y-m-d')
+                    : 'N/A',
+                'Importe' => number_format($trans->pago->monto ?? $trans->importe ?? 0, 2, ',', '.'),
+                'Estado' => ucfirst($trans->pago->estado ?? ''),
                 'Método' => 'Transferencia',
             ];
         });

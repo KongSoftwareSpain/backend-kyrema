@@ -111,17 +111,16 @@ class RemesaController extends Controller
             })
             ->get();
 
-        // Filtrar por fecha_de_inicio del producto relacionado
+        // Filtrar por la fecha del pago (pagos.fecha), que siempre está poblada
         $giros = $giros->filter(function ($giro) use ($validated) {
-            $producto = $giro->pago ? $giro->pago->obtenerProductoRelacionado() : null;
-            if (!$producto || !isset($producto->fecha_de_inicio)) {
+            if (!$giro->pago || !$giro->pago->fecha) {
                 return false;
             }
-            $fechaInicio = \Carbon\Carbon::parse($producto->fecha_de_inicio);
-            $desde = \Carbon\Carbon::parse($validated['desde']);
-            $hasta = \Carbon\Carbon::parse($validated['hasta']);
+            $fecha = \Carbon\Carbon::parse($giro->pago->fecha);
+            $desde = \Carbon\Carbon::parse($validated['desde'])->startOfDay();
+            $hasta = \Carbon\Carbon::parse($validated['hasta'])->endOfDay();
 
-            return $fechaInicio->between($desde, $hasta);
+            return $fecha->between($desde, $hasta);
         });
 
         if ($giros->isEmpty()) {
@@ -188,12 +187,14 @@ class RemesaController extends Controller
             ->get();
 
         $idsToUpdate = $giros->filter(function ($giro) use ($desde, $hasta) {
-            $producto = $giro->pago ? $giro->pago->obtenerProductoRelacionado() : null;
-            if (!$producto || !isset($producto->fecha_de_inicio)) {
+            if (!$giro->pago || !$giro->pago->fecha) {
                 return false;
             }
-            $fechaInicio = \Carbon\Carbon::parse($producto->fecha_de_inicio);
-            return $fechaInicio->between(\Carbon\Carbon::parse($desde), \Carbon\Carbon::parse($hasta));
+            $fecha = \Carbon\Carbon::parse($giro->pago->fecha);
+            return $fecha->between(
+                \Carbon\Carbon::parse($desde)->startOfDay(),
+                \Carbon\Carbon::parse($hasta)->endOfDay()
+            );
         })->pluck('id');
 
         $updated = GiroBancario::whereIn('id', $idsToUpdate)
