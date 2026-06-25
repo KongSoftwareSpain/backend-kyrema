@@ -279,6 +279,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     Route::get('/nav/{id_sociedad}/{responsable}', [NavController::class, 'getNavegacion']);
     Route::get('/nav-socio/{categoria}/socio/{socio_id}', [NavController::class, 'getNavegacionSocio']);
+    Route::get('informes/productos/{id_sociedad}', [NavController::class, 'getProductosInforme']);
     Route::get('/exportar-pagos', [PagoExportController::class, 'exportarPagos']);
 
 

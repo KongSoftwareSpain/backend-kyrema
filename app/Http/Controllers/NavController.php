@@ -107,15 +107,19 @@ class NavController extends Controller
 
 
 
-        // Si es admin (id 1), mostramos TODOS los tipos de producto, si no, solo los vinculados
-        $productosParaInformes = ($id_sociedad == env('SOCIEDAD_ADMIN_ID', 1)) ? $tiposProductoTodos : $tiposProductoLinkeados;
-
-        $navegacion[0]["children"] = $productosParaInformes->map(function ($tipoProducto) {
-            return [
-                "label" => "Informes " . $tipoProducto->nombre,
-                "link" => "/informes/" . $tipoProducto->letras_identificacion
+        // Administración: Gestión de pagos (solo admin) e Informes (pantalla con el
+        // listado de productos disponibles, /informes)
+        $navegacion[0]["children"] = [];
+        if ($id_sociedad == env('SOCIEDAD_ADMIN_ID', 1)) {
+            $navegacion[0]["children"][] = [
+                "label" => "Gestión de pagos",
+                "link" => "/gestion-pagos"
             ];
-        })->toArray();
+        }
+        $navegacion[0]["children"][] = [
+            "label" => "Informes",
+            "link" => "/informes"
+        ];
         $navegacion[1]["children"] = [
             [
                 "label" => "Sociedades",
@@ -171,14 +175,6 @@ class NavController extends Controller
             }));
         }
 
-        // Gestión de pagos solo para la sociedad admin
-        if ($id_sociedad == env('SOCIEDAD_ADMIN_ID', 1)) {
-            array_unshift($navegacion[0]["children"], [
-                "label" => "Gestión de pagos",
-                "link" => "/gestion-pagos"
-            ]);
-        }
-
         // Si no es responsable y NO es la sociedad admin, solo Socios en Gestión
         if ($responsable != 1 && $id_sociedad != env('SOCIEDAD_ADMIN_ID', 1)) {
             $navegacion[1]["children"] = array_values(array_filter($navegacion[1]["children"], function ($child) {
@@ -187,5 +183,31 @@ class NavController extends Controller
         }
 
         return response()->json($navegacion);
+    }
+
+    // Productos disponibles para sacar informes (pantalla /informes).
+    // Admin: todos los productos base activos. Resto: solo los vinculados a su sociedad.
+    public function getProductosInforme($id_sociedad)
+    {
+        $esAdmin = $id_sociedad == env('SOCIEDAD_ADMIN_ID', 1);
+
+        $query = TipoProducto::activos()
+            ->whereNull('padre_id')
+            ->whereNull('tipo_producto_asociado');
+
+        if (!$esAdmin) {
+            $ids = TipoProductoSociedad::where('id_sociedad', $id_sociedad)
+                ->pluck('id_tipo_producto');
+            $query->whereIn('id', $ids);
+        }
+
+        return response()->json(
+            $query->get()->map(function ($p) {
+                return [
+                    'nombre'                => $p->nombre,
+                    'letras_identificacion' => $p->letras_identificacion,
+                ];
+            })->values()
+        );
     }
 }
