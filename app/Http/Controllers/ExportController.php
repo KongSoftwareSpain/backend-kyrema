@@ -52,6 +52,7 @@ class ExportController extends Controller
         // Verificar si la tabla y la columna 'subproducto' existen
         $tableName = $tipoProducto->letras_identificacion;
         $hasSubproductoColumn = Schema::hasColumn($tableName, 'subproducto');
+        $hasAnuladoColumn = Schema::hasColumn($tableName, 'anulado');
 
         // Rango [desde, hasta+1) para no liarte con horas
         $desde = Carbon::parse($fechaDesde)->toDateString();          // 'YYYY-MM-DD'
@@ -97,6 +98,11 @@ class ExportController extends Controller
         // Filtrar por sociedad si se proporciona
         if (!empty($sociedadId)) {
             $query->whereIn('pc.sociedad_id', $sociedades);
+        }
+
+        // Excluir los seguros anulados del informe
+        if ($hasAnuladoColumn) {
+            $query->where('pc.anulado', 0);
         }
 
         // Ejecutar la consulta
@@ -155,6 +161,10 @@ class ExportController extends Controller
                 $countsQuery->whereIn('sociedad_id', $sociedades);
             }
 
+            if ($hasAnuladoColumn) {
+                $countsQuery->where('anulado', 0);
+            }
+
             $counts = collect([
                 [
                     'tipo_producto' => $tipoProducto->nombre,
@@ -180,6 +190,10 @@ class ExportController extends Controller
 
             if (!empty($sociedadId)) {
                 $countsQuery->whereIn('sociedad_id', $sociedades);
+            }
+
+            if ($hasAnuladoColumn) {
+                $countsQuery->where('anulado', 0);
             }
 
             $counts = $countsQuery->groupBy(
