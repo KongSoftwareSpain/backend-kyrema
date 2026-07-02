@@ -41,17 +41,14 @@ class RemesaController extends Controller
             'sociedad_id'           => 'nullable|integer|exists:sociedad,id',
         ]);
 
-        // Obtener el último código de producto generado
+        // Prefijo de fecha (mes+año). Ej: 062026
         $tableDatePrefix = Carbon::now()->format('mY');
 
-        // Obtén el prefijo desde la configuración
-        $prefijo = strtolower(Config::get('app.prefijo_tipo_producto'));
-
-        // Elimina el prefijo del código
-        $codigoPorTipoProducto = str_replace($prefijo, '', strtolower($validated['letras_identificacion']));
-
-        // Construir el nuevo código de producto
-        $newCodigoProducto = $tableDatePrefix . strtoupper($codigoPorTipoProducto) . $validated['referencia'];
+        // La referencia recibida ya incluye las siglas del producto (la genera
+        // ReferenceService::generarReferencia como "SIGLAS + número", p.ej. "SJK0000005"),
+        // por lo que aquí solo anteponemos el prefijo de fecha. Antes se volvían a
+        // concatenar las siglas y quedaban duplicadas (062026SJKSJK0000005).
+        $newCodigoProducto = $tableDatePrefix . strtoupper($validated['referencia']);
 
         $validated['referencia'] = $newCodigoProducto;
 

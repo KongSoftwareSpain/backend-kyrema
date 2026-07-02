@@ -28,8 +28,8 @@ class GiroPagoExport implements PagoExportInterface
 
         return $giros->map(function ($giro) {
             return [
-                'Referencia' => $giro->referencia,
-                'Tipo de pago' => $giro->pago->tipo_pago ?? 'N/A',
+                'Referencia' => $this->limpiarReferencia($giro->referencia),
+                'Tipo de pago' => $this->formatearTipoPago($giro->pago->tipo_pago ?? null),
                 'Monto' => number_format($giro->pago->monto ?? 0, 2, ',', '.'),
                 'Fecha de pago' => $giro->pago && $giro->pago->fecha
                     ? \Carbon\Carbon::parse($giro->pago->fecha)->format('Y-m-d')
@@ -49,5 +49,36 @@ class GiroPagoExport implements PagoExportInterface
                 'Concepto' => $giro->concepto,
             ];
         });
+    }
+
+    /**
+     * Corrige las referencias antiguas que quedaron con las siglas duplicadas
+     * (p.ej. "062026SJKSJK0000005" -> "062026SJK0000005"). Si la referencia no
+     * tiene siglas repetidas se devuelve tal cual.
+     */
+    private function limpiarReferencia(?string $referencia): ?string
+    {
+        if (!$referencia) {
+            return $referencia;
+        }
+
+        // <prefijo fecha 6 dígitos><siglas><siglas repetidas><número>
+        // Las siglas pueden ser alfanuméricas (p.ej. "K1"), pero siempre empiezan
+        // por letra, por eso el grupo se ancla con [A-Za-z] para no confundirlas
+        // con los dígitos del prefijo de fecha ni del número de secuencia.
+        return preg_replace('/^(\d{6})([A-Za-z][A-Za-z0-9]*?)\2(\d+)$/', '$1$2$3', $referencia);
+    }
+
+    /**
+     * Convierte el tipo de pago almacenado (p.ej. "giro_bancario") en un texto
+     * legible ("Giro bancario").
+     */
+    private function formatearTipoPago(?string $tipoPago): string
+    {
+        if (!$tipoPago) {
+            return 'N/A';
+        }
+
+        return ucfirst(str_replace('_', ' ', $tipoPago));
     }
 }
