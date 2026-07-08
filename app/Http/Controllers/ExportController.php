@@ -75,10 +75,12 @@ class ExportController extends Controller
             // Si quieres devolver también las fechas ya convertidas:
             ->selectRaw("TRY_CONVERT(datetime2, pc.[fecha_de_emisión], {$style}) as fecha_de_emision")
             ->selectRaw("TRY_CONVERT(datetime2, pc.[fecha_de_inicio], {$style})  as fecha_de_inicio")
-            ->selectRaw("COALESCE((SELECT TOP 1 soc.nombre FROM socios_comerciales sc JOIN comercial cs ON sc.id_comercial = cs.id JOIN sociedad soc ON cs.id_sociedad = soc.id WHERE sc.id_socio = pc.socio_id), pc.sociedad) as sociedad")
+            // Sociedad asignada al seguro (igual que en la plataforma), no la del comercial vinculado al socio
+            ->selectRaw("COALESCE(soc.nombre, pc.sociedad) as sociedad")
             ->addSelect([
                 'pc.tipo_de_pago',
             ])
+            ->leftJoin('sociedad as soc', 'pc.sociedad_id', '=', 'soc.id')
             ->leftJoin('comercial as c', 'pc.comercial_creador_id', '=', 'c.id')
             ->selectRaw("CASE WHEN pc.comercial_creador_id IS NOT NULL AND c.nombre IS NOT NULL THEN c.nombre ELSE 'No hay' END as referidos");
 
