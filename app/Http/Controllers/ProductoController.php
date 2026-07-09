@@ -1015,10 +1015,23 @@ class ProductoController extends Controller
         // Formato ISO-8601 con la T intermedia
         $isoFormat = 'Y-m-d\TH:i:s';
 
-        // Normalizar fechas
-        foreach (['fecha_de_inicio', 'fecha_de_fin', 'updated_at'] as $campo) {
+        // Normalizar todas las fechas del producto (igual que en crearProducto).
+        // Sin la T, SQL Server con idioma español interpreta 'yyyy-mm-dd' como
+        // año-día-mes en columnas datetime y revienta con fechas como 1951-07-21.
+        $camposFecha = DB::table('campos')
+            ->where('tipo_producto_id', (string) $tipoProducto->id)
+            ->where('tipo_dato', 'date')
+            ->pluck('nombre')
+            ->map(fn($nombre) => strtolower(str_replace(' ', '_', $nombre)))
+            ->toArray();
+
+        foreach (array_unique(array_merge(['fecha_de_inicio', 'fecha_de_fin', 'updated_at'], $camposFecha)) as $campo) {
             if (!empty($datos[$campo])) {
-                $datos[$campo] = Carbon::parse($datos[$campo])->format($isoFormat);
+                try {
+                    $datos[$campo] = Carbon::parse($datos[$campo])->format($isoFormat);
+                } catch (\Exception $e) {
+                    // Valor no parseable: se deja tal cual
+                }
             }
         }
 

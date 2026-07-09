@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
@@ -79,17 +80,19 @@ class AnexosController extends Controller
         // Obtener el array de anexos desde el request
         $anexos = $request->input('anexos');
 
+        try {
         foreach ($anexos as $anexo) {
             $tipoAnexo = $anexo['tipo_anexo']; // Tipo de anexo
             $letrasIdentificacion = strtolower($tipoAnexo['letras_identificacion']); // Nombre de la tabla
-            $duracion = $tipoAnexo['duracion']; // Duración del anexo
+            $duracion = $tipoAnexo['duracion'] ?? null; // Duración del anexo
             $plantillasPaths = [
                 $tipoAnexo['plantilla_path_1'], $tipoAnexo['plantilla_path_2'], $tipoAnexo['plantilla_path_3'], $tipoAnexo['plantilla_path_4'],
                 $tipoAnexo['plantilla_path_5'], $tipoAnexo['plantilla_path_6'], $tipoAnexo['plantilla_path_7'], $tipoAnexo['plantilla_path_8'],
             ]; // Plantillas asociadas al anexo
-            $anexoId = $anexo['id']; // ID del anexo (si existe)
-            $formato = $anexo['formato']; // Campos dinámicos del anexo
-            $tarifas = $anexo['tarifas']; // Tarifas del anexo
+            $anexoId = $anexo['id'] ?? null; // ID del anexo (si existe)
+            $formato = $anexo['formato'] ?? []; // Campos dinámicos del anexo
+            // Puede llegar sin tarifas si el frontend no tenía la tarifa cargada (p.ej. tipo de anexo desactivado)
+            $tarifas = $anexo['tarifas'] ?? null;
 
             // Verificar que la tabla existe
             if (Schema::hasTable($letrasIdentificacion)) {
@@ -101,17 +104,33 @@ class AnexosController extends Controller
                     'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s')
                 ];
 
+                if (is_array($tarifas)) {
+                    $data['precio_base'] = $tarifas['precio_base'] ?? 0;
+                    $data['extra_1'] = $tarifas['extra_1'] ?? 0;
+                    $data['extra_2'] = $tarifas['extra_2'] ?? 0;
+                    $data['extra_3'] = $tarifas['extra_3'] ?? 0;
+                    $data['precio_total'] = $tarifas['precio_total'] ?? 0;
+                } elseif (!$anexoId) {
+                    // Alta sin tarifas: precios a 0. En edición no se tocan los precios guardados.
+                    $data['precio_base'] = 0;
+                    $data['extra_1'] = 0;
+                    $data['extra_2'] = 0;
+                    $data['extra_3'] = 0;
+                    $data['precio_total'] = 0;
+                }
 
-                $data['precio_base'] = $tarifas['precio_base'];
-                $data['extra_1'] = $tarifas['extra_1'];
-                $data['extra_2'] = $tarifas['extra_2'];
-                $data['extra_3'] = $tarifas['extra_3'];
-                $data['precio_total'] = $tarifas['precio_total'];
-                
-                
                 // Agregar los campos dinámicos del formato
                 foreach ($formato as $key => $value) {
                     $data[$key] = $value;
+                }
+
+                // blob_name no admite NULL: si el formato lo trae a null, no machacar el valor guardado
+                if ($data['blob_name'] === null) {
+                    if ($anexoId) {
+                        unset($data['blob_name']);
+                    } else {
+                        $data['blob_name'] = '';
+                    }
                 }
 
                 // Agregar la plantilla que tenga asignado el tipo de anexo
@@ -134,6 +153,12 @@ class AnexosController extends Controller
                     // Si no tiene ID, se crea un nuevo registro
                     // Se añade el dato de created_at a data:
                     $data['created_at'] = Carbon::now()->format('Y-m-d\TH:i:s');
+
+                    // Sin fecha de inicio (campo vacío o ausente) se usa la fecha actual
+                    if (empty($data['fecha_de_inicio'])) {
+                        $data['fecha_de_inicio'] = Carbon::now()->format('Y-m-d\TH:i:s');
+                    }
+                    $formato['fecha_de_inicio'] = $data['fecha_de_inicio'];
 
                     if($tipoAnexo['tipo_duracion'] != 'fecha_dependiente'){
                         // Se añade la duracion a la fecha de inicio y se inserta en la fecha_de_fin
@@ -177,6 +202,14 @@ class AnexosController extends Controller
             }
         }
         return response()->json(['message' => 'Anexos conectados con éxito'], 200);
+        } catch (\Throwable $e) {
+            // Devolver el mensaje real para poder diagnosticar desde el frontend
+            Log::error('Error conectando anexos con producto', [
+                'producto_id' => $id_producto,
+                'error' => $e->getMessage(),
+            ]);
+            return response()->json(['error' => 'Error conectando anexos: ' . $e->getMessage()], 500);
+        }
     }
 
     /**
