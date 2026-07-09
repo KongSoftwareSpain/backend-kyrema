@@ -32,21 +32,21 @@ class GiroPagoExport implements PagoExportInterface
                 'Tipo de pago' => $this->formatearTipoPago($giro->pago->tipo_pago ?? null),
                 'Monto' => number_format($giro->pago->monto ?? 0, 2, ',', '.'),
                 'Fecha de pago' => $giro->pago && $giro->pago->fecha
-                    ? \Carbon\Carbon::parse($giro->pago->fecha)->format('Y-m-d')
+                    ? \Carbon\Carbon::parse($giro->pago->fecha)->format('d/m/Y')
                     : 'N/A',
 
                 'Nombre del cliente' => $giro->nombre_cliente,
                 'DNI' => $giro->dni,
-                'Fecha firma mandato' => optional($giro->fecha_firma_mandato)->format('Y-m-d'),
+                'Fecha firma mandato' => optional($giro->fecha_firma_mandato)->format('d/m/Y'),
                 'IBAN' => $giro->iban_cliente,
                 'Auxiliar' => $giro->auxiliar,
                 'Sociedad' => $giro->sociedad,
                 'Residente' => $giro->residente,
                 'Referencia mandato' => $giro->referencia_mandato,
-                'Fecha cobro' => optional($giro->fecha_cobro)->format('Y-m-d'),
+                'Fecha cobro' => optional($giro->fecha_cobro)->format('d/m/Y'),
                 'Referencia adeudo' => $giro->referencia_adeudo,
                 'Tipo de adeudo' => $giro->tipo_adeudo,
-                'Concepto' => $giro->concepto,
+                'Concepto' => $this->formatearFechasConcepto($giro->concepto),
             ];
         });
     }
@@ -67,6 +67,19 @@ class GiroPagoExport implements PagoExportInterface
         // por letra, por eso el grupo se ancla con [A-Za-z] para no confundirlas
         // con los dígitos del prefijo de fecha ni del número de secuencia.
         return preg_replace('/^(\d{6})([A-Za-z][A-Za-z0-9]*?)\2(\d+)$/', '$1$2$3', $referencia);
+    }
+
+    /**
+     * Los conceptos antiguos se guardaron con fechas 'YYYY-MM-DD' incrustadas
+     * en el texto; se convierten a DD/MM/YYYY al exportar.
+     */
+    private function formatearFechasConcepto(?string $concepto): ?string
+    {
+        if (!$concepto) {
+            return $concepto;
+        }
+
+        return preg_replace('/\b(\d{4})-(\d{2})-(\d{2})\b/', '$3/$2/$1', $concepto);
     }
 
     /**

@@ -31,7 +31,7 @@ class TransferenciaPagoExport implements PagoExportInterface
                 'ID' => $trans->id,
                 'Cliente' => $trans->nombre_cliente ?? 'N/A',
                 'Fecha de pago' => $trans->pago && $trans->pago->fecha
-                    ? \Carbon\Carbon::parse($trans->pago->fecha)->format('Y-m-d')
+                    ? \Carbon\Carbon::parse($trans->pago->fecha)->format('d/m/Y')
                     : 'N/A',
                 'Importe' => number_format($trans->pago->monto ?? $trans->importe ?? 0, 2, ',', '.'),
                 'Estado' => ucfirst($trans->pago->estado ?? ''),
