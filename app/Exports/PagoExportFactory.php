@@ -26,14 +26,13 @@ class PagoExportFactory
 
         $nombre = strtolower(trim($tipoPago->nombre));
 
+        // El giro bancario tiene tabla propia (giros_bancarios) con datos de mandato
         if (str_contains($nombre, 'giro')) {
             return new GiroPagoExport();
         }
 
-        if (str_contains($nombre, 'transferencia')) {
-            return new TransferenciaPagoExport();
-        }
-
-        throw new InvalidArgumentException("Tipo de pago no soportado: {$tipoPago->nombre} (id $tipo)");
+        // El resto de tipos (transferencia, efectivo, tarjeta, domiciliación...)
+        // solo existen en la tabla pagos: exportador genérico filtrando por código
+        return new PagoGenericoExport($tipoPago->codigo, $tipoPago->nombre);
     }
 }
