@@ -87,7 +87,7 @@ class SocioController extends Controller
             'asegurado.nombre_socio' => 'required|string',
             'asegurado.apellido_1' => 'nullable|string',
             'asegurado.apellido_2' => 'nullable|string',
-            'asegurado.email' => 'required|email',
+            'asegurado.email' => 'nullable|email',
             'asegurado.telefono' => 'nullable|string',
             'asegurado.fecha_de_nacimiento' => 'required|date',
             'asegurado.sexo' => 'nullable|string',
@@ -120,7 +120,7 @@ class SocioController extends Controller
             'nombre_socio' => $asegurado['nombre_socio'],
             'apellido_1' => $asegurado['apellido_1'] ?? null,
             'apellido_2' => $asegurado['apellido_2'] ?? null,
-            'email' => $asegurado['email'],
+            'email' => $asegurado['email'] ?? null,
             'telefono' => $asegurado['telefono'] ?? null,
             'sexo' => $asegurado['sexo'] ?? null,
             'direccion' => $asegurado['direccion'] ?? null,
@@ -134,7 +134,8 @@ class SocioController extends Controller
             // 1. Crear socio con Eloquent
             $socio = Socio::create($payload);
 
-            if (!$sendEmail) {
+            // Sin email no se puede enviar la notificación de contraseña
+            if (!$sendEmail || empty($socio->email)) {
                 return $socio;
             }
 
