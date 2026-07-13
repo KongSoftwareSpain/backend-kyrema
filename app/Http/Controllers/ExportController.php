@@ -281,6 +281,7 @@ class ExportController extends Controller
             }
 
             $columnasAnexo = Schema::getColumnListing($tablaAnexo);
+            $columnasProducto = Schema::getColumnListing($tablaProducto);
 
             // Campos dinámicos del anexo (solo los que existen como columna real)
             $camposDinamicos = DB::table('campos')
@@ -290,22 +291,28 @@ class ExportController extends Controller
                 ->filter(fn ($campo) => $campo->nombre_codigo && in_array($campo->nombre_codigo, $columnasAnexo))
                 ->values();
 
+            // Póliza(s) asociadas al tipo de anexo
+            $polizaAnexo = DB::table('tipo_producto_polizas as tpp')
+                ->join('polizas as pol', 'tpp.poliza_id', '=', 'pol.id')
+                ->where('tpp.tipo_producto_id', $tipoAnexo->id)
+                ->pluck('pol.numero')
+                ->unique()
+                ->implode(' / ');
+
             $query = DB::table($tablaAnexo . ' as a')
                 ->join($tablaProducto . ' as p', 'a.producto_id', '=', 'p.id')
                 ->leftJoin('sociedad as soc', 'p.sociedad_id', '=', 'soc.id')
+                ->leftJoin('comercial as c', 'p.comercial_creador_id', '=', 'c.id')
                 ->selectRaw("CONCAT(p.nombre_socio,' ',p.apellido_1,' ',ISNULL(p.apellido_2,'')) as nombre_completo")
                 ->addSelect(['p.dni', 'p.codigo_producto'])
-                ->selectRaw("COALESCE(soc.nombre, p.sociedad) as sociedad");
+                ->selectRaw("COALESCE(soc.nombre, p.sociedad) as sociedad")
+                ->selectRaw("CASE WHEN p.comercial_creador_id IS NOT NULL AND c.nombre IS NOT NULL THEN c.nombre ELSE 'No hay' END as referidos")
+                // Emisión del ANEXO e inicio del producto vinculado
+                ->selectRaw("TRY_CONVERT(datetime2, a.[fecha_de_emisión], {$style}) as fecha_de_emision")
+                ->selectRaw("TRY_CONVERT(datetime2, p.[fecha_de_inicio], {$style}) as fecha_de_inicio");
 
-            foreach (['fecha_de_emisión', 'fecha_de_inicio', 'fecha_de_fin'] as $colFecha) {
-                if (in_array($colFecha, $columnasAnexo)) {
-                    $alias = str_replace('ó', 'o', $colFecha);
-                    $query->selectRaw("TRY_CONVERT(datetime2, a.[{$colFecha}], {$style}) as [{$alias}]");
-                }
-            }
-
-            if (in_array('precio_total', $columnasAnexo)) {
-                $query->addSelect('a.precio_total');
+            if (in_array('tipo_de_pago', $columnasProducto)) {
+                $query->addSelect('p.tipo_de_pago');
             }
 
             foreach ($camposDinamicos as $campo) {
@@ -328,9 +335,9 @@ class ExportController extends Controller
                 $query->whereIn('p.sociedad_id', $sociedades);
             }
 
-            // Fechas ya en formato español para el excel
-            $data = $query->get()->map(function ($item) {
-                foreach (['fecha_de_emision', 'fecha_de_inicio', 'fecha_de_fin'] as $campoFecha) {
+            // Fechas ya en formato español para el excel + póliza del tipo de anexo
+            $data = $query->get()->map(function ($item) use ($polizaAnexo) {
+                foreach (['fecha_de_emision', 'fecha_de_inicio'] as $campoFecha) {
                     if (!empty($item->$campoFecha)) {
                         try {
                             $item->$campoFecha = Carbon::parse($item->$campoFecha)->format('d/m/Y');
@@ -339,6 +346,7 @@ class ExportController extends Controller
                         }
                     }
                 }
+                $item->poliza = $polizaAnexo ?: 'N/A';
                 return $item;
             });
 
