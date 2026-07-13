@@ -32,24 +32,8 @@ class ExportController extends Controller
         $fechaHasta = $request->input('fecha_hasta');
         $sociedadId = $request->input('sociedad_id');
 
-        // Restricción de visibilidad por sociedad. Las rutas autentican con
-        // Sanctum, así que el usuario se obtiene del request (auth('comercial')
-        // es el guard JWT y aquí devolvía null, dejando el informe sin filtro).
-        $user = $request->user();
-        $esAdmin = $user && $user->id_sociedad == env('SOCIEDAD_ADMIN_ID');
-
-        if ($user && !$esAdmin) {
-            $sociedadesPermitidas = SociedadController::getArrayIdSociedadesHijas($user->id_sociedad);
-            // "Todas las sociedades" (vacío) o una sociedad fuera de su alcance
-            // se sustituyen por el subárbol del propio usuario. Una selección
-            // concreta dentro de su alcance se respeta.
-            if (empty($sociedadId) || !in_array($sociedadId, $sociedadesPermitidas)) {
-                $sociedadId = $user->id_sociedad;
-            }
-        }
-
-        // Si no se proporciona sociedadId (solo posible para el admin), no se filtra.
-        $sociedades = !empty($sociedadId) ? SociedadController::getArrayIdSociedadesHijas($sociedadId) : [];
+        // Restricción de visibilidad por sociedad (subárbol del usuario)
+        $sociedades = $this->resolverFiltroSociedades($request, $sociedadId);
 
         // Obtener las letras de identificación del tipo de producto
         $tipoProducto = DB::table('tipo_producto')->where('id', $tipoProductoId)->first();
@@ -217,6 +201,164 @@ class ExportController extends Controller
         }
 
         return response()->json(['data' => $results, 'counts' => $counts]);
+    }
+
+    /**
+     * Resuelve el filtro de sociedades del informe según el usuario autenticado.
+     * Las rutas autentican con Sanctum, así que el usuario sale del request.
+     * - Admin de plataforma: se respeta la selección; vacío = sin filtro.
+     * - Resto: "todas" (vacío) o una sociedad fuera de su alcance se sustituyen
+     *   por su subárbol; una selección válida dentro de su alcance se respeta.
+     * OJO: getArrayIdSociedadesHijas debe recibir el id como string.
+     */
+    private function resolverFiltroSociedades(Request $request, $sociedadId): array
+    {
+        $user = $request->user();
+        $esAdmin = $user && $user->id_sociedad == env('SOCIEDAD_ADMIN_ID');
+
+        if ($user && !$esAdmin) {
+            $sociedadesPermitidas = SociedadController::getArrayIdSociedadesHijas((string) $user->id_sociedad);
+            if (empty($sociedadId) || !in_array($sociedadId, $sociedadesPermitidas)) {
+                $sociedadId = $user->id_sociedad;
+            }
+        }
+
+        return !empty($sociedadId)
+            ? SociedadController::getArrayIdSociedadesHijas((string) $sociedadId)
+            : [];
+    }
+
+    /**
+     * Informe de anexos: para cada tipo de anexo del producto devuelve sus
+     * instancias emitidas en el rango (filtrado por fecha de emisión del ANEXO),
+     * con los datos del socio/producto padre y los campos dinámicos del anexo.
+     */
+    public function getReportDataAnexos(Request $request)
+    {
+        $request->validate([
+            'tipo_producto_id' => 'required|integer',
+            'fecha_desde' => 'required|date',
+            'fecha_hasta' => 'required|date',
+            'sociedad_id' => 'nullable|integer',
+        ]);
+
+        $tipoProductoId = $request->input('tipo_producto_id');
+        $sociedades = $this->resolverFiltroSociedades($request, $request->input('sociedad_id'));
+
+        $tipoProducto = DB::table('tipo_producto')->where('id', $tipoProductoId)->first();
+        if (!$tipoProducto) {
+            return response()->json(['error' => 'Tipo de producto no encontrado'], 404);
+        }
+
+        // Si es un subproducto, los anexos y la tabla física cuelgan del padre
+        $tipoPadre = $tipoProducto->padre_id
+            ? DB::table('tipo_producto')->where('id', $tipoProducto->padre_id)->first()
+            : $tipoProducto;
+
+        $tablaProducto = strtolower($tipoPadre->letras_identificacion);
+        if (!Schema::hasTable($tablaProducto)) {
+            return response()->json(['error' => 'Tabla de producto no encontrada'], 404);
+        }
+
+        $tiposAnexo = DB::table('tipo_producto')
+            ->where('tipo_producto_asociado', $tipoPadre->id)
+            ->get();
+
+        // Rango [desde, hasta+1) sobre la fecha de emisión del anexo
+        $desde = Carbon::parse($request->input('fecha_desde'))->toDateString();
+        $hasta = Carbon::parse($request->input('fecha_hasta'))->addDay()->toDateString();
+        $style = 126;
+
+        $productoTieneAnulado = Schema::hasColumn($tablaProducto, 'anulado');
+
+        $informes = [];
+        $counts = [];
+
+        foreach ($tiposAnexo as $tipoAnexo) {
+            $tablaAnexo = strtolower($tipoAnexo->letras_identificacion);
+            if (!Schema::hasTable($tablaAnexo)) {
+                continue;
+            }
+
+            $columnasAnexo = Schema::getColumnListing($tablaAnexo);
+
+            // Campos dinámicos del anexo (solo los que existen como columna real)
+            $camposDinamicos = DB::table('campos')
+                ->where('tipo_producto_id', (string) $tipoAnexo->id)
+                ->where('grupo', 'datos_anexo')
+                ->get(['nombre', 'nombre_codigo'])
+                ->filter(fn ($campo) => $campo->nombre_codigo && in_array($campo->nombre_codigo, $columnasAnexo))
+                ->values();
+
+            $query = DB::table($tablaAnexo . ' as a')
+                ->join($tablaProducto . ' as p', 'a.producto_id', '=', 'p.id')
+                ->leftJoin('sociedad as soc', 'p.sociedad_id', '=', 'soc.id')
+                ->selectRaw("CONCAT(p.nombre_socio,' ',p.apellido_1,' ',ISNULL(p.apellido_2,'')) as nombre_completo")
+                ->addSelect(['p.dni', 'p.codigo_producto'])
+                ->selectRaw("COALESCE(soc.nombre, p.sociedad) as sociedad");
+
+            foreach (['fecha_de_emisión', 'fecha_de_inicio', 'fecha_de_fin'] as $colFecha) {
+                if (in_array($colFecha, $columnasAnexo)) {
+                    $alias = str_replace('ó', 'o', $colFecha);
+                    $query->selectRaw("TRY_CONVERT(datetime2, a.[{$colFecha}], {$style}) as [{$alias}]");
+                }
+            }
+
+            if (in_array('precio_total', $columnasAnexo)) {
+                $query->addSelect('a.precio_total');
+            }
+
+            foreach ($camposDinamicos as $campo) {
+                $query->addSelect('a.' . $campo->nombre_codigo);
+            }
+
+            // Filtro por fecha de emisión del ANEXO
+            $query->whereRaw(
+                "TRY_CONVERT(datetime2, a.[fecha_de_emisión], {$style}) >= ? AND TRY_CONVERT(datetime2, a.[fecha_de_emisión], {$style}) < ?",
+                [$desde, $hasta]
+            );
+
+            if (in_array('anulado', $columnasAnexo)) {
+                $query->where('a.anulado', 0);
+            }
+            if ($productoTieneAnulado) {
+                $query->where('p.anulado', 0);
+            }
+            if (!empty($sociedades)) {
+                $query->whereIn('p.sociedad_id', $sociedades);
+            }
+
+            // Fechas ya en formato español para el excel
+            $data = $query->get()->map(function ($item) {
+                foreach (['fecha_de_emision', 'fecha_de_inicio', 'fecha_de_fin'] as $campoFecha) {
+                    if (!empty($item->$campoFecha)) {
+                        try {
+                            $item->$campoFecha = Carbon::parse($item->$campoFecha)->format('d/m/Y');
+                        } catch (\Exception $e) {
+                            // Se deja tal cual si no es parseable
+                        }
+                    }
+                }
+                return $item;
+            });
+
+            $informes[] = [
+                'tipo_anexo' => [
+                    'id' => $tipoAnexo->id,
+                    'nombre' => $tipoAnexo->nombre,
+                    'letras_identificacion' => $tipoAnexo->letras_identificacion,
+                ],
+                'columnas_anexo' => $camposDinamicos,
+                'data' => $data,
+            ];
+
+            $counts[] = [
+                'tipo_anexo' => $tipoAnexo->nombre,
+                'cantidad' => $data->count(),
+            ];
+        }
+
+        return response()->json(['informes' => $informes, 'counts' => $counts]);
     }
 
 

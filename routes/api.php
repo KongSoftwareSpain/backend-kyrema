@@ -301,6 +301,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     // INFORMES:
     Route::get('reports', [ExportController::class, 'getReportData']);
+    Route::get('reports-anexos', [ExportController::class, 'getReportDataAnexos']);
 
 
     // NOTIFICACIONES:
