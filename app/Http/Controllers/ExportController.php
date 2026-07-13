@@ -32,14 +32,23 @@ class ExportController extends Controller
         $fechaHasta = $request->input('fecha_hasta');
         $sociedadId = $request->input('sociedad_id');
 
-        // Restricción de visibilidad por sociedad
-        $user = auth('comercial')->user();
-        if ($user && $user->id_sociedad != env('SOCIEDAD_ADMIN_ID')) {
-            $sociedadId = $user->id_sociedad;
+        // Restricción de visibilidad por sociedad. Las rutas autentican con
+        // Sanctum, así que el usuario se obtiene del request (auth('comercial')
+        // es el guard JWT y aquí devolvía null, dejando el informe sin filtro).
+        $user = $request->user();
+        $esAdmin = $user && $user->id_sociedad == env('SOCIEDAD_ADMIN_ID');
+
+        if ($user && !$esAdmin) {
+            $sociedadesPermitidas = SociedadController::getArrayIdSociedadesHijas($user->id_sociedad);
+            // "Todas las sociedades" (vacío) o una sociedad fuera de su alcance
+            // se sustituyen por el subárbol del propio usuario. Una selección
+            // concreta dentro de su alcance se respeta.
+            if (empty($sociedadId) || !in_array($sociedadId, $sociedadesPermitidas)) {
+                $sociedadId = $user->id_sociedad;
+            }
         }
 
-        // Si no se proporciona sociedadId, no filtramos por sociedades hijas por defecto aquí, 
-        // dejamos que el bloque condicional de más abajo lo gestione.
+        // Si no se proporciona sociedadId (solo posible para el admin), no se filtra.
         $sociedades = !empty($sociedadId) ? SociedadController::getArrayIdSociedadesHijas($sociedadId) : [];
 
         // Obtener las letras de identificación del tipo de producto
