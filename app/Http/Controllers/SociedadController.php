@@ -16,7 +16,7 @@ class SociedadController extends Controller
 
     public function index()
     {
-        $sociedades = Sociedad::all();
+        $sociedades = Sociedad::with('categorias')->get();
         return response()->json($sociedades);
     }
 
@@ -58,10 +58,24 @@ class SociedadController extends Controller
             'observaciones' => 'nullable|string|max:255',
             'logo' => 'nullable',
             'sociedad_padre_id' => 'nullable|numeric|exists:sociedad,id',
+            'categorias' => 'nullable|array',
+            'categorias.*' => 'numeric|exists:categorias,id',
         ]);
 
         // Crear la sociedad con los datos recibidos
-        $sociedad = Sociedad::create($request->except('logo'));
+        $sociedad = Sociedad::create($request->except('logo', 'categorias'));
+
+        // Categorías: las enviadas o, en su defecto, las de la sociedad padre
+        $categorias = $request->input('categorias');
+        if (empty($categorias) && $sociedad->sociedad_padre_id) {
+            $categorias = DB::table('sociedad_categoria')
+                ->where('id_sociedad', $sociedad->sociedad_padre_id)
+                ->pluck('id_categoria')
+                ->toArray();
+        }
+        if (!empty($categorias)) {
+            $sociedad->categorias()->sync($categorias);
+        }
 
         // Si se ha subido un logo, guardarlo
         if ($request->hasFile('logo')) {
@@ -112,13 +126,15 @@ class SociedadController extends Controller
     {
         // Si es la sociedad admin, devolvemos TODAS las sociedades
         if ($id == self::SOCIEDAD_ADMIN_ID) {
-            return response()->json(Sociedad::all());
+            return response()->json(Sociedad::with('categorias')->get());
         }
 
         $sociedad = Sociedad::findOrFail($id); // Obtener la sociedad inicial
         $sociedadesHijas = $sociedad->getSociedadesHijasDesde($id);
 
         $sociedadesCompletas = array_merge([$sociedad], $sociedadesHijas);
+
+        collect($sociedadesCompletas)->each(fn ($s) => $s->load('categorias'));
 
         return response()->json($sociedadesCompletas);
     }
@@ -190,7 +206,7 @@ class SociedadController extends Controller
 
     public function show($id)
     {
-        $sociedad = Sociedad::findOrFail($id);
+        $sociedad = Sociedad::with('categorias')->findOrFail($id);
 
         return response()->json($sociedad);
     }
@@ -224,12 +240,18 @@ class SociedadController extends Controller
             'observaciones' => 'nullable|string|max:255',
             'logo' => 'nullable',
             'sociedad_padre_id' => 'nullable|numeric|exists:sociedad,id',
+            'categorias' => 'nullable|array',
+            'categorias.*' => 'numeric|exists:categorias,id',
         ]);
 
         $sociedad = Sociedad::findOrFail($id);
-        $sociedad->update($request->all());
+        $sociedad->update($request->except('categorias'));
 
-        return response()->json($sociedad);
+        if ($request->has('categorias')) {
+            $sociedad->categorias()->sync($request->input('categorias', []));
+        }
+
+        return response()->json($sociedad->load('categorias'));
     }
 
     public function updatePermisos(Request $request, $id)

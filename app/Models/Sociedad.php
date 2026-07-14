@@ -41,6 +41,13 @@ class Sociedad extends Model
         'sociedad_padre_id'
     ];
 
+    public function categorias()
+    {
+        // Sin withTimestamps: el DATEFORMAT español de SQL Server rechaza el
+        // formato con el que Eloquent escribe los timestamps del pivote
+        return $this->belongsToMany(Categoria::class, 'sociedad_categoria', 'id_sociedad', 'id_categoria');
+    }
+
     public function getSociedadesHijasDesde($idBase)
     {
         $todas = Sociedad::all(); // Una sola consulta
