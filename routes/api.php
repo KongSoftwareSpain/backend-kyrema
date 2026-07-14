@@ -81,6 +81,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
 
     Route::post('crear-producto/{letrasIdentificacion}', [ProductoController::class, 'crearProducto']);
+    Route::post('renovar-productos/{letrasIdentificacion}', [ProductoController::class, 'renovarProductosEnPaquete']);
     Route::post('editar-producto/{letrasIdentificacion}', [ProductoController::class, 'editarProducto']);
     Route::post('anular-producto/{letrasIdentificacion}', [AnuladosController::class, 'anularProducto']);
     Route::delete('eliminar-producto/{letrasIdentificacion}', [ProductoController::class, 'eliminarProducto']);

@@ -17,6 +17,8 @@ use App\Models\SocioProducto;
 use App\Services\ReferenceService;
 use App\Support\Dni;
 use Illuminate\Support\Facades\Cache;
+use App\Models\Payments\Pago;
+use App\Models\Payments\GiroBancario;
 
 class ProductoController extends Controller
 {
@@ -958,6 +960,236 @@ class ProductoController extends Controller
         return response()->json($registro, 201);
     }
 
+
+    /**
+     * Renovación en paquete: clona cada producto seleccionado con fechas nuevas
+     * (inicio = fin original + 1 día, misma duración), clona sus anexos y, si el
+     * pago era giro bancario, genera el pago recurrente. Los seguros con pago
+     * por tarjeta NO se pueden renovar por este método.
+     */
+    public function renovarProductosEnPaquete($letrasIdentificacion, Request $request)
+    {
+        $request->validate([
+            'ids' => 'required|array|min:1',
+            'ids.*' => 'numeric',
+        ]);
+
+        $tipoProducto = DB::table('tipo_producto')
+            ->where('letras_identificacion', $letrasIdentificacion)
+            ->first();
+
+        if (!$tipoProducto) {
+            return response()->json(['error' => 'Tipo de producto no encontrado'], 404);
+        }
+        if ($tipoProducto->padre_id != null) {
+            $tipoProducto = DB::table('tipo_producto')->where('id', $tipoProducto->padre_id)->first();
+        }
+
+        $nombreTabla = strtolower($tipoProducto->letras_identificacion);
+        $columnasValidas = Schema::getColumnListing($nombreTabla);
+
+        // Tablas de anexos asociadas al tipo de producto
+        $tiposAnexos = DB::table('tipo_producto')
+            ->where('tipo_producto_asociado', $tipoProducto->id)
+            ->get()
+            ->filter(fn ($ta) => Schema::hasTable(strtolower($ta->letras_identificacion)));
+
+        // Letras de los subproductos: la secuencia de referencia se genera con las
+        // letras del subproducto de la fila (como en el alta), no con las del padre
+        $letrasSubproductos = DB::table('tipo_producto')
+            ->where('padre_id', $tipoProducto->id)
+            ->pluck('letras_identificacion', 'id');
+
+        $renovados = [];
+        $omitidos = [];
+        $errores = [];
+
+        // SQL Server con locale español rechaza 'Y-m-d H:i:s' al insertar: todo valor
+        // con pinta de fecha se reescribe en ISO con 'T' (formato inequívoco)
+        $normalizarFechas = function (array $datos): array {
+            foreach ($datos as $clave => $valor) {
+                if (is_string($valor) && preg_match('/^\d{4}-\d{2}-\d{2}([ T]\d{2}:\d{2}|$)/', $valor)) {
+                    try {
+                        $datos[$clave] = Carbon::parse($valor)->format('Y-m-d\TH:i:s');
+                    } catch (\Throwable $e) {
+                        // se deja tal cual si no parsea
+                    }
+                }
+            }
+            return $datos;
+        };
+
+        foreach ($request->input('ids') as $id) {
+            $original = DB::table($nombreTabla)->where('id', $id)->first();
+
+            if (!$original) {
+                $errores[] = ['id' => $id, 'motivo' => 'Producto no encontrado'];
+                continue;
+            }
+            if (strcasecmp(trim($original->tipo_de_pago ?? ''), 'Tarjeta') === 0) {
+                $omitidos[] = ['id' => $id, 'codigo_producto' => $original->codigo_producto, 'motivo' => 'Pago con tarjeta: no admite renovación en paquete'];
+                continue;
+            }
+            if (!empty($original->anulado) && $original->anulado != '0') {
+                $omitidos[] = ['id' => $id, 'codigo_producto' => $original->codigo_producto, 'motivo' => 'Producto anulado'];
+                continue;
+            }
+            if (empty($original->fecha_de_fin) || empty($original->fecha_de_inicio)) {
+                $errores[] = ['id' => $id, 'codigo_producto' => $original->codigo_producto, 'motivo' => 'Sin fechas de inicio/fin'];
+                continue;
+            }
+
+            try {
+                DB::beginTransaction();
+
+                // Fechas nuevas: inicio = fin original + 1 día, misma duración que el original
+                $inicioOriginal = Carbon::parse($original->fecha_de_inicio)->startOfDay();
+                $finOriginal = Carbon::parse($original->fecha_de_fin)->startOfDay();
+                $dias = $inicioOriginal->diffInDays($finOriginal);
+
+                $horaActual = Carbon::now()->format('H:i:s');
+                $inicioNuevo = $finOriginal->copy()->addDay();
+                $finNuevo = $inicioNuevo->copy()->addDays($dias);
+
+                if ($inicioNuevo->toDateString() > Carbon::today()->toDateString()) {
+                    $inicioNuevo->setTime(0, 0, 0);
+                    $finNuevo->setTime(23, 59, 0);
+                } else {
+                    $inicioNuevo->setTimeFromTimeString($horaActual);
+                    $finNuevo->setTimeFromTimeString($horaActual);
+                }
+
+                // Nueva referencia y código de producto (mismo formato que crearProducto)
+                $letrasReferencia = $tipoProducto->letras_identificacion;
+                if (!empty($original->subproducto) && isset($letrasSubproductos[$original->subproducto])) {
+                    $letrasReferencia = $letrasSubproductos[$original->subproducto];
+                }
+                $referenciaService = new ReferenceService();
+                $referencia = $referenciaService->generarReferencia($letrasReferencia);
+                $codigoNuevo = Carbon::now()->format('mY') . $referencia;
+
+                $ahora = Carbon::now()->format('Y-m-d\TH:i:s');
+                $datos = (array) $original;
+                unset($datos['id'], $datos['pago_id']);
+                // blob_name es NOT NULL en algunas tablas: vacío hasta que se genere el certificado
+                $datos['blob_name'] = '';
+                $datos['codigo_producto'] = $codigoNuevo;
+                $datos['fecha_de_inicio'] = $inicioNuevo->format('Y-m-d\TH:i:s');
+                $datos['fecha_de_fin'] = $finNuevo->format('Y-m-d\TH:i:s');
+                $datos['hora_de_inicio'] = $inicioNuevo->format('H:i:s');
+                $datos['hora_de_fin'] = $finNuevo->format('H:i:s');
+                $datos['fecha_de_emisión'] = $ahora;
+                $datos['hora_de_emisión'] = $horaActual;
+                $datos['created_at'] = $ahora;
+                $datos['updated_at'] = $ahora;
+                $datos = $normalizarFechas($datos);
+                $datos = array_intersect_key($datos, array_flip($columnasValidas));
+
+                $nuevoId = DB::table($nombreTabla)->insertGetId($datos);
+
+                if (!empty($original->socio_id)) {
+                    $socio = Socio::find($original->socio_id);
+                    if ($socio && Dni::equals($original->dni, $socio->dni)) {
+                        SocioProducto::connectSocioAndProducto($original->socio_id, $nuevoId, $nombreTabla);
+                    }
+                }
+
+                // Clonar anexos no anulados
+                $anexosClonados = 0;
+                foreach ($tiposAnexos as $tipoAnexo) {
+                    $tablaAnexo = strtolower($tipoAnexo->letras_identificacion);
+                    $anexos = DB::table($tablaAnexo)->where('producto_id', $original->id)->get();
+                    foreach ($anexos as $anexo) {
+                        if (!empty($anexo->anulado) && $anexo->anulado != '0') {
+                            continue;
+                        }
+                        $datosAnexo = (array) $anexo;
+                        unset($datosAnexo['id']);
+                        if (array_key_exists('blob_name', $datosAnexo)) $datosAnexo['blob_name'] = '';
+                        $datosAnexo['producto_id'] = $nuevoId;
+                        if (array_key_exists('fecha_de_inicio', $datosAnexo)) $datosAnexo['fecha_de_inicio'] = $datos['fecha_de_inicio'];
+                        if (array_key_exists('fecha_de_fin', $datosAnexo)) $datosAnexo['fecha_de_fin'] = $datos['fecha_de_fin'];
+                        if (array_key_exists('fecha_de_emisión', $datosAnexo)) $datosAnexo['fecha_de_emisión'] = $ahora;
+                        if (array_key_exists('hora_de_emisión', $datosAnexo)) $datosAnexo['hora_de_emisión'] = $horaActual;
+                        if (array_key_exists('created_at', $datosAnexo)) $datosAnexo['created_at'] = $ahora;
+                        if (array_key_exists('updated_at', $datosAnexo)) $datosAnexo['updated_at'] = $ahora;
+                        $datosAnexo = $normalizarFechas($datosAnexo);
+                        DB::table($tablaAnexo)->insert($datosAnexo);
+                        $anexosClonados++;
+                    }
+                }
+
+                // Giro bancario: pago recurrente clonado del original con la nueva referencia
+                if (strcasecmp(trim($original->tipo_de_pago ?? ''), 'Giro bancario') === 0 && !empty($original->pago_id)) {
+                    $giroOriginal = GiroBancario::where('pago_id', $original->pago_id)->first();
+                    if ($giroOriginal) {
+                        // Actualizar referencia (con y sin prefijo de fecha) y fechas de cobertura en el concepto
+                        $conceptoNuevo = str_replace(
+                            [
+                                $original->codigo_producto,
+                                substr($original->codigo_producto, 6),
+                                $inicioOriginal->toDateString(),
+                                $finOriginal->toDateString(),
+                            ],
+                            [
+                                $codigoNuevo,
+                                substr($codigoNuevo, 6),
+                                $inicioNuevo->toDateString(),
+                                $finNuevo->toDateString(),
+                            ],
+                            $giroOriginal->concepto ?? ''
+                        );
+                        $pagoNuevo = Pago::create([
+                            'referencia' => $codigoNuevo,
+                            'letras_identificacion' => $tipoProducto->letras_identificacion,
+                            'tipo_pago' => 'giro_bancario',
+                            'monto' => $giroOriginal->importe,
+                            'fecha' => Carbon::now()->format('Y-m-d\TH:i:s'),
+                            'estado' => 'pendiente',
+                            'sociedad_id' => $original->sociedad_id ?? null,
+                        ]);
+                        GiroBancario::create([
+                            'pago_id' => $pagoNuevo->id,
+                            'referencia' => $codigoNuevo,
+                            'nombre_cliente' => $giroOriginal->nombre_cliente,
+                            'dni' => $giroOriginal->dni,
+                            'importe' => $giroOriginal->importe,
+                            'fecha_firma_mandato' => $giroOriginal->fecha_firma_mandato,
+                            'iban_cliente' => $giroOriginal->iban_cliente,
+                            'auxiliar' => $giroOriginal->auxiliar,
+                            'sociedad' => $giroOriginal->sociedad,
+                            'residente' => $giroOriginal->residente ?? 'S',
+                            'referencia_mandato' => $giroOriginal->referencia_mandato,
+                            'referencia_adeudo' => $codigoNuevo,
+                            'tipo_adeudo' => 'RCUR',
+                            'concepto' => $conceptoNuevo,
+                        ]);
+                        DB::table($nombreTabla)->where('id', $nuevoId)->update(['pago_id' => $pagoNuevo->id]);
+                    }
+                }
+
+                DB::commit();
+
+                $renovados[] = [
+                    'id' => $nuevoId,
+                    'id_original' => $original->id,
+                    'codigo_producto' => $codigoNuevo,
+                    'codigo_original' => $original->codigo_producto,
+                    'anexos_clonados' => $anexosClonados,
+                ];
+            } catch (\Throwable $e) {
+                DB::rollBack();
+                Log::error("Error renovando producto {$id} de {$nombreTabla}: " . $e->getMessage());
+                $errores[] = ['id' => $id, 'codigo_producto' => $original->codigo_producto ?? null, 'motivo' => $e->getMessage()];
+            }
+        }
+
+        return response()->json([
+            'renovados' => $renovados,
+            'omitidos' => $omitidos,
+            'errores' => $errores,
+        ]);
+    }
 
     public function setBlobNameForProductId($letras_identificacion, $id, Request $request)
     {
