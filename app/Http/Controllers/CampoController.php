@@ -57,10 +57,59 @@ class CampoController extends Controller
     public function addCampos(Request $request, $id_tipo_producto)
     {
         $campos = $request->input('campos');
-        
-        foreach ($campos as $campoData) {
-            $campoData['tipo_producto_id'] = $id_tipo_producto;
-            Campos::create($campoData);
+
+        // El parámetro puede llegar como id numérico o como letras_identificacion
+        if (is_numeric($id_tipo_producto)) {
+            $tipoProducto = DB::table('tipo_producto')->where('id', $id_tipo_producto)->first();
+        } else {
+            $tipoProducto = DB::table('tipo_producto')->where('letras_identificacion', $id_tipo_producto)->first();
+        }
+
+        if (!$tipoProducto) {
+            return response()->json(['error' => "Tipo de producto '{$id_tipo_producto}' no encontrado"], 404);
+        }
+
+        // Tabla física: la del padre si es subproducto, la propia en productos y anexos
+        $nombreTabla = $tipoProducto->letras_identificacion;
+        if ($tipoProducto->padre_id) {
+            $padre = DB::table('tipo_producto')->where('id', $tipoProducto->padre_id)->first();
+            if ($padre) {
+                $nombreTabla = $padre->letras_identificacion;
+            }
+        }
+
+        try {
+            foreach ($campos as $campoData) {
+                $campoData['tipo_producto_id'] = (string) $tipoProducto->id;
+                $campoData['nombre_codigo'] = strtolower(str_replace(' ', '_', str_replace('.', '', $campoData['nombre'])));
+
+                if ($nombreTabla && Schema::hasTable($nombreTabla) && !Schema::hasColumn($nombreTabla, $campoData['nombre_codigo'])) {
+                    Schema::table($nombreTabla, function ($table) use ($campoData) {
+                        switch ($campoData['tipo_dato']) {
+                            case 'decimal':
+                                $table->decimal($campoData['nombre_codigo'], 10, 2)->nullable();
+                                break;
+                            case 'number':
+                                $table->integer($campoData['nombre_codigo'])->nullable();
+                                break;
+                            case 'date':
+                                $table->date($campoData['nombre_codigo'])->nullable();
+                                break;
+                            case 'time':
+                                $table->time($campoData['nombre_codigo'])->nullable();
+                                break;
+                            default:
+                                $table->string($campoData['nombre_codigo'])->nullable();
+                                break;
+                        }
+                    });
+                }
+
+                Campos::create($campoData);
+            }
+        } catch (\Exception $e) {
+            Log::error("Error añadiendo campos a {$nombreTabla}: " . $e->getMessage());
+            return response()->json(['error' => 'Error añadiendo campos: ' . $e->getMessage()], 500);
         }
 
         return response()->json(['message' => 'Campos añadidos correctamente'], 201);
