@@ -455,6 +455,78 @@ class ProductoController extends Controller
         return response()->json(['message' => 'Plantilla ' . $page . ' borrada correctamente'], 200);
     }
 
+    /**
+     * Productos cuya fecha_de_fin cae dentro de los próximos $dias (query param,
+     * por defecto 30), no anulados, filtrados por las sociedades permitidas.
+     * Alimenta la pantalla de "Próximos a caducar" para renovación en paquete.
+     */
+    public function getProductosProximosACaducar($letrasIdentificacion, Request $request)
+    {
+        $dias = max(1, (int) $request->query('dias', 30));
+
+        $sociedades = $request->query('sociedades');
+        $sociedades = $sociedades ? explode(',', $sociedades) : [];
+
+        $tipoProducto = DB::table('tipo_producto')
+            ->where('letras_identificacion', $letrasIdentificacion)
+            ->first();
+
+        if (!$tipoProducto) {
+            return response()->json(['error' => 'Tipo de producto no encontrado'], 404);
+        }
+
+        // Si es subproducto, los datos viven en la tabla del padre
+        if ($tipoProducto->padre_id != null) {
+            $tipoProducto = DB::table('tipo_producto')->where('id', $tipoProducto->padre_id)->first();
+        }
+
+        $nombreTabla = strtolower($tipoProducto->letras_identificacion);
+        $isAdmin = count($sociedades) === 0 || in_array(env('SOCIEDAD_ADMIN_ID', 1), $sociedades);
+
+        $columnasBase = Cache::remember("schema_cols_{$nombreTabla}", 3600, fn() => Schema::getColumnListing($nombreTabla));
+        $tieneApellidos = in_array('apellido_1', $columnasBase);
+        $tieneSubproducto = in_array('subproducto_codigo', $columnasBase);
+
+        $select = [
+            "$nombreTabla.id", "$nombreTabla.codigo_producto", "$nombreTabla.dni",
+            "$nombreTabla.nombre_socio", "$nombreTabla.fecha_de_fin", "$nombreTabla.fecha_de_inicio",
+            "$nombreTabla.tipo_de_pago", "$nombreTabla.sociedad_id", "$nombreTabla.comercial_id",
+            'sociedad.nombre as sociedad', 'comercial.nombre as comercial',
+        ];
+        if ($tieneApellidos) {
+            $select[] = "$nombreTabla.apellido_1";
+            $select[] = "$nombreTabla.apellido_2";
+        }
+        if ($tieneSubproducto) {
+            $select[] = "$nombreTabla.subproducto_codigo";
+        }
+
+        $hoy = Carbon::today();
+        $limite = Carbon::today()->addDays($dias);
+
+        $query = DB::table($nombreTabla)
+            ->leftJoin('sociedad', "$nombreTabla.sociedad_id", '=', 'sociedad.id')
+            ->leftJoin('comercial', "$nombreTabla.comercial_id", '=', 'comercial.id')
+            ->select($select)
+            ->where(function ($q) use ($nombreTabla) {
+                $q->where("$nombreTabla.anulado", 0)->orWhereNull("$nombreTabla.anulado");
+            })
+            ->whereBetween("$nombreTabla.fecha_de_fin", [$hoy->format('Y-m-d\TH:i:s'), $limite->format('Y-m-d\TH:i:s')]);
+
+        if (!$isAdmin) {
+            $query->whereIn("$nombreTabla.sociedad_id", $sociedades);
+        }
+
+        $query->orderBy("$nombreTabla.fecha_de_fin", 'asc');
+
+        $productos = $query->get()->map(function ($producto) use ($hoy) {
+            $producto->dias_restantes = (int) $hoy->diffInDays(Carbon::parse($producto->fecha_de_fin), false);
+            return $producto;
+        });
+
+        return response()->json($productos);
+    }
+
     public function getProductosByTipoAndSociedades($letrasIdentificacion, Request $request)
     {
         $t0 = microtime(true);
