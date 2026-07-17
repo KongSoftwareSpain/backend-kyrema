@@ -282,6 +282,8 @@ class ProductoController extends Controller
                     $table->string('duracion')->nullable();
                     // Booleano de si está anulado o no
                     $table->boolean('anulado')->default(false);
+                    // Booleano de si ha sido archivado por la limpieza de caducados
+                    $table->boolean('caducado')->default(false);
                     $table->string('blob_name')->nullable();
 
                     // Añadimos campos a la tabla
@@ -1191,6 +1193,12 @@ class ProductoController extends Controller
                     }
                 }
 
+                // Resincronizar plantillas y precios de la nueva instancia (y sus anexos)
+                // contra la configuración actual del tipo de producto y tarifas_producto:
+                // el clon anterior arrastraba precio_base/extra_*/precio_total/precio_final
+                // y plantilla_path_* congelados del original, que podían quedar a 0/obsoletos.
+                $this->regenerarDatosInstancia($letrasIdentificacion, $nuevoId);
+
                 // Giro bancario: pago recurrente clonado del original con la nueva referencia
                 if (strcasecmp(trim($original->tipo_de_pago ?? ''), 'Giro bancario') === 0 && !empty($original->pago_id)) {
                     $giroOriginal = GiroBancario::where('pago_id', $original->pago_id)->first();
@@ -1505,6 +1513,15 @@ class ProductoController extends Controller
                 if (Schema::hasColumn($nombreTabla, 'nombre_socio')) $updateData['nombre_socio'] = $socio->nombre_socio;
                 if (Schema::hasColumn($nombreTabla, 'apellido_1')) $updateData['apellido_1'] = $socio->apellido_1;
                 if (Schema::hasColumn($nombreTabla, 'apellido_2')) $updateData['apellido_2'] = $socio->apellido_2;
+                if (Schema::hasColumn($nombreTabla, 'dni')) $updateData['dni'] = $socio->dni;
+                if (Schema::hasColumn($nombreTabla, 'telefono')) $updateData['telefono'] = $socio->telefono;
+                if (Schema::hasColumn($nombreTabla, 'email')) $updateData['email'] = $socio->email;
+                if (Schema::hasColumn($nombreTabla, 'sexo')) $updateData['sexo'] = $socio->sexo;
+                if (Schema::hasColumn($nombreTabla, 'dirección')) $updateData['dirección'] = $socio->direccion;
+                if (Schema::hasColumn($nombreTabla, 'población')) $updateData['población'] = $socio->poblacion;
+                if (Schema::hasColumn($nombreTabla, 'provincia')) $updateData['provincia'] = $socio->provincia;
+                if (Schema::hasColumn($nombreTabla, 'codigo_postal')) $updateData['codigo_postal'] = $socio->codigo_postal;
+                if (Schema::hasColumn($nombreTabla, 'fecha_de_nacimiento')) $updateData['fecha_de_nacimiento'] = $socio->fecha_de_nacimiento;
             }
         }
 

@@ -27,7 +27,7 @@ class SocioController extends Controller
 
     public function getAsegurado($dni, $categoria_id)
     {
-        $socio = Socio::where('dni', $dni)->first();
+        $socio = Socio::where('dni', $dni)->where('categoria_id', $categoria_id)->first();
         if (!$socio) {
             return response()->json(['message' => 'Socio not found.'], 404);
         }

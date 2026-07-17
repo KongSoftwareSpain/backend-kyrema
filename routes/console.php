@@ -10,3 +10,7 @@ Artisan::command('inspire', function () {
 
 // Desactivado temporalmente por el usuario para ejecución manual en Azure
 // Schedule::command('insurances:process-renewals')->daily();
+
+// Archiva (caducado=true + registro en tabla 'caducados') los productos cuya
+// fecha_de_fin ya ha pasado, sin importar si ya fueron renovados.
+Schedule::command('insurances:limpiar-caducados')->daily();
