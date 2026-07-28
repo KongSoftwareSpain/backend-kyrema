@@ -15,10 +15,24 @@ use Creagia\Redsys\RedsysClient;
 use Creagia\Redsys\RedsysResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
 
 class RedsysInsiteController extends Controller
 {
     public function __construct(private RedsysInsiteService $insite) {}
+
+    private function formatearFechaCorta(?string $fecha): string
+    {
+        if (!$fecha) {
+            return '';
+        }
+
+        try {
+            return Carbon::parse($fecha)->format('d-m-Y');
+        } catch (\Exception $e) {
+            return $fecha;
+        }
+    }
 
     public function start(Request $request)
     {
@@ -30,6 +44,10 @@ class RedsysInsiteController extends Controller
             'referencia'  => 'nullable|string|max:64',
             'fecha_inicio' => 'nullable|string',
             'fecha_fin'   => 'nullable|string',
+            'subproducto_nombre' => 'nullable|string|max:255',
+            // Solo llega en ediciones de un producto ya existente; en altas nuevas
+            // el código de certificado todavía no se ha generado (ver ProductoController::crearProducto).
+            'codigo_producto' => 'nullable|string|max:64',
         ]);
 
         $cfg = [
@@ -44,7 +62,22 @@ class RedsysInsiteController extends Controller
             ->where('letras_identificacion', $data['letras_identificacion'] ?? '')
             ->value('nombre');
 
-        $descripcion = "Pago con tarjeta de " . $nombreProducto . " con cobertura de " . $data['fecha_inicio'] . " a " . $data['fecha_fin'];
+        // El nombre puede llevar el sufijo "- Acuerdo Kyrema" (product-configurator.component.ts),
+        // no se muestra en el recibo del pago.
+        if ($nombreProducto) {
+            $nombreProducto = trim(str_replace(' - Acuerdo Kyrema', '', $nombreProducto));
+        }
+
+        $partes = array_filter([
+            $nombreProducto,
+            $data['subproducto_nombre'] ?? null,
+            $data['codigo_producto'] ?? null,
+        ]);
+        $partesTexto = implode(' ', array_map(fn ($p) => '"' . $p . '"', $partes));
+
+        $descripcion = "Recibo del certificado de {$partesTexto} con cobertura de "
+            . $this->formatearFechaCorta($data['fecha_inicio'] ?? null) . " a "
+            . $this->formatearFechaCorta($data['fecha_fin'] ?? null);
 
         Log::info($descripcion);
 

@@ -56,3 +56,7 @@ php /home/site/wwwroot/artisan up
 
 # run worker
 nohup php /home/site/wwwroot/artisan queue:work &
+
+# run scheduler (no cron/WebJob disponible aquí, se simula con un bucle de 60s;
+# necesario para que tareas con ->dailyAt()/->hourly() en routes/console.php se ejecuten solas)
+nohup bash -c 'while true; do php /home/site/wwwroot/artisan schedule:run >> /dev/null 2>&1; sleep 60; done' &
