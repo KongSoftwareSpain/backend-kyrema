@@ -30,7 +30,9 @@ class ExportController extends Controller
         $tipoProductoId = $request->input('tipo_producto_id');
         $fechaDesde = $request->input('fecha_desde');
         $fechaHasta = $request->input('fecha_hasta');
-        $sociedadId = $request->input('sociedad_id');
+        // Si no llega sociedad_id, no se debe interpretar como "todas las sociedades":
+        // se restringe a la sociedad del usuario autenticado (+ sus hijas).
+        $sociedadId = $request->input('sociedad_id') ?: $request->user()->id_sociedad;
 
         $sociedades = SociedadController::getArrayIdSociedadesHijas($sociedadId);
 
