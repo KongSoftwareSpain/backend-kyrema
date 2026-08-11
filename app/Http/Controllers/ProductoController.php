@@ -1558,7 +1558,7 @@ class ProductoController extends Controller
         if ($tarifa) {
             $caceriasSubproductIds = [10237, 10252, 223];
             $caceriasSubproductLetras = ['PRODUCTO_C3', 'PRODUCTO_C6E', 'PRODUCTO_C6P'];
-            $esCaceriaConPuestos = in_array($tipoProductoReal->id, $caceriasSubproductIds) 
+            $esCaceriaConPuestos = in_array($tipoProductoReal->id, $caceriasSubproductIds)
                 || in_array($tipoProductoReal->letras_identificacion, $caceriasSubproductLetras);
 
             $precioBaseCalculado = (float) ($tarifa->precio_base ?? 0);
@@ -1605,6 +1605,11 @@ class ProductoController extends Controller
             }
             if (Schema::hasColumn($nombreTabla, 'precio_total')) {
                 $updateData['precio_total'] = $precioTotalCalculado;
+            }
+        } else {
+            // Si no hay tarifa, preservar el precio del producto clonado (original)
+            if (Schema::hasColumn($nombreTabla, 'precio_total') && $instancia->precio_total !== null) {
+                $updateData['precio_total'] = $instancia->precio_total;
             }
         }
 
