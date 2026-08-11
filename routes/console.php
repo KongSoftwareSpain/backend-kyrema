@@ -14,3 +14,6 @@ Artisan::command('inspire', function () {
 // Archiva (caducado=true + registro en tabla 'caducados') los productos cuya
 // fecha_de_fin ya ha pasado, sin importar si ya fueron renovados.
 Schedule::command('insurances:limpiar-caducados')->daily();
+
+// Envía avisos de caducidad a comerciales (30, 15 y 1 día antes)
+Schedule::command('caducidad:enviar-avisos')->daily();
