@@ -30,9 +30,9 @@ class ExportController extends Controller
         $tipoProductoId = $request->input('tipo_producto_id');
         $fechaDesde = $request->input('fecha_desde');
         $fechaHasta = $request->input('fecha_hasta');
-        // Si no llega sociedad_id, no se debe interpretar como "todas las sociedades":
-        // se restringe a la sociedad del usuario autenticado (+ sus hijas).
-        $sociedadId = $request->input('sociedad_id') ?: $request->user()->id_sociedad;
+        // Si no llega sociedad_id o es null, usar la sociedad del usuario autenticado.
+        // Si llega 0, interpretar como "todas las sociedades".
+        $sociedadId = $request->input('sociedad_id') !== null ? $request->input('sociedad_id') : $request->user()->id_sociedad;
 
         // Restricción de visibilidad por sociedad (subárbol del usuario)
         $sociedades = $this->resolverFiltroSociedades($request, $sociedadId);
@@ -245,7 +245,8 @@ class ExportController extends Controller
         ]);
 
         $tipoProductoId = $request->input('tipo_producto_id');
-        $sociedades = $this->resolverFiltroSociedades($request, $request->input('sociedad_id'));
+        $sociedadId = $request->input('sociedad_id') !== null ? $request->input('sociedad_id') : $request->user()->id_sociedad;
+        $sociedades = $this->resolverFiltroSociedades($request, $sociedadId);
 
         $tipoProducto = DB::table('tipo_producto')->where('id', $tipoProductoId)->first();
         if (!$tipoProducto) {
