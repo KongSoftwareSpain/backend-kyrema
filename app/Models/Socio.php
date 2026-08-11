@@ -31,6 +31,7 @@ class Socio extends Authenticatable
         'poblacion',
         'provincia',
         'codigo_postal',
+        'vinculado',
         'categoria_id',
         'password'
     ];

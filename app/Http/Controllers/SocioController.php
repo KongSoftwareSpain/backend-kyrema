@@ -95,6 +95,7 @@ class SocioController extends Controller
             'asegurado.poblacion' => 'nullable|string',
             'asegurado.provincia' => 'nullable|string',
             'asegurado.codigo_postal' => 'nullable|string',
+            'asegurado.vinculado' => 'nullable|string|max:255',
         ], [
             'asegurado.email.email' => 'El formato del correo electrónico no es correcto.',
             'asegurado.categoria_id.required' => 'La categoría es obligatoria.',
@@ -127,6 +128,7 @@ class SocioController extends Controller
             'poblacion' => $asegurado['poblacion'] ?? null,
             'provincia' => $asegurado['provincia'] ?? null,
             'codigo_postal' => $asegurado['codigo_postal'] ?? null,
+            'vinculado' => $asegurado['vinculado'] ?? null,
             'fecha_de_nacimiento' => Carbon::parse($asegurado['fecha_de_nacimiento'])->format('Y-m-d\TH:i:s'),
         ];
 
