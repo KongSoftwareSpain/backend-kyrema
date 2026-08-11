@@ -1530,13 +1530,29 @@ class ProductoController extends Controller
                     ->where('id_sociedad', $instancia->sociedad_id)
                     ->where('tipo_producto_id', $tipoProductoReal->id)
                     ->first();
-        
+
+        // Fallback: si no hay tarifa para la sociedad del producto, buscar en SOCIEDAD_ADMIN
+        if (!$tarifa) {
+            $tarifa = DB::table('tarifas_producto')
+                        ->where('id_sociedad', env('SOCIEDAD_ADMIN_ID', 1))
+                        ->where('tipo_producto_id', $tipoProductoReal->id)
+                        ->first();
+        }
+
         // Si no hay tarifa específica para el subproducto, intentar con la del padre
         if (!$tarifa && $parentReal) {
             $tarifa = DB::table('tarifas_producto')
                         ->where('id_sociedad', $instancia->sociedad_id)
                         ->where('tipo_producto_id', $parentReal->id)
                         ->first();
+
+            // Fallback para padre también
+            if (!$tarifa) {
+                $tarifa = DB::table('tarifas_producto')
+                            ->where('id_sociedad', env('SOCIEDAD_ADMIN_ID', 1))
+                            ->where('tipo_producto_id', $parentReal->id)
+                            ->first();
+            }
         }
 
         if ($tarifa) {
