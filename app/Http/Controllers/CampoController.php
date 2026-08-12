@@ -214,6 +214,11 @@ class CampoController extends Controller
         }
     }
 
+    public function createCampoConOpciones(Request $request, $id_tipo_producto)
+    {
+        return $this->createCampoConOpcionesHTTP($request, $id_tipo_producto);
+    }
+
     public function updateCampoConOpciones(Request $request, $id)
     {
         DB::beginTransaction();
