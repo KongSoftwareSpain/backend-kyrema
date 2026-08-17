@@ -230,35 +230,88 @@ class AnexosController extends Controller
             return response()->json(['error' => 'Anexo no encontrado.'], 404);
         }
 
-        $idProducto = $anexo->producto_id;
+        $idProducto = $anexo->producto_id ?? null;
 
-        DB::table($nombreTabla)->where('id', $id)->delete();
+        try {
+            DB::transaction(function () use ($nombreTabla, $id, $idProducto, $letrasIdentificacion) {
+                DB::table($nombreTabla)->where('id', $id)->delete();
 
-        // Recalcular numero_anexos del producto padre con los anexos activos restantes
-        $tipoAnexo = DB::table('tipo_producto')->where('letras_identificacion', $letrasIdentificacion)->first();
-        if ($tipoAnexo && $tipoAnexo->tipo_producto_asociado && $idProducto) {
-            $padre = DB::table('tipo_producto')->where('id', $tipoAnexo->tipo_producto_asociado)->first();
-            if ($padre && $padre->letras_identificacion) {
+                if (!$idProducto) {
+                    return;
+                }
+
+                // El certificado no se regenera al imprimir: se descarga el PDF ya cacheado
+                // en Azure (blob_name). Si no lo invalidamos aquí, se sigue imprimiendo el
+                // documento antiguo, con el anexo borrado todavía dentro. Vaciarlo hace que
+                // el front lo regenere desde BD en la siguiente descarga.
+                // Se vacía a '' y no a null: la columna es NOT NULL en varias tablas.
+                if (Schema::hasColumn($nombreTabla, 'blob_name')) {
+                    DB::table($nombreTabla)->where('producto_id', $idProducto)->update(['blob_name' => '']);
+                }
+
+                // Recalcular numero_anexos del producto padre con los anexos activos restantes
+                $tipoAnexo = DB::table('tipo_producto')->where('letras_identificacion', $letrasIdentificacion)->first();
+                if (!$tipoAnexo || !$tipoAnexo->tipo_producto_asociado) {
+                    return;
+                }
+
+                $padre = DB::table('tipo_producto')->where('id', $tipoAnexo->tipo_producto_asociado)->first();
+                if (!$padre || !$padre->letras_identificacion) {
+                    return;
+                }
+
                 $tablaPadre = strtolower($padre->letras_identificacion);
-                if (Schema::hasTable($tablaPadre) && Schema::hasColumn($tablaPadre, 'numero_anexos')) {
-                    $tiposAnexo = DB::table('tipo_producto')
-                        ->where('tipo_producto_asociado', $padre->id)
-                        ->pluck('letras_identificacion');
+                if (!Schema::hasTable($tablaPadre)) {
+                    return;
+                }
 
-                    $total = 0;
-                    foreach ($tiposAnexo as $la) {
-                        $tabla = strtolower($la);
-                        if (Schema::hasTable($tabla)) {
-                            $total += DB::table($tabla)
-                                ->where('producto_id', $idProducto)
-                                ->where('anulado', 0)
-                                ->count();
-                        }
+                $tiposAnexo = DB::table('tipo_producto')
+                    ->where('tipo_producto_asociado', $padre->id)
+                    ->pluck('letras_identificacion');
+
+                $total = 0;
+                foreach ($tiposAnexo as $la) {
+                    $tabla = strtolower($la);
+                    // Sin producto_id no hay forma de relacionar la tabla con el producto
+                    if (!Schema::hasTable($tabla) || !Schema::hasColumn($tabla, 'producto_id')) {
+                        continue;
                     }
 
-                    DB::table($tablaPadre)->where('id', $idProducto)->update(['numero_anexos' => $total]);
+                    $query = DB::table($tabla)->where('producto_id', $idProducto);
+                    // No todas las tablas ANEXOS_* tienen 'anulado' (las heredadas de
+                    // migraciones antiguas no la tienen), igual que comprueba ExportController.
+                    if (Schema::hasColumn($tabla, 'anulado')) {
+                        $query->where('anulado', 0);
+                    }
+                    $total += $query->count();
+
+                    // Los demás tipos de anexo del mismo producto comparten certificado,
+                    // así que su PDF también queda obsoleto.
+                    if ($tabla !== $nombreTabla && Schema::hasColumn($tabla, 'blob_name')) {
+                        DB::table($tabla)->where('producto_id', $idProducto)->update(['blob_name' => '']);
+                    }
                 }
-            }
+
+                $updatePadre = [];
+                if (Schema::hasColumn($tablaPadre, 'numero_anexos')) {
+                    $updatePadre['numero_anexos'] = $total;
+                }
+                // El certificado principal también lista los anexos: invalidarlo igual.
+                if (Schema::hasColumn($tablaPadre, 'blob_name')) {
+                    $updatePadre['blob_name'] = '';
+                }
+                if (!empty($updatePadre)) {
+                    DB::table($tablaPadre)->where('id', $idProducto)->update($updatePadre);
+                }
+            });
+        } catch (\Throwable $e) {
+            Log::error('Error eliminando instancia de anexo', [
+                'tabla' => $nombreTabla,
+                'anexo_id' => $id,
+                'producto_id' => $idProducto,
+                'error' => $e->getMessage(),
+            ]);
+            return response()->json(['error' => 'Error eliminando el anexo: ' . $e->getMessage()], 500);
         }
 
         return response()->json(['message' => 'Anexo eliminado correctamente'], 200);
