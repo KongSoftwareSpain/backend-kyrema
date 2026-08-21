@@ -1111,6 +1111,24 @@ class ProductoController extends Controller
                 $omitidos[] = ['id' => $id, 'codigo_producto' => $original->codigo_producto, 'motivo' => 'Producto anulado'];
                 continue;
             }
+            // Renovar dos veces la misma póliza crea una hija duplicada y, en giro
+            // bancario, un segundo adeudo recurrente del mismo periodo. El bloqueo es
+            // blando a propósito: si la hija ya no existe o se anuló, se deja renovar
+            // otra vez para no dejar la póliza atrapada.
+            if (in_array('renovado', $columnasValidas) && !empty($original->renovado) && $original->renovado != '0') {
+                $hija = !empty($original->renovado_por_id)
+                    ? DB::table($nombreTabla)->where('id', $original->renovado_por_id)->first()
+                    : null;
+
+                if ($hija && (empty($hija->anulado) || $hija->anulado == '0')) {
+                    $omitidos[] = [
+                        'id' => $id,
+                        'codigo_producto' => $original->codigo_producto,
+                        'motivo' => 'Ya renovada en ' . $hija->codigo_producto,
+                    ];
+                    continue;
+                }
+            }
             if (empty($original->fecha_de_fin) || empty($original->fecha_de_inicio)) {
                 $errores[] = ['id' => $id, 'codigo_producto' => $original->codigo_producto, 'motivo' => 'Sin fechas de inicio/fin'];
                 continue;

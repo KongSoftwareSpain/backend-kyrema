@@ -6,6 +6,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Schema;
 use App\Models\TipoProducto;
 use App\Mail\PreRenewalMail;
 use App\Mail\RenewalSuccessMail;
@@ -111,15 +112,28 @@ class ProcessInsuranceRenewals extends Command
     private function processRenewals($tableName, $tipo, $dateTarget)
     {
         // OBTENEMOS LOS PRODUCTOS QUE CADUCAN HOY
-        $productsToRenew = DB::table($tableName)
+        $query = DB::table($tableName)
             ->whereDate('fecha_de_fin', $dateTarget->format('Y-m-d'))
             ->where(function ($q) {
                 // Omitir los ya anulados
                 $q->whereNull('anulado')
                     ->orWhere('anulado', 0)
                     ->orWhere('anulado', false);
-            })
-            ->get();
+            });
+
+        // Omitir los ya renovados: si no, una segunda pasada del comando duplicaría
+        // la póliza hija y, en giro bancario, el adeudo recurrente. Se filtra aquí
+        // en vez de reventar en el servicio para que sea un salto limpio y no un
+        // error en el log.
+        if (Schema::hasColumn($tableName, 'renovado')) {
+            $query->where(function ($q) {
+                $q->whereNull('renovado')
+                    ->orWhere('renovado', 0)
+                    ->orWhere('renovado', false);
+            });
+        }
+
+        $productsToRenew = $query->get();
 
         $testEmail = $this->option('test-email');
 
