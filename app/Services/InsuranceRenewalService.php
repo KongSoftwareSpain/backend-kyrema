@@ -74,6 +74,16 @@ class InsuranceRenewalService
             // Limpiar blob_name viejo, ya que vamos a generar uno nuevo
             $newData['blob_name'] = null;
 
+            // La póliza nueva nace sin marca de renovación: el clon arrastraría la
+            // del original si este ya se hubiese renovado antes. Que la clave exista
+            // en $newData es la prueba de que la columna existe en la tabla, así que
+            // sirve de guarda si el código va por delante de la migración.
+            $marcaRenovado = array_key_exists('renovado', $newData);
+            if ($marcaRenovado) {
+                $newData['renovado'] = false;
+                $newData['renovado_por_id'] = null;
+            }
+
             // Obtener el tipo de producto
             $tipoProducto = DB::table('tipo_producto')->where('letras_identificacion', $letrasIdentificacion)->first();
             if (property_exists($oldRecord, 'subproducto') && $oldRecord->subproducto !== null) {
@@ -88,6 +98,14 @@ class InsuranceRenewalService
 
             // Insertar el nuevo valor
             $newId = DB::table($tableName)->insertGetId($newData);
+
+            // El original queda marcado como renovado y apuntando a su hija
+            if ($marcaRenovado) {
+                DB::table($tableName)->where('id', $idToRenew)->update([
+                    'renovado' => true,
+                    'renovado_por_id' => $newId,
+                ]);
+            }
 
             // Relacionar Socio - Producto (si es necesario)
             if (isset($newData['socio_id'])) {

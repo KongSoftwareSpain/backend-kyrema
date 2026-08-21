@@ -502,6 +502,9 @@ class ProductoController extends Controller
         if ($tieneSubproducto) {
             $select[] = "$nombreTabla.subproducto_codigo";
         }
+        if (in_array('renovado', $columnasBase)) {
+            $select[] = "$nombreTabla.renovado";
+        }
 
         $hoy = Carbon::today();
         $limite = Carbon::today()->addDays($dias);
@@ -577,7 +580,7 @@ class ProductoController extends Controller
         }
 
         // Añadir obligatorias para ag-grid y formateos (aunque no sean "campos" visibles)
-        $columnasAdicionales = ['codigo_producto', 'subproducto_codigo', 'dni', 'nombre_socio', 'apellido_1', 'apellido_2', 'fecha_de_inicio', 'fecha_de_emision', 'tipo_de_pago', 'puestos', 'numero_de_puestos'];
+        $columnasAdicionales = ['codigo_producto', 'subproducto_codigo', 'dni', 'nombre_socio', 'apellido_1', 'apellido_2', 'fecha_de_inicio', 'fecha_de_emision', 'tipo_de_pago', 'puestos', 'numero_de_puestos', 'renovado'];
         $columnasSelect = array_unique(array_merge($columnasSelect, $columnasAdicionales));
 
         // Filtrar contra Schema para evitar errores SQL de columnas que no existan en la tabla actual
@@ -661,7 +664,7 @@ class ProductoController extends Controller
             $columnasSelect[] = $colName;
         }
 
-        $columnasAdicionales = ['codigo_producto', 'subproducto_codigo', 'dni', 'nombre_socio', 'apellido_1', 'apellido_2', 'fecha_de_inicio', 'fecha_de_emision', 'tipo_de_pago', 'puestos', 'numero_de_puestos'];
+        $columnasAdicionales = ['codigo_producto', 'subproducto_codigo', 'dni', 'nombre_socio', 'apellido_1', 'apellido_2', 'fecha_de_inicio', 'fecha_de_emision', 'tipo_de_pago', 'puestos', 'numero_de_puestos', 'renovado'];
         $columnasSelect = array_unique(array_merge($columnasSelect, $columnasAdicionales));
 
         $validColumns = Cache::remember("schema_cols_{$nombreTabla}", 3600, fn() => Schema::getColumnListing($nombreTabla));
@@ -1156,10 +1159,24 @@ class ProductoController extends Controller
                 $datos['hora_de_emisión'] = $horaActual;
                 $datos['created_at'] = $ahora;
                 $datos['updated_at'] = $ahora;
+                // La póliza nueva nace sin marca de renovación: el clon arrastraría
+                // la del original si este ya se hubiese renovado antes
+                $datos['renovado'] = false;
+                $datos['renovado_por_id'] = null;
                 $datos = $normalizarFechas($datos);
                 $datos = array_intersect_key($datos, array_flip($columnasValidas));
 
                 $nuevoId = DB::table($nombreTabla)->insertGetId($datos);
+
+                // El original queda marcado como renovado y apuntando a su hija.
+                // Se comprueba la columna porque el despliegue del código puede ir
+                // por delante de la migración 2026_08_21_000000.
+                if (in_array('renovado', $columnasValidas)) {
+                    DB::table($nombreTabla)->where('id', $original->id)->update([
+                        'renovado' => true,
+                        'renovado_por_id' => $nuevoId,
+                    ]);
+                }
 
                 if (!empty($original->socio_id)) {
                     $socio = Socio::find($original->socio_id);

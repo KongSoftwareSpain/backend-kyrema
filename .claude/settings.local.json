@@ -3,7 +3,8 @@
     "allow": [
       "Read(//c/Users/mpern/Desktop/CANAMA/**)",
       "Read(//c/Users/mpern/Desktop/CANAMA/BACK/**)",
-      "Read(//c/Users/mpern/Desktop/CANAMA/FRONT/**)"
+      "Read(//c/Users/mpern/Desktop/CANAMA/FRONT/**)",
+      "Read(//c/Users/Miguel Pernia/Desktop/CANAMA/errores/**)"
     ]
   }
 }
