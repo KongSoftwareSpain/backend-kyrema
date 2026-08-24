@@ -45,7 +45,23 @@ class EnviarAvisosVencimientoCommand extends Command
             $seguros = DB::table($tabla)
                 ->whereDate('fecha_de_fin', $fechaObjetivo)
                 ->where('anulado', false)
-                ->where('tipo_de_pago', '!=', 'Tarjeta de crédito')
+                // Excluir del aviso a quien paga con tarjeta.
+                //
+                // 'Tarjeta de crédito' era el nombre del seeder original de 2024,
+                // pero el valor que se guarda en las tablas de producto es
+                // 'Tarjeta' (ver mapearTipoPago() en los comandos de migración),
+                // así que la exclusión no descartaba a nadie y los clientes de
+                // tarjeta recibían el aviso igual. Se comprueban las dos formas
+                // para cubrir también cualquier registro antiguo.
+                //
+                // El whereNull es necesario: en SQL, NULL NOT IN (...) no es
+                // cierto sino desconocido, así que una póliza sin forma de pago
+                // quedaría descartada del aviso en silencio. Sin forma de pago
+                // no es pago con tarjeta, y debe avisarse.
+                ->where(function ($q) {
+                    $q->whereNull('tipo_de_pago')
+                        ->orWhereNotIn('tipo_de_pago', ['Tarjeta', 'Tarjeta de crédito']);
+                })
                 ->get();
 
             foreach ($seguros as $seguro) {
