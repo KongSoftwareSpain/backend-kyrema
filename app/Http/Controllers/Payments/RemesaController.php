@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Payments;
 
 use App\Models\Payments\GiroBancario;
 use App\Models\Payments\Pago;
+use App\Models\Sociedad;
 use Illuminate\Http\Request;
 use App\Models\RemesaDescarga;
 use Carbon\Carbon;
@@ -94,17 +95,18 @@ class RemesaController extends Controller
         $validated = $request->validate([
             'desde' => 'required|date',
             'hasta' => 'required|date|after_or_equal:desde',
-            'sociedad_id' => 'required',
+            // Una remesa tiene un único acreedor, así que aquí no vale el 0
+            // ("todas las sociedades") que sí admiten los informes: mezclaría
+            // deudores de varias sociedades bajo un solo IBAN de cargo.
+            'sociedad_id' => 'required|integer|min:1|exists:sociedad,id',
             'tipo_pago_id' => 'required|exists:tipos_pago,id',
             'comercial_id' => 'required|exists:comercial,id',
         ]);
 
-        // Buscar giros relacionados a pagos filtrados por sociedad y tipo
+        // Buscar giros relacionados a pagos filtrados por sociedad
         $giros = GiroBancario::with('pago')
             ->whereHas('pago', function ($query) use ($validated) {
-                if ($validated['sociedad_id'] != 0) {
-                    $query->where('sociedad_id', $validated['sociedad_id']);
-                }
+                $query->where('sociedad_id', $validated['sociedad_id']);
             })
             ->get();
 
@@ -124,19 +126,48 @@ class RemesaController extends Controller
             return response()->json(['message' => 'No hay giros en ese rango'], 404);
         }
 
-        // Datos del acreedor (empresa)
+        // Datos del acreedor: salen de la sociedad (columnas añadidas en la
+        // migración 2025_05_21_131103_add_datos_remesas_to_sociedad_table).
+        // Hasta ahora iban fijos a un IBAN de ejemplo y el banco rechazaba el
+        // fichero.
+        $sociedad = Sociedad::find($validated['sociedad_id']);
+
         $empresa = [
-            'nombre' => 'Nombre SL',
-            'iban' => 'ES9121000418450200051332',
-            'bic' => 'CAIXESBBXXX',
-            'identificador_sepa' => 'ES21ZZZB12345678',
+            'nombre' => $sociedad->razon_social ?: $sociedad->nombre,
+            'iban' => $sociedad->iban,
+            'bic' => $sociedad->bic,
+            'identificador_sepa' => $sociedad->id_acreedor_remesas,
         ];
 
+        $camposVacios = array_keys(array_filter($empresa, fn ($valor) => blank($valor)));
+
+        if ($camposVacios) {
+            return response()->json([
+                'message' => 'La sociedad no tiene completos los datos de remesa. '
+                    . 'Rellena IBAN, BIC e identificador de acreedor SEPA en su ficha.',
+                'campos_incompletos' => $camposVacios,
+            ], 422);
+        }
+
         $referencia = 'REM_' . now()->format('YmdHis');
+
+        // fecha_cobro está casteada a date en el modelo: sin format() explícito
+        // llegaba como "2026-09-01 00:00:00" y ReqdColltnDt sólo admite la fecha.
         $fechaCobro = $giros->first()->fecha_cobro;
 
+        if (!$fechaCobro) {
+            return response()->json([
+                'message' => 'Los giros de este rango no tienen fecha de cobro asignada.',
+            ], 422);
+        }
+
         // Generar XML
-        $xml = app(Q19Generator::class)->generar($giros, $empresa, $referencia, $fechaCobro);
+        $xml = app(Q19Generator::class)->generar(
+            $giros,
+            $empresa,
+            $referencia,
+            Carbon::parse($fechaCobro)->format('Y-m-d')
+        );
         $filename = "remesas/{$referencia}.xml";
         Storage::put($filename, $xml);
 
