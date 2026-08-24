@@ -15,4 +15,12 @@ interface PagoExportInterface
      * @return Collection
      */
     public function getPagos(int $sociedadId, ?string $desde = null, ?string $hasta = null): Collection;
+
+    /**
+     * Columnas del informe, en orden. Permite que el CSV lleve cabeceras
+     * incluso cuando la consulta no devuelve ninguna fila.
+     *
+     * @return array<int, string>
+     */
+    public function cabeceras(): array;
 }

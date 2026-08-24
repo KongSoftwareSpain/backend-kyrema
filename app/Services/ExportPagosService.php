@@ -20,7 +20,7 @@ class ExportPagosService
 
         $pagos = $exportador->getPagos($sociedadId, $desde, $hasta);
 
-        $csv = $this->generarCSV($pagos);
+        $csv = $this->generarCSV($pagos, $exportador->cabeceras());
 
         return Response::make($csv, 200, [
             'Content-Type' => 'text/csv',
@@ -32,21 +32,30 @@ class ExportPagosService
     /**
      * Genera una cadena CSV desde una colección de datos.
      *
+     * Las cabeceras se escriben aunque no haya ni una fila: antes iban dentro
+     * del isNotEmpty() y un resultado vacío producía un fichero de 3 bytes (sólo
+     * el BOM), que Excel abre como una hoja en blanco sin dar ninguna pista de
+     * si el filtro no devolvió nada o de si la exportación falló.
+     *
      * @param Collection $data
+     * @param array      $cabeceras  Columnas del exportador, para el caso vacío.
      * @return string
      */
-    protected function generarCSV(Collection $data): string
+    protected function generarCSV(Collection $data, array $cabeceras = []): string
     {
         $handle = fopen('php://temp', 'r+');
 
         // Añadir BOM para que Excel lo abra con UTF-8
         fwrite($handle, chr(0xEF) . chr(0xBB) . chr(0xBF));
 
-        if ($data->isNotEmpty()) {
-            fputcsv($handle, array_keys($data->first()), ';');
-            foreach ($data as $line) {
-                fputcsv($handle, $line, ';');
-            }
+        $cabeceras = $data->isNotEmpty() ? array_keys($data->first()) : $cabeceras;
+
+        if ($cabeceras) {
+            fputcsv($handle, $cabeceras, ';');
+        }
+
+        foreach ($data as $line) {
+            fputcsv($handle, $line, ';');
         }
 
         rewind($handle);

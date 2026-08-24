@@ -10,6 +10,16 @@ class GiroPagoExport implements PagoExportInterface
 {
     use FormateaCamposPago;
 
+    public function cabeceras(): array
+    {
+        return [
+            'Referencia', 'Tipo de pago', 'Monto', 'Fecha de pago',
+            'Nombre del cliente', 'DNI', 'Fecha firma mandato', 'IBAN', 'Auxiliar',
+            'Sociedad', 'Residente', 'Referencia mandato', 'Fecha cobro',
+            'Referencia adeudo', 'Tipo de adeudo', 'Concepto',
+        ];
+    }
+
     public function getPagos(int $sociedadId, ?string $desde = null, ?string $hasta = null): Collection
     {
         // Filtramos directamente por la fecha del pago (pagos.fecha), que siempre

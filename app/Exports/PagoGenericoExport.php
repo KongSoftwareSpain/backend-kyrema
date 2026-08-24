@@ -22,6 +22,11 @@ class PagoGenericoExport implements PagoExportInterface
     ) {
     }
 
+    public function cabeceras(): array
+    {
+        return ['Referencia', 'Tipo de pago', 'Monto', 'Fecha de pago', 'Estado', 'Sociedad'];
+    }
+
     public function getPagos(int $sociedadId, ?string $desde = null, ?string $hasta = null): Collection
     {
         $pagos = Pago::with('sociedad')
