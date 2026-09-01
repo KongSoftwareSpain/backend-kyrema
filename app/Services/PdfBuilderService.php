@@ -190,11 +190,19 @@ class PdfBuilderService
                             $valor = trim("$nombre $ape1 $ape2");
                         }
 
-                        // Fechas
-                        if (in_array($campo->nombre_codigo, ['fecha_de_inicio', 'fecha_de_fin', 'fecha_de_emisión']) && $valor) {
-                            $fecha = Carbon::parse($valor);
-                            if ($fecha->isValid()) {
-                                $valor = $fecha->format('d/m/Y');
+                        // Fechas: se detectan por tipo_dato, no por el nombre del campo,
+                        // porque estos campos son configurables y no siempre se llaman
+                        // "fecha_de_inicio"/"fecha_de_fin"/"fecha_de_emisión" (p.ej.
+                        // "fecha_adhesión", "fecha_incorporacion"...). Si el valor guardado
+                        // no es parseable se deja tal cual en vez de romper el PDF entero.
+                        if (($campo->tipo_dato ?? null) === 'date' && $valor) {
+                            try {
+                                $fecha = Carbon::parse($valor);
+                                if ($fecha->isValid()) {
+                                    $valor = $fecha->format('d/m/Y');
+                                }
+                            } catch (Exception $e) {
+                                Log::warning("PdfBuilderService: fecha no parseable en campo {$campo->nombre_codigo}: {$valor}");
                             }
                         }
 
