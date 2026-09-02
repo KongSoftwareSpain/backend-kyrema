@@ -6,19 +6,27 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use App\Models\Comercial;
+use App\Models\ConfiguracionAvisoCaducidad;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 
 class EnviarAvisosVencimientoCommand extends Command
 {
     protected $signature = 'caducidad:enviar-avisos';
-    protected $description = 'Envía avisos de caducidad de pólizas a comerciales (30, 15 y 1 día antes)';
+    protected $description = 'Envía avisos de caducidad de pólizas a comerciales (días configurables desde configuracion_avisos_caducidad)';
 
     public function handle()
     {
+        $config = ConfiguracionAvisoCaducidad::actual();
+
+        if (!$config->activo) {
+            $this->info('Avisos de caducidad desactivados en configuración. No se envía nada.');
+            return;
+        }
+
         $this->info('Iniciando envío de avisos de caducidad...');
 
-        $diasAviso = [30, 15, 1];
+        $diasAviso = $config->dias_aviso ?: [30, 15, 1];
         $totalEnviados = 0;
 
         foreach ($diasAviso as $dias) {

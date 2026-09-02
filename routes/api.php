@@ -36,6 +36,7 @@ use App\Http\Controllers\Notifications\NotificationsController;
 use App\Http\Controllers\BlobController;
 use App\Http\Controllers\Payments\RedsysWebhookController;
 use App\Http\Controllers\Payments\RedsysInsiteController;
+use App\Http\Controllers\AvisoCaducidadController;
 
 // Route::get('/productos/{letras_identificativas}', [ProductoController::class, 'getProductosPorTipo']);
 Route::post('password/email', [ForgotPasswordController::class, 'sendResetLinkEmail']);
@@ -283,6 +284,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/nav-socio/{categoria}/socio/{socio_id}', [NavController::class, 'getNavegacionSocio']);
     Route::get('informes/productos/{id_sociedad}', [NavController::class, 'getProductosInforme']);
     Route::get('/exportar-pagos', [PagoExportController::class, 'exportarPagos']);
+
+    // Avisos de caducidad: configuración (días de antelación, activo/inactivo) e histórico enviados
+    Route::get('avisos-caducidad/configuracion', [AvisoCaducidadController::class, 'show']);
+    Route::put('avisos-caducidad/configuracion', [AvisoCaducidadController::class, 'update']);
+    Route::get('avisos-caducidad/historial', [AvisoCaducidadController::class, 'historial']);
 
 
     // SOCIOS:

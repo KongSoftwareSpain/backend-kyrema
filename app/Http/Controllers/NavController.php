@@ -120,6 +120,12 @@ class NavController extends Controller
             "label" => "Informes",
             "link" => "/informes"
         ];
+        if ($id_sociedad == env('SOCIEDAD_ADMIN_ID', 1)) {
+            $navegacion[0]["children"][] = [
+                "label" => "Correo electrónico",
+                "link" => "/correo-electronico"
+            ];
+        }
         $navegacion[1]["children"] = [
             [
                 "label" => "Sociedades",
