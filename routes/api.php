@@ -289,6 +289,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('avisos-caducidad/configuracion', [AvisoCaducidadController::class, 'show']);
     Route::put('avisos-caducidad/configuracion', [AvisoCaducidadController::class, 'update']);
     Route::get('avisos-caducidad/historial', [AvisoCaducidadController::class, 'historial']);
+    Route::post('avisos-caducidad/prueba', [AvisoCaducidadController::class, 'enviarPrueba']);
 
 
     // SOCIOS:

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\ConfiguracionAvisoCaducidad;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 
 class AvisoCaducidadController extends Controller
 {
@@ -79,5 +80,33 @@ class AvisoCaducidadController extends Controller
             ->paginate($porPagina);
 
         return response()->json($historial);
+    }
+
+    /**
+     * Envía un email de prueba con el mismo formato que EnviarAvisosVencimientoCommand,
+     * para comprobar que el envío de correo funciona sin esperar a un vencimiento real.
+     */
+    public function enviarPrueba(Request $request)
+    {
+        if (!$this->autorizarAdmin($request)) {
+            return response()->json(['error' => 'No autorizado'], 403);
+        }
+
+        $datos = $request->validate([
+            'email' => ['required', 'email'],
+        ]);
+
+        try {
+            Mail::raw(
+                'Este es un correo de prueba de los avisos de caducidad de pólizas. Si lo has recibido, el envío de correo funciona correctamente.',
+                function ($mail) use ($datos) {
+                    $mail->to($datos['email'])->subject('Prueba de aviso de vencimiento de póliza');
+                }
+            );
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Error al enviar el correo de prueba: ' . $e->getMessage()], 500);
+        }
+
+        return response()->json(['message' => 'Correo de prueba enviado correctamente.']);
     }
 }
