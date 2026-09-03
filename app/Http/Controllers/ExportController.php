@@ -92,8 +92,12 @@ class ExportController extends Controller
             [$desde, $hasta]
         );
 
-        // Filtrar por sociedad si se proporciona
-        if (!empty($sociedadId)) {
+        // Filtrar por sociedad: $sociedades ya viene resuelto por resolverFiltroSociedades()
+        // (mi sociedad + hijas para un no-admin, o el árbol elegido; vacío solo si el admin
+        // no restringe, es decir "todo"). OJO: mirar $sociedadId aquí en vez de $sociedades
+        // era el bug — empty(0) es true en PHP, así que con "Todas las sociedades" (id 0)
+        // el filtro no se aplicaba nunca y cualquier usuario veía todas las sociedades.
+        if (!empty($sociedades)) {
             $query->whereIn('pc.sociedad_id', $sociedades);
         }
 
