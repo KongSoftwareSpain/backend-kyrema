@@ -27,6 +27,7 @@ class Pago extends Model implements RedsysPayable
         'fecha',
         'estado',
         'letras_identificacion',
+        'producto_id',
         'sociedad_id',
         'auth_code',
         'response_code',

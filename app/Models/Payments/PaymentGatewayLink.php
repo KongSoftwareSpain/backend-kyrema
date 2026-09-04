@@ -17,10 +17,16 @@ class PaymentGatewayLink extends Model
         'gateway_order_ref',    // Ds_Order u otra ref del gateway
         'gateway_status',       // created|paid|failed|...
         'gateway_payload',      // JSON con trazas/params
+        'access_token',         // token de un solo uso para el bridge de kyrema.org
+        'token_expires_at',
+        'token_used_at',
+        'return_url',           // vuelta a canamaseguros.com tras el pago
     ];
 
     protected $casts = [
         'gateway_payload' => 'array',
+        'token_expires_at' => 'datetime',
+        'token_used_at' => 'datetime',
     ];
 
     public $timestamps = true;
@@ -68,6 +74,11 @@ class PaymentGatewayLink extends Model
         return $query->where('gateway_order_ref', $orderRef);
     }
 
+    public function scopeForAccessToken($query, string $token)
+    {
+        return $query->where('access_token', $token);
+    }
+
     /* -------------------------
      | Helpers
      * ------------------------*/
@@ -79,5 +90,25 @@ class PaymentGatewayLink extends Model
     {
         $current = $this->gateway_payload ?? [];
         $this->gateway_payload = array_merge($current, $data);
+    }
+
+    /**
+     * El token del bridge es válido si existe, no ha caducado y no se ha canjeado ya.
+     */
+    public function isAccessTokenUsable(): bool
+    {
+        if (!$this->access_token) {
+            return false;
+        }
+
+        if ($this->token_used_at) {
+            return false;
+        }
+
+        if ($this->token_expires_at && $this->token_expires_at->isPast()) {
+            return false;
+        }
+
+        return true;
     }
 }
