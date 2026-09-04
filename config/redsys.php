@@ -21,13 +21,33 @@ return [
 
     'notify_route_name' => 'redsys.notify',
 
-    // Frontend bridge (donde aterriza el iframe tras pagar)
+    // Frontend bridge (donde aterriza el iframe tras pagar) — flujo antiguo, en desuso
+    // tras pasar a redirección completa vía kyrema.org.
     'frontend' => [
         // p.ej. https://app.tu-dominio.com  (sin / al final)
         'base_url'    => env('FRONTEND_BASE_URL', 'http://localhost:4200'),
         // p.ej. /redsys/bridge
         'bridge_path' => env('REDSYS_BRIDGE_PATH', '/redsys/bridge'),
     ],
+
+    // Página puente en kyrema.org que canjea el token y auto-envía el formulario a Redsys.
+    'kyrema' => [
+        // p.ej. https://kyrema.org (sin / al final)
+        'base_url'          => env('REDSYS_KYREMA_BASE_URL', 'https://kyrema.org'),
+        'pay_path'          => env('REDSYS_KYREMA_PAY_PATH', '/pago'),
+        'landing_ok_path'   => env('REDSYS_KYREMA_LANDING_OK_PATH', '/pago/ok'),
+        'landing_ko_path'   => env('REDSYS_KYREMA_LANDING_KO_PATH', '/pago/ko'),
+    ],
+
+    // Caducidad del token de un solo uso que consume el bridge de kyrema.org.
+    'bridge_token_ttl_minutes' => env('REDSYS_BRIDGE_TOKEN_TTL_MINUTES', 15),
+
+    // Si se rellena, solo estas IPs pueden canjear el token en /payments/redsys/form/{token}.
+    // Vacío = sin restricción (útil mientras no se conoce la IP de salida de kyrema.org).
+    'form_allowed_ips' => array_filter(array_map(
+        'trim',
+        explode(',', env('REDSYS_FORM_ALLOWED_IPS', ''))
+    )),
 
 
     /**

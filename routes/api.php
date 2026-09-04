@@ -70,6 +70,11 @@ Route::get('comerciales/sociedad/{id_sociedad}', [ComercialController::class, 'g
 Route::post('/payments/redsys/notify', [RedsysInsiteController::class, 'notify'])
     ->name('redsys.notify');
 
+// La llama la página puente de kyrema.org (servidor a servidor) para canjear el token
+// de un solo uso y obtener los campos Ds_* firmados. No pasa por el navegador del cliente.
+Route::get('/payments/redsys/form/{token}', [RedsysInsiteController::class, 'form'])
+    ->name('redsys.form');
+
 
 Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('productos/{letrasIdentificacion}', [ProductoController::class, 'getProductosByTipoAndSociedades']);
@@ -237,9 +242,13 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::prefix('redsys')->group(function () {
 
             // 1️⃣ Iniciar pago: el frontend llama a esta ruta
-            // Devuelve: iframeAction + inputs (3 campos Ds_*)
+            // Devuelve: redirectUrl (https://kyrema.org/pago/{token}) para redirección completa
             Route::post('/insite/start', [RedsysInsiteController::class, 'start'])
                 ->name('redsys.insite.start');
+
+            // Consultada por /pago/resultado en Angular al volver de kyrema.org.
+            Route::get('/order/{order}/status', [RedsysInsiteController::class, 'orderStatus'])
+                ->name('redsys.order.status');
 
             // 3️⃣ (Opcional) Rutas de OK / KO (no las usarás en InSite)
             // Redsys las usa solo si trabajas con redirección tradicional

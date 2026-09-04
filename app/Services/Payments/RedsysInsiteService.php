@@ -37,15 +37,26 @@ class RedsysInsiteService
      * Construye la petición de redirección y devuelve:
      *  - iframeAction: URL de Redsys (sis/sis-t)
      *  - inputs: [Ds_SignatureVersion, Ds_MerchantParameters, Ds_Signature]
+     *
+     * $urlOk/$urlKo son opcionales: si no se pasan, se usa el bridge antiguo de Angular
+     * (flujo iframe, en desuso). El flujo nuevo (redirección vía kyrema.org) siempre
+     * las pasa explícitas, apuntando a las páginas de aterrizaje de kyrema.org.
      */
-    public function buildIframePostPayload(int $amountCents, string $order, ?string $description = null): array
-    {
+    public function buildIframePostPayload(
+        int $amountCents,
+        string $order,
+        ?string $description = null,
+        ?string $urlOk = null,
+        ?string $urlKo = null,
+    ): array {
         // 1) Parámetros de la petición
-        $frontendBase = rtrim(config('redsys.frontend.base_url'), '/');
-        $bridgePath   = '/' . ltrim(config('redsys.frontend.bridge_path'), '/');
+        if (!$urlOk || !$urlKo) {
+            $frontendBase = rtrim(config('redsys.frontend.base_url'), '/');
+            $bridgePath   = '/' . ltrim(config('redsys.frontend.bridge_path'), '/');
 
-        $urlOk = $frontendBase . $bridgePath . '?status=ok&order=' . urlencode($order);
-        $urlKo = $frontendBase . $bridgePath . '?status=ko&order=' . urlencode($order);
+            $urlOk ??= $frontendBase . $bridgePath . '?status=ok&order=' . urlencode($order);
+            $urlKo ??= $frontendBase . $bridgePath . '?status=ko&order=' . urlencode($order);
+        }
 
         // merchantUrl = webhook del backend (route name del config)
         $merchantUrl = 'https://backend-canama-hbd2e7a7gdfueqce.spaincentral-01.azurewebsites.net/api/payments/redsys/notify';

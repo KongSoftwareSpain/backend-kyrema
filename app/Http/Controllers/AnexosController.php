@@ -80,6 +80,10 @@ class AnexosController extends Controller
         // Obtener el array de anexos desde el request
         $anexos = $request->input('anexos');
 
+        // true mientras el producto está creado pero el pago con tarjeta aún no se ha
+        // confirmado (ver RedsysInsiteController::notify()). El resto de flujos no lo mandan.
+        $pendientePago = (bool) $request->input('pendiente_pago', false);
+
         try {
         foreach ($anexos as $anexo) {
             $tipoAnexo = $anexo['tipo_anexo']; // Tipo de anexo
@@ -101,6 +105,7 @@ class AnexosController extends Controller
                 $data = [
                     'producto_id' => $id_producto,
                     'blob_name' => '',
+                    'pendiente_pago' => $pendientePago,
                     'updated_at' => Carbon::now()->format('Y-m-d\TH:i:s')
                 ];
 
