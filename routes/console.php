@@ -17,3 +17,7 @@ Schedule::command('insurances:limpiar-caducados')->daily();
 
 // Envía avisos de caducidad a comerciales (30, 15 y 1 día antes)
 Schedule::command('caducidad:enviar-avisos')->daily();
+
+// Purga productos/anexos pendiente_pago cuyo token de pago con tarjeta caducó
+// sin que Redsys llegara a notificar (cliente abandonó el pago).
+Schedule::command('redsys:limpiar-pendientes')->hourly();
