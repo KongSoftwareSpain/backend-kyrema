@@ -390,6 +390,44 @@ class ProductoController extends Controller
         }
     }
 
+    /**
+     * Recomprime una imagen JPEG/PNG subida como plantilla de certificado.
+     * Las plantillas son imágenes de fondo a tamaño completo (A4, ~300 DPI)
+     * y el cliente las exporta habitualmente a calidad casi sin pérdida
+     * (5+ MB), lo que infla el PDF final porque jsPDF embebe el JPEG tal
+     * cual (DCTDecode), sin volver a comprimirlo. Devuelve null si el
+     * fichero no es una imagen soportada o si GD no puede procesarlo, para
+     * que el llamante guarde el original sin tocar nada.
+     */
+    private function comprimirImagenPlantilla(string $rutaTemporal, string $mimeType): ?string
+    {
+        try {
+            switch ($mimeType) {
+                case 'image/jpeg':
+                    $imagen = @imagecreatefromjpeg($rutaTemporal);
+                    if (!$imagen) return null;
+                    ob_start();
+                    imagejpeg($imagen, null, 82);
+                    $datos = ob_get_clean();
+                    imagedestroy($imagen);
+                    return $datos;
+                case 'image/png':
+                    $imagen = @imagecreatefrompng($rutaTemporal);
+                    if (!$imagen) return null;
+                    ob_start();
+                    imagepng($imagen, null, 9);
+                    $datos = ob_get_clean();
+                    imagedestroy($imagen);
+                    return $datos;
+                default:
+                    return null;
+            }
+        } catch (\Throwable $e) {
+            Log::warning('comprimirImagenPlantilla: no se pudo recomprimir, se guarda el original. ' . $e->getMessage());
+            return null;
+        }
+    }
+
     public function subirPlantilla($id_tipo_producto, $page, Request $request)
     {
         // Borrar la plantilla anterior
@@ -413,8 +451,15 @@ class ProductoController extends Controller
                 $contador++;
             }
 
-            // Guardar la plantilla Excel en el sistema de archivos
-            Storage::disk('public')->putFileAs('plantillas', $archivoPlantilla, $nombreArchivo);
+            // Recomprimir si es una imagen (JPEG/PNG); si no, o si falla, se
+            // guarda el fichero original sin modificar.
+            $datosComprimidos = $this->comprimirImagenPlantilla($archivoPlantilla->getRealPath(), $archivoPlantilla->getMimeType());
+
+            if ($datosComprimidos !== null) {
+                Storage::disk('public')->put($rutaArchivo, $datosComprimidos);
+            } else {
+                Storage::disk('public')->putFileAs('plantillas', $archivoPlantilla, $nombreArchivo);
+            }
 
             $plantilla_path_name = 'plantilla_path_' . $page;
 
