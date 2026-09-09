@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use App\Models\Comercial;
 
 
@@ -245,7 +246,17 @@ class SociedadController extends Controller
         ]);
 
         $sociedad = Sociedad::findOrFail($id);
-        $sociedad->update($request->except('categorias'));
+        $sociedad->update($request->except('categorias', 'logo'));
+
+        if ($request->hasFile('logo')) {
+            if ($sociedad->logo) {
+                Storage::disk('public')->delete($sociedad->logo);
+            }
+            $logo = $request->file('logo');
+            $logoPath = $logo->storeAs('public/logos', 'logo_' . $logo->getClientOriginalName() . '_' . $sociedad->id . '.' . $logo->extension());
+            $sociedad->logo = str_replace('public/', '', $logoPath);
+            $sociedad->save();
+        }
 
         if ($request->has('categorias')) {
             $sociedad->categorias()->sync($request->input('categorias', []));
