@@ -42,16 +42,22 @@ class PdfBuilderService
             }
 
             // PLANTILLAS (BACKGROUNDS)
-            $plantillaPaths = [
-                $valores->plantilla_path_1,
-                $valores->plantilla_path_2,
-                $valores->plantilla_path_3,
-                $valores->plantilla_path_4,
-                $valores->plantilla_path_5,
-                $valores->plantilla_path_6,
-                $valores->plantilla_path_7,
-                $valores->plantilla_path_8,
-            ];
+            // Se usa la plantilla vigente del tipo de producto (y de su padre,
+            // si es un subproducto) en vez de la que quedó congelada en el
+            // producto al crearse — ver ExportController::exportToPdf para el
+            // razonamiento completo. Fallback final: la ruta congelada del
+            // propio producto.
+            $tipoProductoPadre = $tipoProducto->padre_id
+                ? DB::table('tipo_producto')->where('id', $tipoProducto->padre_id)->first()
+                : null;
+
+            $plantillaPaths = [];
+            for ($i = 1; $i <= 8; $i++) {
+                $col = 'plantilla_path_' . $i;
+                $plantillaPaths[] = $tipoProducto->$col
+                    ?? ($tipoProductoPadre->$col ?? null)
+                    ?? ($valores->$col ?? null);
+            }
 
             $plantillaFullPaths = [];
             foreach ($plantillaPaths as $path) {

@@ -408,17 +408,25 @@ class ExportController extends Controller
 
             $plantillasBase64 = [];
 
-            // Lista de posibles plantillas
-            $plantillaPaths = [
-                $valores->plantilla_path_1,
-                $valores->plantilla_path_2,
-                $valores->plantilla_path_3,
-                $valores->plantilla_path_4,
-                $valores->plantilla_path_5,
-                $valores->plantilla_path_6,
-                $valores->plantilla_path_7,
-                $valores->plantilla_path_8,
-            ];
+            // Plantilla vigente del tipo de producto (y de su padre, si es un
+            // subproducto) en vez de la que quedó congelada en el producto al
+            // crearse: así una sustitución de plantilla (aunque sea solo una
+            // versión más ligera de la misma imagen) arregla también los
+            // certificados ya emitidos, sin tener que regenerarlos uno a uno.
+            // Si el tipo de producto tampoco tiene plantilla en esa página, se
+            // recurre a la ruta congelada del propio producto como último
+            // recurso.
+            $tipoProductoPadre = $tipoProducto->padre_id
+                ? DB::table('tipo_producto')->where('id', $tipoProducto->padre_id)->first()
+                : null;
+
+            $plantillaPaths = [];
+            for ($i = 1; $i <= 8; $i++) {
+                $col = 'plantilla_path_' . $i;
+                $plantillaPaths[] = $tipoProducto->$col
+                    ?? ($tipoProductoPadre->$col ?? null)
+                    ?? ($valores->$col ?? null);
+            }
 
             Log::info(print_r($plantillaPaths, true));
 
