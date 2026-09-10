@@ -407,7 +407,7 @@ class ProductoController extends Controller
                     $imagen = @imagecreatefromjpeg($rutaTemporal);
                     if (!$imagen) return null;
                     ob_start();
-                    imagejpeg($imagen, null, 82);
+                    imagejpeg($imagen, null, 100);
                     $datos = ob_get_clean();
                     imagedestroy($imagen);
                     return $datos;
