@@ -63,9 +63,12 @@ class Pago extends Model implements RedsysPayable
     }
 
     // Estados tipificados
+    // Vocabulario fijado por el CHECK constraint CK__pagos__estado__55DFB4D9 de la
+    // tabla 'pagos' (compartida con remesas/giros): solo admite 'pendiente', 'mandado',
+    // 'cobrado', 'cancelado' y 'error'. 'pagado'/'fallido' nunca fueron valores válidos.
     public const STATUS_PENDING = 'pendiente';
-    public const STATUS_PAID    = 'pagado';
-    public const STATUS_FAILED  = 'fallido';
+    public const STATUS_PAID    = 'cobrado';
+    public const STATUS_FAILED  = 'error';
 
     public function sociedad()
     {
