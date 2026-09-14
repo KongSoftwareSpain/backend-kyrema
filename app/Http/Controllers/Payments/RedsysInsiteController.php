@@ -207,7 +207,11 @@ class RedsysInsiteController extends Controller
             Log::info('Redsys OK: ', $params);
 
             DB::transaction(function () use ($params, $request) {
-                $order = $params['Ds_Order'] ?? null;
+                // $params viene de NotificationParameters::toArray() (creagia/redsys-php),
+                // que mapea los campos DS_* de Redsys a propiedades en camelCase
+                // (DS_ORDER -> order, DS_RESPONSE -> responseCode, DS_AUTHORISATIONCODE ->
+                // responseAuthorisationCode) — no conserva los nombres Ds_* originales.
+                $order = $params['order'] ?? null;
                 if (!$order) return;
 
                 $link = PaymentGatewayLink::where('gateway', 'redsys')
@@ -220,12 +224,12 @@ class RedsysInsiteController extends Controller
                 $pago = Pago::lockForUpdate()->find($link->pago_id);
                 if (!$pago) return;
 
-                $ok = isset($params['Ds_Response']) && (int)$params['Ds_Response'] < 101;
+                $ok = isset($params['responseCode']) && (int)$params['responseCode'] < 101;
 
                 $pago->update([
                     'estado'          => $ok ? Pago::STATUS_PAID : Pago::STATUS_FAILED,
-                    'auth_code'       => $params['Ds_AuthorisationCode'] ?? null,
-                    'response_code'   => $params['Ds_Response'] ?? null,
+                    'auth_code'       => $params['responseAuthorisationCode'] ?? null,
+                    'response_code'   => $params['responseCode'] ?? null,
                     'response_message' => $ok ? 'OK' : 'KO',
                 ]);
 
@@ -235,8 +239,8 @@ class RedsysInsiteController extends Controller
                 RedsysRequestModel::create([
                     'uuid'               => (string) Str::uuid(),
                     'order_number'       => $order,
-                    'response_code'      => $params['Ds_Response'] ?? null,
-                    'auth_code'          => $params['Ds_AuthorisationCode'] ?? null,
+                    'response_code'      => $params['responseCode'] ?? null,
+                    'auth_code'          => $params['responseAuthorisationCode'] ?? null,
                     'raw_parameters_b64' => $request->input('Ds_MerchantParameters'),
                     'signature'          => $request->input('Ds_Signature'),
                     'valid_signature'    => true,
