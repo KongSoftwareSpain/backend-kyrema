@@ -12,6 +12,8 @@ use App\Services\Payments\ProductoTableResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Creagia\Redsys\Exceptions\DeniedRedsysPaymentResponseException;
+use Creagia\Redsys\Exceptions\ErrorRedsysResponseException;
+use Creagia\Redsys\Exceptions\InvalidRedsysResponseException;
 use Creagia\Redsys\RedsysClient;
 use Creagia\Redsys\RedsysResponse;
 use Illuminate\Support\Facades\DB;
@@ -198,9 +200,13 @@ class RedsysInsiteController extends Controller
         );
 
         $response = new RedsysResponse($client);
-        $response->setParametersFromResponse($request->post());
 
         try {
+            // setParametersFromResponse() también puede lanzar (Ds_ErrorCode del banco,
+            // o faltan campos Ds_*), así que tiene que quedar DENTRO del try: si no, una
+            // notificación con esos casos provoca un 500 sin capturar y el pago se queda
+            // en 'pendiente' para siempre porque nunca se llega a actualizar nada.
+            $response->setParametersFromResponse($request->post());
             $notification = $response->checkResponse(); // ✔ firma válida
             $params = $notification->toArray();         // datos Redsys
 
@@ -248,12 +254,77 @@ class RedsysInsiteController extends Controller
                 ]);
             });
         } catch (DeniedRedsysPaymentResponseException $e) {
-            // firma incorrecta o pago rechazado
-            logger()->warning('Redsys KO: ' . $e->getMessage(), $request->post());
+            // La firma SÍ es válida (esta excepción la lanza checkResponse() después de
+            // comprobarla): el banco ha rechazado el pago. Nos podemos fiar del pedido,
+            // así que lo marcamos como fallido en vez de dejarlo colgado en 'pendiente'.
+            logger()->warning('Redsys KO (rechazado por el banco): ' . $e->getMessage(), $request->post());
+            $this->marcarPagoRechazado($response, $request);
+        } catch (ErrorRedsysResponseException | InvalidRedsysResponseException $e) {
+            // Ds_ErrorCode del banco, o firma/campos inválidos (p.ej. Signatures does not
+            // match). Aquí NO nos fiamos de los datos para tocar el pago, pero dejamos
+            // registrado el detalle completo: esta es la excepción que antes tumbaba la
+            // petición con un 500 y dejaba el pago en 'pendiente' para siempre sin dejar
+            // ni rastro en logs ni en redsys_requests.
+            logger()->error('Redsys notify: respuesta inválida - ' . $e->getMessage(), [
+                'exception' => get_class($e),
+                'post'      => $request->post(),
+            ]);
+        } catch (\Throwable $e) {
+            // Red de seguridad: cualquier otro fallo no debe volver a devolver un 500 a
+            // Redsys (eso hace que el pago se quede huérfano). Se registra para investigar.
+            logger()->error('Redsys notify: excepción no controlada - ' . $e->getMessage(), [
+                'exception' => get_class($e),
+                'trace'     => $e->getTraceAsString(),
+                'post'      => $request->post(),
+            ]);
         }
 
         // Redsys sólo necesita un 200 OK para dejar de reenviar
         return response('OK', 200);
+    }
+
+    /**
+     * checkResponse() lanza DeniedRedsysPaymentResponseException DESPUÉS de validar la
+     * firma, así que $response->parameters ya contiene datos verificados aunque el pago
+     * haya sido rechazado. Los usamos para marcar el pago como fallido en vez de dejarlo
+     * en 'pendiente' indefinidamente.
+     */
+    private function marcarPagoRechazado(RedsysResponse $response, Request $request): void
+    {
+        $order = $response->parameters->order ?? null;
+        if (!$order) return;
+
+        DB::transaction(function () use ($order, $response, $request) {
+            $link = PaymentGatewayLink::where('gateway', 'redsys')
+                ->where('gateway_order_ref', $order)
+                ->lockForUpdate()
+                ->first();
+            if (!$link) return;
+
+            $pago = Pago::lockForUpdate()->find($link->pago_id);
+            if (!$pago) return;
+
+            $pago->update([
+                'estado'           => Pago::STATUS_FAILED,
+                'auth_code'        => $response->parameters->responseAuthorisationCode ?? null,
+                'response_code'    => $response->parameters->responseCode ?? null,
+                'response_message' => 'KO',
+            ]);
+
+            $link->update(['gateway_status' => 'ko']);
+
+            $this->resolverProductoPendiente($pago, false);
+            RedsysRequestModel::create([
+                'uuid'               => (string) Str::uuid(),
+                'order_number'       => $order,
+                'response_code'      => $response->parameters->responseCode ?? null,
+                'auth_code'          => $response->parameters->responseAuthorisationCode ?? null,
+                'raw_parameters_b64' => $request->input('Ds_MerchantParameters'),
+                'signature'          => $request->input('Ds_Signature'),
+                'valid_signature'    => true,
+                'status'             => 'received',
+            ]);
+        });
     }
 
     /**
