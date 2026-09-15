@@ -11,6 +11,8 @@ use App\Services\Payments\RedsysInsiteService;
 use App\Services\Payments\ProductoTableResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Creagia\Redsys\Enums\Currency;
+use Creagia\Redsys\Enums\TransactionType;
 use Creagia\Redsys\Exceptions\DeniedRedsysPaymentResponseException;
 use Creagia\Redsys\Exceptions\ErrorRedsysResponseException;
 use Creagia\Redsys\Exceptions\InvalidRedsysResponseException;
@@ -212,53 +214,47 @@ class RedsysInsiteController extends Controller
 
             Log::info('Redsys OK: ', $params);
 
-            DB::transaction(function () use ($params, $request) {
-                // $params viene de NotificationParameters::toArray() (creagia/redsys-php),
-                // que mapea los campos DS_* de Redsys a propiedades en camelCase
-                // (DS_ORDER -> order, DS_RESPONSE -> responseCode, DS_AUTHORISATIONCODE ->
-                // responseAuthorisationCode) — no conserva los nombres Ds_* originales.
-                $order = $params['order'] ?? null;
-                if (!$order) return;
+            // $params viene de NotificationParameters::toArray() (creagia/redsys-php),
+            // que mapea los campos DS_* de Redsys a propiedades en camelCase
+            // (DS_ORDER -> order, DS_RESPONSE -> responseCode, DS_AUTHORISATIONCODE ->
+            // responseAuthorisationCode) — no conserva los nombres Ds_* originales.
+            $order = $params['order'] ?? null;
+            $ok = false;
 
-                $link = PaymentGatewayLink::where('gateway', 'redsys')
-                    ->where('gateway_order_ref', $order)
-                    ->lockForUpdate()
-                    ->first();
+            if ($order) {
+                DB::transaction(function () use ($params, $order, &$ok) {
+                    $link = PaymentGatewayLink::where('gateway', 'redsys')
+                        ->where('gateway_order_ref', $order)
+                        ->lockForUpdate()
+                        ->first();
 
-                if (!$link) return;
+                    if (!$link) return;
 
-                $pago = Pago::lockForUpdate()->find($link->pago_id);
-                if (!$pago) return;
+                    $pago = Pago::lockForUpdate()->find($link->pago_id);
+                    if (!$pago) return;
 
-                $ok = isset($params['responseCode']) && (int)$params['responseCode'] < 101;
+                    $ok = isset($params['responseCode']) && (int)$params['responseCode'] < 101;
 
-                $pago->update([
-                    'estado'          => $ok ? Pago::STATUS_PAID : Pago::STATUS_FAILED,
-                    'auth_code'       => $params['responseAuthorisationCode'] ?? null,
-                    'response_code'   => $params['responseCode'] ?? null,
-                    'response_message' => $ok ? 'OK' : 'KO',
-                ]);
+                    $pago->update([
+                        'estado'          => $ok ? Pago::STATUS_PAID : Pago::STATUS_FAILED,
+                        'auth_code'       => $params['responseAuthorisationCode'] ?? null,
+                        'response_code'   => $params['responseCode'] ?? null,
+                        'response_message' => $ok ? 'OK' : 'KO',
+                    ]);
 
-                $link->update(['gateway_status' => $ok ? 'ok' : 'ko']);
+                    $link->update(['gateway_status' => $ok ? 'ok' : 'ko']);
 
-                $this->resolverProductoPendiente($pago, $ok);
-                RedsysRequestModel::create([
-                    'uuid'               => (string) Str::uuid(),
-                    'order_number'       => $order,
-                    'response_code'      => $params['responseCode'] ?? null,
-                    'auth_code'          => $params['responseAuthorisationCode'] ?? null,
-                    'raw_parameters_b64' => $request->input('Ds_MerchantParameters'),
-                    'signature'          => $request->input('Ds_Signature'),
-                    'valid_signature'    => true,
-                    'status'             => 'received',
-                ]);
-            });
+                    $this->resolverProductoPendiente($pago, $ok);
+                });
+
+                $this->registrarAuditoriaRedsys($order, $params, $ok);
+            }
         } catch (DeniedRedsysPaymentResponseException $e) {
             // La firma SÍ es válida (esta excepción la lanza checkResponse() después de
             // comprobarla): el banco ha rechazado el pago. Nos podemos fiar del pedido,
             // así que lo marcamos como fallido en vez de dejarlo colgado en 'pendiente'.
             logger()->warning('Redsys KO (rechazado por el banco): ' . $e->getMessage(), $request->post());
-            $this->marcarPagoRechazado($response, $request);
+            $this->marcarPagoRechazado($response);
         } catch (ErrorRedsysResponseException | InvalidRedsysResponseException $e) {
             // Ds_ErrorCode del banco, o firma/campos inválidos (p.ej. Signatures does not
             // match). Aquí NO nos fiamos de los datos para tocar el pago, pero dejamos
@@ -289,12 +285,12 @@ class RedsysInsiteController extends Controller
      * haya sido rechazado. Los usamos para marcar el pago como fallido en vez de dejarlo
      * en 'pendiente' indefinidamente.
      */
-    private function marcarPagoRechazado(RedsysResponse $response, Request $request): void
+    private function marcarPagoRechazado(RedsysResponse $response): void
     {
         $order = $response->parameters->order ?? null;
         if (!$order) return;
 
-        DB::transaction(function () use ($order, $response, $request) {
+        DB::transaction(function () use ($order, $response) {
             $link = PaymentGatewayLink::where('gateway', 'redsys')
                 ->where('gateway_order_ref', $order)
                 ->lockForUpdate()
@@ -314,17 +310,50 @@ class RedsysInsiteController extends Controller
             $link->update(['gateway_status' => 'ko']);
 
             $this->resolverProductoPendiente($pago, false);
-            RedsysRequestModel::create([
-                'uuid'               => (string) Str::uuid(),
-                'order_number'       => $order,
-                'response_code'      => $response->parameters->responseCode ?? null,
-                'auth_code'          => $response->parameters->responseAuthorisationCode ?? null,
-                'raw_parameters_b64' => $request->input('Ds_MerchantParameters'),
-                'signature'          => $request->input('Ds_Signature'),
-                'valid_signature'    => true,
-                'status'             => 'received',
-            ]);
         });
+
+        $this->registrarAuditoriaRedsys($order, [
+            'amount'                    => $response->parameters->amount ?? null,
+            'currency'                  => $response->parameters->currency ?? null,
+            'transactionType'           => $response->parameters->transactionType ?? null,
+            'responseCode'              => $response->parameters->responseCode ?? null,
+            'responseAuthorisationCode' => $response->parameters->responseAuthorisationCode ?? null,
+        ], false);
+    }
+
+    /**
+     * Deja constancia de la notificación en `redsys_requests` (tabla del paquete
+     * creagia/laravel-redsys, CHECK status IN ('pending','error','success')).
+     *
+     * A propósito va SIEMPRE fuera de la transacción que marca el pago como
+     * cobrado/rechazado y en su propio try/catch: antes este insert vivía dentro de esa
+     * misma transacción usando columnas que no existen en la tabla real
+     * (raw_parameters_b64, signature, valid_signature) y un valor de 'status' que
+     * viola el CHECK ('received'). Cada vez que un pago se cobraba de verdad, este
+     * insert fallaba y el rollback deshacía también la actualización del pago — se
+     * quedaba en 'pendiente' para siempre aunque el banco sí hubiera cobrado. Si esta
+     * auditoría vuelve a fallar por cualquier motivo, ya no puede arrastrar consigo la
+     * confirmación del pago.
+     */
+    private function registrarAuditoriaRedsys(string $order, array $params, bool $ok): void
+    {
+        try {
+            RedsysRequestModel::create([
+                'uuid'             => (string) Str::uuid(),
+                'order_number'     => (int) $order,
+                'amount'           => $params['amount'] ?? null,
+                'currency'         => (int) ($params['currency'] ?? Currency::EUR->value),
+                'transaction_type' => (int) ($params['transactionType'] ?? TransactionType::Autorizacion->value),
+                'response_code'    => $params['responseCode'] ?? null,
+                'response_message' => $ok ? 'OK' : 'KO',
+                'auth_code'        => $params['responseAuthorisationCode'] ?? null,
+                'status'           => $ok ? 'success' : 'error',
+            ]);
+        } catch (\Throwable $e) {
+            logger()->warning('Redsys notify: no se pudo guardar la auditoría en redsys_requests: ' . $e->getMessage(), [
+                'order' => $order,
+            ]);
+        }
     }
 
     /**
