@@ -989,16 +989,22 @@ class ProductoController extends Controller
         if ($datos['mediante_pagina_web'] == true) {
             $datos['mediante_pagina_web'] = 1;
             $ultimoProducto = Socio::getUltimoProducto($datos['socio_id']);
-            Log::info('Letras identificacion ' . $ultimoProducto->letras_identificacion);
-            Log::info('ID: ' . $ultimoProducto->id_producto);
-            $comercial_id = Comercial::getComercialByProducto($ultimoProducto->letras_identificacion, $ultimoProducto->id_producto);
 
-            if ($comercial_id) {
-                Log::info('Comercial ID: ' . $comercial_id);
+            // Socio nuevo sin compras previas: no hay producto del que heredar comercial.
+            if ($ultimoProducto) {
+                Log::info('Letras identificacion ' . $ultimoProducto->letras_identificacion);
+                Log::info('ID: ' . $ultimoProducto->id_producto);
+                $comercial_id = Comercial::getComercialByProducto($ultimoProducto->letras_identificacion, $ultimoProducto->id_producto);
+
+                if ($comercial_id) {
+                    Log::info('Comercial ID: ' . $comercial_id);
+                } else {
+                    Log::info('No se encontró un comercial_id para el producto con ID: ' . $ultimoProducto->id_producto);
+                }
+                $datos['comercial_id'] = $comercial_id;
             } else {
-                Log::info('No se encontró un comercial_id para el producto con ID: ' . $ultimoProducto->id_producto);
+                Log::info('Socio sin productos previos, no se hereda comercial_id');
             }
-            $datos['comercial_id'] = $comercial_id;
         }
 
         //Añadir a los datos la plantilla_path que tenga el seguro en ese momento:
