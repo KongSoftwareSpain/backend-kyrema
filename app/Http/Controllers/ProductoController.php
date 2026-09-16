@@ -1022,8 +1022,14 @@ class ProductoController extends Controller
         // Formatear los campos datetime al formato deseado
         foreach ($camposRelacionados as $campo) {
             $nombreCampo = strtolower(str_replace(' ', '_', $campo->nombre));
-            if ($campo->tipo_dato == 'date' && isset($datos[$nombreCampo])) {
-                $datos[$nombreCampo] = Carbon::createFromFormat('Y-m-d', $datos[$nombreCampo])->format('Y-m-d\TH:i:s');
+            if ($campo->tipo_dato == 'date' && !empty($datos[$nombreCampo])) {
+                $fecha = Carbon::createFromFormat('Y-m-d', $datos[$nombreCampo]);
+                // El tipo 'datetime' de SQL Server solo admite años >= 1753: placeholders de
+                // "sin fecha" (p.ej. socios que son empresas, sin fecha de nacimiento real,
+                // que llegan como '0001-01-01') se guardan como NULL en vez de reventar el INSERT.
+                $datos[$nombreCampo] = $fecha->year >= 1753 ? $fecha->format('Y-m-d\TH:i:s') : null;
+            } elseif ($campo->tipo_dato == 'date' && isset($datos[$nombreCampo])) {
+                $datos[$nombreCampo] = null;
             }
         }
 
