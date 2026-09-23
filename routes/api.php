@@ -37,6 +37,9 @@ use App\Http\Controllers\BlobController;
 use App\Http\Controllers\Payments\RedsysWebhookController;
 use App\Http\Controllers\Payments\RedsysInsiteController;
 use App\Http\Controllers\AvisoCaducidadController;
+use App\Http\Controllers\ConfiguracionEnvioCorreosController;
+use App\Http\Controllers\PerfilEnvioAvisoController;
+use App\Http\Controllers\AvisosSocioExclusionController;
 
 // Route::get('/productos/{letras_identificativas}', [ProductoController::class, 'getProductosPorTipo']);
 Route::post('password/email', [ForgotPasswordController::class, 'sendResetLinkEmail']);
@@ -294,15 +297,32 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('informes/productos/{id_sociedad}', [NavController::class, 'getProductosInforme']);
     Route::get('/exportar-pagos', [PagoExportController::class, 'exportarPagos']);
 
-    // Avisos de caducidad: configuración (días de antelación, activo/inactivo) e histórico enviados
-    Route::get('avisos-caducidad/configuracion', [AvisoCaducidadController::class, 'show']);
-    Route::put('avisos-caducidad/configuracion', [AvisoCaducidadController::class, 'update']);
+    // Interruptor maestro: activa/desactiva el envío de TODOS los correos de la app
+    Route::get('configuracion-correos', [ConfiguracionEnvioCorreosController::class, 'show']);
+    Route::put('configuracion-correos', [ConfiguracionEnvioCorreosController::class, 'update']);
+
+    // Avisos de caducidad: histórico, fallidos y prueba de envío
     Route::get('avisos-caducidad/historial', [AvisoCaducidadController::class, 'historial']);
+    Route::get('avisos-caducidad/fallidos', [AvisoCaducidadController::class, 'fallidos']);
     Route::post('avisos-caducidad/prueba', [AvisoCaducidadController::class, 'enviarPrueba']);
+
+    // Socios excluidos de avisos (opt-out global, independiente de los perfiles)
+    Route::get('avisos-caducidad/socios-excluidos', [AvisosSocioExclusionController::class, 'index']);
+    Route::post('avisos-caducidad/socios-excluidos', [AvisosSocioExclusionController::class, 'store']);
+    Route::delete('avisos-caducidad/socios-excluidos/{id}', [AvisosSocioExclusionController::class, 'destroy']);
+
+    // Perfiles de envío de avisos
+    Route::get('perfiles-envio-avisos/opciones', [PerfilEnvioAvisoController::class, 'opciones']);
+    Route::get('perfiles-envio-avisos', [PerfilEnvioAvisoController::class, 'index']);
+    Route::post('perfiles-envio-avisos', [PerfilEnvioAvisoController::class, 'store']);
+    Route::put('perfiles-envio-avisos/{id}', [PerfilEnvioAvisoController::class, 'update']);
+    Route::delete('perfiles-envio-avisos/{id}', [PerfilEnvioAvisoController::class, 'destroy']);
+    Route::post('perfiles-envio-avisos/{id}/forzar', [PerfilEnvioAvisoController::class, 'forzar']);
 
 
     // SOCIOS:
     Route::get('socios', [SocioController::class, 'index']);
+    Route::get('socios/buscar', [SocioController::class, 'buscar']);
     Route::get('socio/{id}', [SocioController::class, 'show']);
     Route::get('socio/{dni}/categoria/{categoria_id}', [SocioController::class, 'getAsegurado']);
     Route::post('socio/categoria/{categoria_id}', [SocioController::class, 'store']);

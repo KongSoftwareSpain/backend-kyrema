@@ -25,6 +25,30 @@ class SocioController extends Controller
         return response()->json($socios);
     }
 
+    /**
+     * Búsqueda acotada por nombre/apellidos/DNI/email, para pickers del
+     * frontend (Socio::all() en index() no vale para eso: no pagina ni filtra).
+     */
+    public function buscar(Request $request)
+    {
+        $texto = trim((string) $request->query('q', ''));
+
+        if ($texto === '') {
+            return response()->json([]);
+        }
+
+        $socios = Socio::where('dni', 'like', "%{$texto}%")
+            ->orWhere('nombre_socio', 'like', "%{$texto}%")
+            ->orWhere('apellido_1', 'like', "%{$texto}%")
+            ->orWhere('apellido_2', 'like', "%{$texto}%")
+            ->orWhere('email', 'like', "%{$texto}%")
+            ->orderBy('nombre_socio')
+            ->limit(20)
+            ->get(['id', 'dni', 'nombre_socio', 'apellido_1', 'apellido_2', 'email']);
+
+        return response()->json($socios);
+    }
+
     public function getAsegurado($dni, $categoria_id)
     {
         $socio = Socio::where('dni', $dni)->where('categoria_id', $categoria_id)->first();
