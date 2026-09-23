@@ -466,7 +466,12 @@ class ExportController extends Controller
                     $campoLogo->url = Compania::find($campoLogo->entidad_id)->logo;
                 }
 
+                // Buscar en public y en storage (en Azure el symlink public/storage
+                // no siempre resuelve al mismo destino que storage/app/public).
                 $logoPath = public_path('storage/' . $campoLogo->url);
+                if (!file_exists($logoPath)) {
+                    $logoPath = storage_path('app/public/' . $campoLogo->url);
+                }
                 Log::info($logoPath);
 
                 if (file_exists($logoPath)) {
@@ -475,6 +480,7 @@ class ExportController extends Controller
                     $logoMimeType = mime_content_type($logoPath);
                     $campoLogo->base64 = "data:{$logoMimeType};base64,{$logoData}";
                 } else {
+                    Log::warning('Logo no encontrado en ninguna ruta: ' . $campoLogo->url);
                     $campoLogo->base64 = '';
                 }
             }
@@ -643,7 +649,12 @@ class ExportController extends Controller
                 $campoLogo->url = Compania::find($campoLogo->entidad_id)->logo;
             }
 
+            // Buscar en public y en storage (en Azure el symlink public/storage
+            // no siempre resuelve al mismo destino que storage/app/public).
             $logoPath = public_path('storage/' . $campoLogo->url);
+            if (!file_exists($logoPath)) {
+                $logoPath = storage_path('app/public/' . $campoLogo->url);
+            }
             Log::info($logoPath);
 
             if (file_exists($logoPath)) {
@@ -652,6 +663,7 @@ class ExportController extends Controller
                 $logoMimeType = mime_content_type($logoPath);
                 $campoLogo->base64 = "data:{$logoMimeType};base64,{$logoData}";
             } else {
+                Log::warning('Logo no encontrado en ninguna ruta: ' . $campoLogo->url);
                 $campoLogo->base64 = '';
             }
         }
