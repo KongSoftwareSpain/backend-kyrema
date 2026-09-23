@@ -88,9 +88,9 @@ class RedsysInsiteController extends Controller
             $data['subproducto_nombre'] ?? null,
             $data['codigo_producto'] ?? null,
         ]);
-        $partesTexto = implode(' ', array_map(fn ($p) => '"' . $p . '"', $partes));
+        $partesTexto = implode(' ', $partes);
 
-        $descripcion = "Recibo del certificado de {$partesTexto} con cobertura de "
+        $descripcion = "Recibo de {$partesTexto} de "
             . $this->formatearFechaCorta($data['fecha_inicio'] ?? null) . " a "
             . $this->formatearFechaCorta($data['fecha_fin'] ?? null);
 
