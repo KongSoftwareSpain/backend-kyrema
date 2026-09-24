@@ -37,6 +37,11 @@ class CustomResetPassword extends ResetPasswordNotification
             ->line('Este enlace expirará en 60 minutos.')
             ->salutation('Saludos, Cánama')
             ->line('Si tienes problemas para hacer clic en el botón, copia y pega esta URL en tu navegador:')
-            ->line($url);
+            ->line($url)
+            // Marca el correo para que el interruptor maestro no lo bloquee.
+            // Ver App\Listeners\BloquearEnvioCorreoSiDesactivado.
+            ->withSymfonyMessage(function ($message) {
+                $message->getHeaders()->addTextHeader('X-Canama-Password-Reset', '1');
+            });
     }
 }
