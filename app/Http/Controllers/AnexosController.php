@@ -84,7 +84,20 @@ class AnexosController extends Controller
         // confirmado (ver RedsysInsiteController::notify()). El resto de flujos no lo mandan.
         $pendientePago = (bool) $request->input('pendiente_pago', false);
 
+        // Cache de columnas por tabla: antes se pedía a BD en cada vuelta del foreach
+        // (2 consultas por anexo). Con una rehala de 10 perros + 1 nuevo eso son ~20
+        // consultas secuenciales contra un SQL Server que ya ha dado timeouts de login
+        // en otras ocasiones; cuantas más consultas, más probable que una falle y tire
+        // abajo toda la petición aunque los datos fueran correctos.
+        $columnasPorTabla = [];
+
         try {
+            // Todo o nada: si un perro falla a mitad de la lista, antes se quedaban
+            // guardados los procesados hasta ese punto pero el usuario recibía un error
+            // igualmente, lo que le hacía creer que no se había guardado nada y le obligaba
+            // a borrar y repetir todo. Con la transacción, o se guardan todos o no se
+            // guarda ninguno, y el mensaje de error refleja el estado real.
+            DB::transaction(function () use ($anexos, $id_producto, $pendientePago, &$columnasPorTabla) {
         foreach ($anexos as $anexo) {
             $tipoAnexo = $anexo['tipo_anexo']; // Tipo de anexo
             $letrasIdentificacion = strtolower($tipoAnexo['letras_identificacion']); // Nombre de la tabla
@@ -148,7 +161,10 @@ class AnexosController extends Controller
                 $data['plantilla_path_7'] = $plantillasPaths[6];
                 $data['plantilla_path_8'] = $plantillasPaths[7];
 
-                $columnasValidas = Schema::getColumnListing($letrasIdentificacion);
+                if (!isset($columnasPorTabla[$letrasIdentificacion])) {
+                    $columnasPorTabla[$letrasIdentificacion] = Schema::getColumnListing($letrasIdentificacion);
+                }
+                $columnasValidas = $columnasPorTabla[$letrasIdentificacion];
 
                 if ($anexoId) {
                     // Si el anexo tiene un ID, se actualiza el registro existente
@@ -203,10 +219,15 @@ class AnexosController extends Controller
                     DB::table($letrasIdentificacion)->insert($datosFiltrados);
                 }
             } else {
-                return response()->json(['error' => "La tabla {$letrasIdentificacion} no existe."], 400);
+                // Lanzar en vez de "return response()->json(...)": estamos dentro del
+                // closure de DB::transaction, así que hay que abortarla con una excepción
+                // para que revierta lo ya escrito en esta misma petición.
+                throw new \RuntimeException("La tabla {$letrasIdentificacion} no existe.");
             }
         }
-        return response()->json(['message' => 'Anexos conectados con éxito'], 200);
+            });
+
+            return response()->json(['message' => 'Anexos conectados con éxito'], 200);
         } catch (\Throwable $e) {
             // Devolver el mensaje real para poder diagnosticar desde el frontend
             Log::error('Error conectando anexos con producto', [

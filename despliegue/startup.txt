@@ -48,8 +48,7 @@ php /home/site/wwwroot/artisan view:cache
 # Build assets using Laravel Mix
 # npm run production --silent
 
-# uncomment next line if you dont have S3 or Blob storage
-#php /home/site/wwwroot/artisan storage:link
+php /home/site/wwwroot/artisan storage:link
 
 # Turn off maintenance mode
 php /home/site/wwwroot/artisan up
