@@ -1416,6 +1416,30 @@ class ProductoController extends Controller
         // Quitar el id y otros datos que no se deben de guardar en BDD:
         unset($datos['id'], $datos['nombre_producto'], $datos['letras_identificacion'], $datos['categoria'], $datos['referencia']);
 
+        // Solo el administrador puede modificar las fechas de un producto ya creado.
+        // (Las renovaciones no pasan por aquí: crean un producto nuevo.)
+        $user = $request->user();
+        $esAdmin = $user && $user->id_sociedad == env('SOCIEDAD_ADMIN_ID', 1);
+
+        if (!$esAdmin) {
+            $actual = DB::table($nombreTabla)->where('id', $id)->first();
+
+            foreach (['fecha_de_inicio', 'fecha_de_fin'] as $campo) {
+                if (!array_key_exists($campo, $datos)) {
+                    continue;
+                }
+
+                $nuevo = !empty($datos[$campo]) ? Carbon::parse($datos[$campo])->toDateString() : null;
+                $anterior = !empty($actual->$campo ?? null) ? Carbon::parse($actual->$campo)->toDateString() : null;
+
+                if ($nuevo !== $anterior) {
+                    return response()->json([
+                        'error' => 'Solo el administrador puede modificar las fechas de un producto ya creado.'
+                    ], 403);
+                }
+            }
+        }
+
         // Formato ISO-8601 con la T intermedia
         $isoFormat = 'Y-m-d\TH:i:s';
 
