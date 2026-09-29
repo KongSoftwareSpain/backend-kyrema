@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use App\Http\Controllers\CampoController;
 use App\Models\Compania;
+use App\Models\Sociedad;
 use Mpdf\Mpdf;
 use Carbon\Carbon;
 use Exception;
@@ -89,7 +90,13 @@ class PdfBuilderService
                     if ($valores->sociedad_id == env('SOCIEDAD_ADMIN_ID')) {
                         $campoLogo->url = 'logos/logo_18.png';
                     } else {
-                        $campoLogo->url = $valores->logo_sociedad_path;
+                        // Logo vigente de la sociedad, no el que quedó congelado en el
+                        // producto al crearse (logo_sociedad_path) — ver
+                        // ExportController::exportToPdf para el razonamiento completo.
+                        $sociedadLogo = Sociedad::find($valores->sociedad_id);
+                        $campoLogo->url = ($sociedadLogo && $sociedadLogo->logo)
+                            ? $sociedadLogo->logo
+                            : $valores->logo_sociedad_path;
                     }
                 } else {
                     $compania = Compania::find($campoLogo->entidad_id);

@@ -460,7 +460,15 @@ class ExportController extends Controller
                     if ($valores->sociedad_id == env('SOCIEDAD_ADMIN_ID')) {
                         $campoLogo->url = 'logos/logo_18.png';
                     } else {
-                        $campoLogo->url = $valores->logo_sociedad_path;
+                        // Logo vigente de la sociedad, no el que quedó congelado en el
+                        // producto al crearse (logo_sociedad_path) — así un cambio de
+                        // logo se refleja también en certificados ya emitidos, igual
+                        // que se hace con las plantillas. Fallback a la ruta congelada
+                        // si la sociedad no tiene (o ya no tiene) logo.
+                        $sociedadLogo = Sociedad::find($valores->sociedad_id);
+                        $campoLogo->url = ($sociedadLogo && $sociedadLogo->logo)
+                            ? $sociedadLogo->logo
+                            : $valores->logo_sociedad_path;
                     }
                 } else {
                     $campoLogo->url = Compania::find($campoLogo->entidad_id)->logo;
@@ -643,7 +651,12 @@ class ExportController extends Controller
                 if ($valores->sociedad_id == env('SOCIEDAD_ADMIN_ID')) {
                     $campoLogo->url = 'logos/logo_18.png';
                 } else {
-                    $campoLogo->url = $valores->logo_sociedad_path;
+                    // Logo vigente de la sociedad, no el que quedó congelado en el
+                    // producto al crearse (logo_sociedad_path) — ver exportToPdf.
+                    $sociedadLogo = Sociedad::find($valores->sociedad_id);
+                    $campoLogo->url = ($sociedadLogo && $sociedadLogo->logo)
+                        ? $sociedadLogo->logo
+                        : $valores->logo_sociedad_path;
                 }
             } else {
                 $campoLogo->url = Compania::find($campoLogo->entidad_id)->logo;
