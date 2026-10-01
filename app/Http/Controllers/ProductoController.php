@@ -1421,9 +1421,9 @@ class ProductoController extends Controller
         $user = $request->user();
         $esAdmin = $user && $user->id_sociedad == env('SOCIEDAD_ADMIN_ID', 1);
 
-        if (!$esAdmin) {
-            $actual = DB::table($nombreTabla)->where('id', $id)->first();
+        $actual = DB::table($nombreTabla)->where('id', $id)->first();
 
+        if (!$esAdmin) {
             foreach (['fecha_de_inicio', 'fecha_de_fin'] as $campo) {
                 if (!array_key_exists($campo, $datos)) {
                     continue;
@@ -1437,6 +1437,27 @@ class ProductoController extends Controller
                         'error' => 'Solo el administrador puede modificar las fechas de un producto ya creado.'
                     ], 403);
                 }
+            }
+        } elseif ($actual && !empty($actual->fecha_de_inicio) && !empty($actual->fecha_de_fin)
+            && !empty($datos['fecha_de_inicio']) && !empty($datos['fecha_de_fin'])) {
+            // Si el admin cambia solo UNA de las dos fechas, la otra se recalcula para
+            // conservar la duración original (p.ej. 365 días). Si cambia las dos a la vez,
+            // se respeta lo que haya indicado.
+            $inicioAct = Carbon::parse($actual->fecha_de_inicio);
+            $finAct = Carbon::parse($actual->fecha_de_fin);
+            $inicioNuevo = Carbon::parse($datos['fecha_de_inicio']);
+            $finNuevo = Carbon::parse($datos['fecha_de_fin']);
+
+            $cambiaInicio = $inicioNuevo->toDateString() !== $inicioAct->toDateString();
+            $cambiaFin = $finNuevo->toDateString() !== $finAct->toDateString();
+            $dias = $inicioAct->copy()->startOfDay()->diffInDays($finAct->copy()->startOfDay());
+
+            if ($cambiaInicio && !$cambiaFin) {
+                $datos['fecha_de_fin'] = $inicioNuevo->copy()->startOfDay()->addDays($dias)
+                    ->setTimeFrom($finAct)->format('Y-m-d\TH:i:s');
+            } elseif ($cambiaFin && !$cambiaInicio) {
+                $datos['fecha_de_inicio'] = $finNuevo->copy()->startOfDay()->subDays($dias)
+                    ->setTimeFrom($inicioAct)->format('Y-m-d\TH:i:s');
             }
         }
 
