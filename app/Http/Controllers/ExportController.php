@@ -388,7 +388,15 @@ class ExportController extends Controller
             }
 
             // VALORES DEL PRODUCTO
-            $valores = DB::table($letrasIdentificacion)->where('id', $id)->first();
+            // Un subproducto (p. ej. PRODUCTO_TDOC1) no tiene tabla propia: vive
+            // en la de su producto padre.
+            $tabla = app(\App\Services\Payments\ProductoTableResolver::class)->tableName($letrasIdentificacion);
+
+            if (!$tabla) {
+                return response()->json(['error' => 'Tipo de producto no encontrado'], 400);
+            }
+
+            $valores = DB::table($tabla)->where('id', $id)->first();
 
             if (!$valores) {
                 return response()->json(['error' => 'Valores no encontrados'], 400);
