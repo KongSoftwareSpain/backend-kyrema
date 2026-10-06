@@ -57,6 +57,9 @@ Route::get('categorias/{id}', [CategoriaController::class, 'show']);
 Route::get('sociedad/comercial/{comercial_id}', [SociedadController::class, 'getSociedadPorComercial']);
 Route::get('comercial/{id}', [ComercialController::class, 'show']);
 Route::get('tipo-producto/{letras}', [TipoProductoController::class, 'getByLetras']);
+// La página de contratación directa filtra los subproductos por sociedad sin sesión: si exigiera
+// token, el 401 del interceptor mandaría al cliente final a /login.
+Route::get('tipos-producto/sociedad/{id_sociedad}', [TipoProductoController::class, 'getTiposProductoPorSociedad']);
 Route::get('campos', [CampoController::class, 'getByTipoProducto']);
 // Tarifa por tipoProducto y Sociedad
 Route::get('tarifas-producto/sociedad/{id_sociedad}', [TarifaProductoController::class, 'getTarifaPorSociedadAndTipoProducto']);
@@ -116,7 +119,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // Endpoint específico para borrar un campo (caso subproducto duplicado)
     Route::delete('/campos/{id}', [CampoController::class, 'deleteCampo']);
 
-    Route::get('tipos-producto/sociedad/{id_sociedad}', [TipoProductoController::class, 'getTiposProductoPorSociedad']);
     Route::get('tipos-producto/all', [TipoProductoController::class, 'index']);
     Route::get('tipo-producto/show/{id}', [TipoProductoController::class, 'show']);
     Route::put('tipo-producto/{id}', [TipoProductoController::class, 'update']);
