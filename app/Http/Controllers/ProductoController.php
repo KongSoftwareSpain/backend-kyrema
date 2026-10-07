@@ -1372,7 +1372,12 @@ class ProductoController extends Controller
             'regex' => 'El nombre del blob solo puede contener letras, números, punto, guion, guion bajo y barras (/).',
         ]);
 
-        $nombreTabla = strtolower($letras_identificacion);
+        // Un subproducto vive en la tabla de su padre; si no se resuelve, se usa
+        // el nombre tal cual (comportamiento anterior).
+        $nombreTabla = $data['is_anexo']
+            ? strtolower($letras_identificacion)
+            : (app(\App\Services\Payments\ProductoTableResolver::class)->tableName($letras_identificacion)
+                ?? strtolower($letras_identificacion));
 
         if ($data['is_anexo']) {
             DB::table($nombreTabla)
@@ -1658,7 +1663,9 @@ class ProductoController extends Controller
                 if (Schema::hasColumn($nombreTabla, 'población')) $updateData['población'] = $socio->poblacion;
                 if (Schema::hasColumn($nombreTabla, 'provincia')) $updateData['provincia'] = $socio->provincia;
                 if (Schema::hasColumn($nombreTabla, 'codigo_postal')) $updateData['codigo_postal'] = $socio->codigo_postal;
-                if (Schema::hasColumn($nombreTabla, 'fecha_de_nacimiento')) $updateData['fecha_de_nacimiento'] = $socio->fecha_de_nacimiento;
+                if (Schema::hasColumn($nombreTabla, 'fecha_de_nacimiento')) $updateData['fecha_de_nacimiento'] = $socio->fecha_de_nacimiento
+                    ? Carbon::parse($socio->fecha_de_nacimiento)->format('Y-m-d\TH:i:s')
+                    : null;
             }
         }
 
