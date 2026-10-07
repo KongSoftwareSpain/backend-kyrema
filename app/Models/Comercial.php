@@ -47,6 +47,11 @@ class Comercial extends Authenticatable
         'path_foto',
     ];
 
+    // Solo afecta a la serialización JSON: `comercial/{id}` es público y devolvía el hash.
+    protected $hidden = [
+        'contraseña',
+    ];
+
     public function sendPasswordResetNotification($token)
     {
         $this->notify(new CustomResetPassword($token));
