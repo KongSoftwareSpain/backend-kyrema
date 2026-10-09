@@ -484,13 +484,16 @@ class ExportController extends Controller
 
                 // Buscar en public y en storage (en Azure el symlink public/storage
                 // no siempre resuelve al mismo destino que storage/app/public).
+                // is_file y no file_exists: con una sociedad sin logo la url llega vacía,
+                // 'storage/' resuelve a la propia carpeta y file_exists la daba por buena
+                // (file_get_contents sobre un directorio revienta con un 500).
                 $logoPath = public_path('storage/' . $campoLogo->url);
-                if (!file_exists($logoPath)) {
+                if (!is_file($logoPath)) {
                     $logoPath = storage_path('app/public/' . $campoLogo->url);
                 }
                 Log::info($logoPath);
 
-                if (file_exists($logoPath)) {
+                if (is_file($logoPath)) {
 
                     $logoData = base64_encode(file_get_contents($logoPath));
                     $logoMimeType = mime_content_type($logoPath);
@@ -672,13 +675,14 @@ class ExportController extends Controller
 
             // Buscar en public y en storage (en Azure el symlink public/storage
             // no siempre resuelve al mismo destino que storage/app/public).
+            // is_file y no file_exists: ver exportToPdf (url vacía = carpeta, no fichero).
             $logoPath = public_path('storage/' . $campoLogo->url);
-            if (!file_exists($logoPath)) {
+            if (!is_file($logoPath)) {
                 $logoPath = storage_path('app/public/' . $campoLogo->url);
             }
             Log::info($logoPath);
 
-            if (file_exists($logoPath)) {
+            if (is_file($logoPath)) {
 
                 $logoData = base64_encode(file_get_contents($logoPath));
                 $logoMimeType = mime_content_type($logoPath);
