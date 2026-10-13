@@ -105,7 +105,6 @@ class AuthController extends Controller
         $messages = [
             'email.unique' => 'Este correo electrónico ya está registrado.',
             'phone.required' => 'El teléfono es obligatorio.',
-            'phone.unique' => 'Este teléfono ya está registrado.',
             'password.min' => 'La contraseña debe tener al menos 8 caracteres.',
             'categoria_id.exists' => 'La categoría seleccionada no es válida.',
         ];
@@ -114,7 +113,7 @@ class AuthController extends Controller
             'nombre' => 'required|string|max:255',
             'apellido_1' => 'nullable|string|max:255',
             'apellido_2' => 'nullable|string|max:255',
-            'phone' => 'required|string|max:255|unique:socios,telefono',
+            'phone' => 'required|string|max:255',
             'birthDate' => 'required|date',
             'email' => 'required|string|email|max:255|unique:socios,email',
             'password' => 'required|string|min:8',
