@@ -1086,9 +1086,26 @@ class ProductoController extends Controller
         });
 
 
-        if (isset($datos['socio_id']) && isset($datos['dni']) && Dni::equals($datos['dni'], Socio::findOrFail($datos['socio_id'])->dni)) {
-            // Conectar el socio con el producto
-            SocioProducto::connectSocioAndProducto($datos['socio_id'], $registro->id, $nombreTabla);
+        $socioVinculado = !empty($datos['socio_id']) ? Socio::find($datos['socio_id']) : null;
+
+        if ($socioVinculado && !empty($datos['dni'])) {
+            // Un socio registrado por la web nace sin DNI: el de su primera contratación pasa a ser el suyo,
+            // salvo que ya pertenezca a otro socio (el DNI es único globalmente)
+            if (empty($socioVinculado->dni)) {
+                $dniEnUso = Socio::where('dni', trim($datos['dni']))->where('id', '!=', $socioVinculado->id)->exists();
+
+                if (!$dniEnUso) {
+                    $socioVinculado->dni = trim($datos['dni']);
+                    $socioVinculado->save();
+                }
+            }
+
+            if (Dni::equals($datos['dni'], $socioVinculado->dni)) {
+                // Conectar el socio con el producto
+                SocioProducto::connectSocioAndProducto($socioVinculado->id, $registro->id, $nombreTabla);
+            } else {
+                Log::warning("Producto {$nombreTabla} #{$registro->id} sin vincular al socio {$socioVinculado->id}: el DNI del producto no coincide con el del socio");
+            }
         }
 
         return response()->json($registro, 201);
