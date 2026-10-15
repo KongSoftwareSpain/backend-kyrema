@@ -1075,6 +1075,19 @@ class ProductoController extends Controller
 
         unset($datos['nombre_producto'], $datos['letras_identificacion'], $datos['categoria'], $datos['referencia']);
 
+        // Si el front no manda socio_id (compra sin sesion iniciada) pero el DNI es el de un unico
+        // socio existente, se asigna a ese socio para que el seguro aparezca en su perfil.
+        if (empty($datos['socio_id']) && !empty($datos['dni'])) {
+            $dniNormalizado = Dni::normalize($datos['dni']);
+            $candidatos = Socio::whereRaw("UPPER(REPLACE(REPLACE(REPLACE(dni, ' ', ''), '-', ''), '.', '')) = ?", [$dniNormalizado])
+                ->limit(2)
+                ->pluck('id');
+
+            if ($candidatos->count() === 1) {
+                $datos['socio_id'] = $candidatos->first();
+            }
+        }
+
         // Filtrar datos para que solo contengan columnas existentes en la tabla
         $columnasValidas = Schema::getColumnListing($nombreTabla);
         $datos = array_intersect_key($datos, array_flip($columnasValidas));
