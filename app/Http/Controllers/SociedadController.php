@@ -172,24 +172,22 @@ class SociedadController extends Controller
         // Combinar la sociedad principal con las sociedades hijas en una colección
         $sociedadesCompletas = collect(array_merge([$sociedad], $sociedadesHijas));
 
-        // Obtener los tipos de producto basados en letras de identificación
-        $tipoProducto = DB::table('tipo_producto')
+        // Obtener los IDs de los tipos de producto basados en letras de identificación
+        $tipoProductoId = DB::table('tipo_producto')
             ->where('letras_identificacion', $letras_identificacion)
-            ->get();
+            ->pluck('id');
 
-        // Obtener los IDs de los tipos de producto
-        $tipoProductoId = $tipoProducto->pluck('id');
+        // Una sola consulta con las sociedades que tienen relación con el tipo de producto
+        // (antes era un exists() por cada sociedad)
+        $sociedadesConRelacion = DB::table('tipo_producto_sociedad')
+            ->whereIn('id_tipo_producto', $tipoProductoId)
+            ->whereIn('id_sociedad', $sociedadesCompletas->pluck('id'))
+            ->pluck('id_sociedad')
+            ->flip();
 
-        $sociedadesFiltradas = $sociedadesCompletas->filter(function ($sociedad) use ($tipoProductoId) {
-            // Verifica si existe una relación entre la sociedad y el tipo de producto
-            $existeRelacion = DB::table('tipo_producto_sociedad')
-                ->where('id_tipo_producto', $tipoProductoId)
-                ->where('id_sociedad', $sociedad->id)
-                ->exists();
-
-            // Retorna true si existe la relación, lo que mantendrá la sociedad
-            return $existeRelacion;
-        });
+        $sociedadesFiltradas = $sociedadesCompletas->filter(
+            fn ($sociedad) => $sociedadesConRelacion->has($sociedad->id)
+        );
 
         return response()->json($sociedadesFiltradas->toArray());
     }

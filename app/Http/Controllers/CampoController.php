@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 
 class CampoController extends Controller
 {
@@ -272,7 +273,8 @@ class CampoController extends Controller
     public function getOpcionesPorCampo($id_campo)
     {
         $campo = Campos::findOrFail($id_campo);
-        if ($campo->opciones && Schema::hasTable($campo->opciones)) {
+        // Schema::hasTable consulta el catálogo de SQL Server en cada petición; se cachea como en ProductoController
+        if ($campo->opciones && Cache::remember("schema_table_{$campo->opciones}", 3600, fn() => Schema::hasTable($campo->opciones))) {
             $opciones = DB::table($campo->opciones)->selectRaw('id, nombre, CAST(precio AS DECIMAL(10,2)) as precio')->get();
             $opciones = $opciones->map(function ($item) {
                 $item->precio = (float) $item->precio;

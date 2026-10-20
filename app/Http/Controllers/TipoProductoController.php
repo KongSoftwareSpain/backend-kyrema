@@ -57,7 +57,8 @@ class TipoProductoController extends Controller
             }
 
             // Si tiene subproductos, devolverlos enriquecidos
-            $subproductos = TipoProducto::activos()->where('padre_id', $tp->id)->get();
+            // with(): sin precargar, getSubproductosPorPadreId lanzaba 2 consultas por subproducto (N+1)
+            $subproductos = TipoProducto::activos()->where('padre_id', $tp->id)->with(['tarifas', 'campos'])->get();
             if ($subproductos->count() > 0) {
                 $tp['subproductos'] = self::getSubproductosPorPadreId($tp->id, $subproductos);
             }
