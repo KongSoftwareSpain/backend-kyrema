@@ -7,6 +7,7 @@ use App\Models\TipoPagoProductoSociedad;
 use App\Models\TipoProductoSociedad;
 use App\Models\TipoPago;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 
 class TipoPagoProductoSociedadController extends Controller
 {
@@ -63,7 +64,19 @@ class TipoPagoProductoSociedadController extends Controller
 
     public function getTiposPagoPorSociedadYTipoProducto($sociedad_id, $tipo_producto_id)
     {
-        $tiposPago = TipoPagoProductoSociedad::with('tipoPago') // carga la relación
+        // Endpoint público de la contratación (4 consultas por llamada); TTL 5 min como getByLetras
+        $tiposPago = Cache::remember(
+            "tipos_pago_{$sociedad_id}_{$tipo_producto_id}",
+            300,
+            fn () => $this->calcularTiposPago($sociedad_id, $tipo_producto_id)
+        );
+
+        return response()->json($tiposPago);
+    }
+
+    private function calcularTiposPago($sociedad_id, $tipo_producto_id)
+    {
+        $tiposPago =TipoPagoProductoSociedad::with('tipoPago') // carga la relación
             ->where('sociedad_id', $sociedad_id)
             ->where('tipo_producto_id', $tipo_producto_id)
             ->get()
@@ -91,7 +104,7 @@ class TipoPagoProductoSociedadController extends Controller
             })->values(); // Reindexar el array
         }
 
-        return response()->json($tiposPago);
+        return $tiposPago->all();
     }
 
 

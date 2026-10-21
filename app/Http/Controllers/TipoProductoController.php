@@ -22,13 +22,16 @@ class TipoProductoController extends Controller
 
     public function getTiposProductoPorSociedad($id_sociedad)
     {
-        // Obtener los IDs de TipoProducto asociados con la sociedad
-        $tipoProductoIds = TipoProductoSociedad::where('id_sociedad', $id_sociedad)->pluck('id_tipo_producto');
-
-        // Obtener los TipoProducto basados en los IDs obtenidos
-        $tiposProducto = TipoProducto::whereIn('id', $tipoProductoIds)
-            ->orderBy('id', 'asc')
-            ->get();
+        // Endpoint público de la contratación; TTL 5 min como getByLetras
+        $tiposProducto = Cache::remember("tipos_producto_sociedad_{$id_sociedad}", 300, function () use ($id_sociedad) {
+            // Una sola consulta con subselect en lugar de pluck + whereIn
+            return TipoProducto::whereIn(
+                'id',
+                TipoProductoSociedad::where('id_sociedad', $id_sociedad)->select('id_tipo_producto')
+            )
+                ->orderBy('id', 'asc')
+                ->get();
+        });
 
         // Devolver los TipoProducto en formato JSON
         return response()->json($tiposProducto);

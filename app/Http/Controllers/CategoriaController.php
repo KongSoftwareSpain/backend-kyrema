@@ -8,6 +8,7 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
 
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 
 class CategoriaController extends Controller
 {
@@ -53,7 +54,8 @@ class CategoriaController extends Controller
             return response()->json(['error' => 'ID de categoría inválido'], 400);
         }
 
-        $categoria = Categoria::find($id);
+        // Endpoint público de la pantalla de login (logo); TTL corto para no tardar en reflejar cambios
+        $categoria = Cache::remember("categoria_{$id}", 300, fn () => Categoria::find($id));
 
         if (!$categoria) {
             return response()->json(['error' => 'Categoría no encontrada'], 404);
@@ -94,6 +96,7 @@ class CategoriaController extends Controller
 
         // Actualizar la categoría
         $categoria->update($validated);
+        Cache::forget("categoria_{$id}");
 
         return response()->json($categoria);
     }
@@ -111,6 +114,7 @@ class CategoriaController extends Controller
         }
 
         $categoria->delete();
+        Cache::forget("categoria_{$id}");
 
         return response()->json(['message' => 'Categoría eliminada exitosamente']);
     }

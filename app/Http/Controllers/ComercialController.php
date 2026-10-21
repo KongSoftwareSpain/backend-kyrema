@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Hash;
 use App\Models\Comercial;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 
 class ComercialController extends Controller
 {
@@ -84,7 +85,8 @@ class ComercialController extends Controller
 
     public function show($id)
     {
-        $comercial = Comercial::findOrFail($id);
+        // Endpoint público de la contratación; TTL 5 min como getByLetras
+        $comercial = Cache::remember("comercial_{$id}", 300, fn () => Comercial::findOrFail($id));
         return response()->json($comercial);
     }
 

@@ -19,7 +19,8 @@ class CampoController extends Controller
     public function getByTipoProducto(Request $request)
     {
         $id_tipo_producto = $request->query('id_tipo_producto');
-        return Campos::where('tipo_producto_id', $id_tipo_producto)->get();
+        // Endpoint público de la contratación; TTL 5 min como getByLetras
+        return Cache::remember("campos_tipo_producto_{$id_tipo_producto}", 300, fn () => Campos::where('tipo_producto_id', $id_tipo_producto)->get());
     }
 
     public function store(Request $request)

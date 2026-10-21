@@ -9,6 +9,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use App\Models\Comercial;
+use Illuminate\Support\Facades\Cache;
 
 
 class SociedadController extends Controller
@@ -163,6 +164,18 @@ class SociedadController extends Controller
 
     public function getSociedadesHijasPorTipoProducto($sociedad_id, $letras_identificacion)
     {
+        // Endpoint público de la contratación (carga todas las sociedades para recorrer el árbol); TTL 5 min
+        $sociedades = Cache::remember(
+            "sociedades_hijas_tp_{$sociedad_id}_{$letras_identificacion}",
+            300,
+            fn () => $this->calcularSociedadesHijasPorTipoProducto($sociedad_id, $letras_identificacion)
+        );
+
+        return response()->json($sociedades);
+    }
+
+    private function calcularSociedadesHijasPorTipoProducto($sociedad_id, $letras_identificacion)
+    {
         // Obtener la sociedad inicial
         $sociedad = Sociedad::findOrFail($sociedad_id);
 
@@ -189,15 +202,19 @@ class SociedadController extends Controller
             fn ($sociedad) => $sociedadesConRelacion->has($sociedad->id)
         );
 
-        return response()->json($sociedadesFiltradas->toArray());
+        return $sociedadesFiltradas->toArray();
     }
 
     public function getSociedadPorComercial($comercial_id)
     {
         // Pasar $comercial_id a entero
         $comercial_id = (int) $comercial_id;
-        $comercial = Comercial::findOrFail($comercial_id);
-        $sociedad = Sociedad::findOrFail($comercial->id_sociedad);
+
+        // Endpoint público de la contratación: 2 consultas por visita; TTL 5 min como getByLetras
+        $sociedad = Cache::remember("sociedad_por_comercial_{$comercial_id}", 300, function () use ($comercial_id) {
+            $comercial = Comercial::findOrFail($comercial_id);
+            return Sociedad::findOrFail($comercial->id_sociedad);
+        });
 
         return response()->json($sociedad);
     }
