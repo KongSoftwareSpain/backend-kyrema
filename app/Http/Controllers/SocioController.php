@@ -60,44 +60,34 @@ class SocioController extends Controller
 
     public function getSociosByComercial($id_comercial)
     {
-        if (Comercial::isResponsable($id_comercial)) {
-            $comercial = Comercial::find($id_comercial);
-            $sociedad = Sociedad::find($comercial->id_sociedad);
-            $sociedades = $sociedad->getSociedadesHijasDesde($comercial->id_sociedad);
+        // Solo las columnas que pinta la tabla de /socios (antes socios.*: en la sociedad admin
+        // son todos los socios, y el DISTINCT sobre todas las columnas encarecía la consulta)
+        $columnas = [
+            'socios.id', 'socios.dni', 'socios.nombre_socio', 'socios.apellido_1', 'socios.apellido_2',
+            'socios.telefono', 'socios.email', 'socios.vinculado', 'sociedad.nombre as nombre_sociedad',
+        ];
 
-            $sociedades = array_map(function ($sociedad) {
-                return $sociedad->id;
-            }, $sociedades);
+        $query = Socio::join('socios_comerciales', 'socios.id', '=', 'socios_comerciales.id_socio')
+            ->join('comercial', 'socios_comerciales.id_comercial', '=', 'comercial.id')
+            ->join('sociedad', 'comercial.id_sociedad', '=', 'sociedad.id')
+            ->select($columnas);
 
-            $sociedades[] = $comercial->id_sociedad;
+        $comercial = Comercial::find($id_comercial);
 
+        if ($comercial && $comercial->responsable) {
             // Si es la sociedad admin, devolvemos TODOS los socios
             if ($comercial->id_sociedad == 1) { // Asumiendo ID 1 es admin, o usar constante si está disponible en este scope
-                $socios = Socio::join('socios_comerciales', 'socios.id', '=', 'socios_comerciales.id_socio')
-                    ->join('comercial', 'socios_comerciales.id_comercial', '=', 'comercial.id')
-                    ->join('sociedad', 'comercial.id_sociedad', '=', 'sociedad.id')
-                    ->select('socios.*', 'sociedad.nombre as nombre_sociedad')
-                    ->distinct() // Importante para no duplicar si un socio tiene múltiples comerciales
-                    ->get();
-                return $socios;
+                return $query->distinct()->get(); // distinct: no duplicar si un socio tiene múltiples comerciales
             }
 
-            $socios = Socio::join('socios_comerciales', 'socios.id', '=', 'socios_comerciales.id_socio')
-                ->join('comercial', 'socios_comerciales.id_comercial', '=', 'comercial.id')
-                ->join('sociedad', 'comercial.id_sociedad', '=', 'sociedad.id')
-                ->whereIn('comercial.id_sociedad', $sociedades)
-                ->select('socios.*', 'sociedad.nombre as nombre_sociedad')
-                ->get();
-        } else {
-            $socios = Socio::join('socios_comerciales', 'socios.id', '=', 'socios_comerciales.id_socio')
-                ->join('comercial', 'socios_comerciales.id_comercial', '=', 'comercial.id')
-                ->join('sociedad', 'comercial.id_sociedad', '=', 'sociedad.id')
-                ->where('socios_comerciales.id_comercial', $id_comercial)
-                ->select('socios.*', 'sociedad.nombre as nombre_sociedad')
-                ->get();
+            $sociedad = Sociedad::find($comercial->id_sociedad);
+            $sociedades = array_map(fn ($s) => $s->id, $sociedad->getSociedadesHijasDesde($comercial->id_sociedad));
+            $sociedades[] = $comercial->id_sociedad;
+
+            return $query->whereIn('comercial.id_sociedad', $sociedades)->get();
         }
 
-        return $socios;
+        return $query->where('socios_comerciales.id_comercial', $id_comercial)->get();
     }
 
     public function store(Request $request, $categoria_id)

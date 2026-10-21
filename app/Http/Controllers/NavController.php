@@ -84,12 +84,6 @@ class NavController extends Controller
             ->whereNull('tipo_producto_asociado')
             ->get();
 
-        // Coger TODOS los tipos de producto base activos (para los informes de administración)
-        $tiposProductoTodos = TipoProducto::activos()
-            ->whereNull('padre_id')
-            ->whereNull('tipo_producto_asociado')
-            ->get();
-
 
         $navegacion = [];
         $navegacion[] = [
@@ -156,10 +150,8 @@ class NavController extends Controller
                 "link" => "/socios"
             ]
         ];
-        // Si es admin (id 1), mostramos TODOS los tipos de producto en la gestión de productos
-        $productosParaMenu = ($id_sociedad == env('SOCIEDAD_ADMIN_ID', 1)) ? $tiposProductoTodos : $tiposProductoLinkeados;
-
-        $navegacion[2]["children"] = $productosParaMenu->map(function ($tipoProducto) {
+        // El menú Productos respeta el configurador de permisos también para el admin (id 1)
+        $navegacion[2]["children"] = $tiposProductoLinkeados->map(function ($tipoProducto) {
             return [
                 "label" => $tipoProducto->nombre,
                 "link" => "/operaciones/" . strtolower($tipoProducto->letras_identificacion)
