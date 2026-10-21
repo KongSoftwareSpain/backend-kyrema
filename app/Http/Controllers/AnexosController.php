@@ -139,6 +139,13 @@ class AnexosController extends Controller
 
                 // Agregar los campos dinámicos del formato
                 foreach ($formato as $key => $value) {
+                    // getAnexosPorProducto devuelve los datetime como "2026-10-19 18:37:54.000" y el
+                    // front los reenvía igual. Con espacio, SQL Server (DATEFORMAT dmy) lo lee como
+                    // año-día-mes y falla si el día es >12 ("valor fuera de intervalo"). Con "T" es
+                    // independiente del idioma, que es el formato que usa el resto del código.
+                    if (is_string($value) && preg_match('/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})(\.\d+)?$/', $value, $m)) {
+                        $value = $m[1] . 'T' . $m[2];
+                    }
                     $data[$key] = $value;
                 }
 

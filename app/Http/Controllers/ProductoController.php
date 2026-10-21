@@ -1730,20 +1730,19 @@ class ProductoController extends Controller
         }
 
         if ($tarifa) {
-            $caceriasSubproductIds = [10237, 10252, 223];
-            $caceriasSubproductLetras = ['PRODUCTO_C3', 'PRODUCTO_C6E', 'PRODUCTO_C6P'];
-            $esCaceriaConPuestos = in_array($tipoProductoReal->id, $caceriasSubproductIds)
-                || in_array($tipoProductoReal->letras_identificacion, $caceriasSubproductLetras);
-
             $precioBaseCalculado = (float) ($tarifa->precio_base ?? 0);
 
-            if ($esCaceriaConPuestos) {
-                // Recalcular base por opciones (ej: puestos o numero_de_puestos)
+            // Sumar al base el aumento de las opciones elegidas (ej: puestos en cacería,
+            // modalidades en rehalas...). Antes solo se hacía para 3 subproductos de cacería,
+            // así que al regenerar cualquier otro producto (o renovarlo) el precio volvía al base.
+            {
                 $opcionesPrecio = 0;
+                $tipoIdsCampos = array_filter([$tipoProductoReal->id, $parentReal->id ?? null]);
                 $camposConOpciones = DB::table('campos')
-                    ->where('tipo_producto_id', $tipoProductoReal->id)
+                    ->whereIn('tipo_producto_id', $tipoIdsCampos)
                     ->whereNotNull('opciones')
-                    ->get();
+                    ->get()
+                    ->unique(fn ($c) => $c->nombre_codigo ?: $c->nombre);
 
                 foreach ($camposConOpciones as $campo) {
                     $colName = $campo->nombre_codigo ? $campo->nombre_codigo : strtolower(str_replace(' ', '_', $campo->nombre));
@@ -1836,7 +1835,12 @@ class ProductoController extends Controller
                         ->where('tipo_producto_id', $tipoAnexo->id)
                         ->first();
 
-                    if ($tarifaAnexo) {
+                    // Si el anexo ya tiene precio (calculado al crearlo con escalados/opciones)
+                    // se respeta; la tarifa base solo rellena los anexos sin precio.
+                    $precioPropio = (float) ($anInst->precio_total ?? 0);
+                    if ($precioPropio > 0) {
+                        $sumaAnexos += $precioPropio;
+                    } elseif ($tarifaAnexo) {
                         $colsToUpdate = ['precio_base', 'extra_1', 'extra_2', 'extra_3', 'precio_total'];
                         foreach ($colsToUpdate as $col) {
                             if (Schema::hasColumn($tablaAnexo, $col)) {
