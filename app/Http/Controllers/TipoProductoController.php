@@ -123,6 +123,7 @@ class TipoProductoController extends Controller
             'campos_logos' => 'nullable|array',
             'acuerdo_kyrema' => 'nullable|integer',
             'nombre_unificado' => 'nullable|integer',
+            'renovable' => 'sometimes|boolean',
         ]);
 
         Log::info($request->all());
@@ -360,6 +361,7 @@ class TipoProductoController extends Controller
                 'tipo_duracion' => $subproducto->tipo_duracion,
                 'duracion' => $subproducto->duracion,
                 'estado' => $subproducto->estado,
+                'renovable' => $subproducto->renovable,
                 'anexos_bloqueados' => $anexosBloqueados[$subproducto->id] ?? [] // Si no hay anexos bloqueados, devolver un array vacío
             ];
         });

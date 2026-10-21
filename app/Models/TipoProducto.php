@@ -23,11 +23,40 @@ class TipoProducto extends Model
         'acuerdo_kyrema',
         'nombre_unificado',
         'estado',
+        'renovable',
     ];
 
     protected $casts = [
         'estado' => 'boolean',
+        'renovable' => 'boolean',
     ];
+
+    /**
+     * Flag 'renovable' de un producto padre y de sus subproductos, por id.
+     */
+    public static function mapaRenovable($padreId): array
+    {
+        return static::where('id', $padreId)
+            ->orWhere('padre_id', $padreId)
+            ->get(['id', 'renovable'])
+            ->mapWithKeys(fn ($tipo) => [(string) $tipo->id => (bool) ($tipo->renovable ?? true)])
+            ->all();
+    }
+
+    /**
+     * Si un registro de producto se renueva: manda el flag de su subproducto y,
+     * si no tiene o no se resuelve, el del padre. Ante la duda, renovable.
+     */
+    public static function registroRenovable(array $mapa, $padreId, $subproducto): bool
+    {
+        $subproducto = $subproducto === null ? '' : (string) $subproducto;
+
+        if ($subproducto !== '' && array_key_exists($subproducto, $mapa)) {
+            return $mapa[$subproducto];
+        }
+
+        return $mapa[(string) $padreId] ?? true;
+    }
 
     public function tarifas()
     {

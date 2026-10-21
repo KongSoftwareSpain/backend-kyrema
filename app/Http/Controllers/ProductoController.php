@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Config;
 use App\Models\Socio;
 use App\Models\Comercial;
 use App\Models\SocioProducto;
+use App\Models\TipoProducto;
 use App\Services\ReferenceService;
 use App\Support\Dni;
 use Illuminate\Support\Facades\Cache;
@@ -550,6 +551,10 @@ class ProductoController extends Controller
         if (in_array('renovado', $columnasBase)) {
             $select[] = "$nombreTabla.renovado";
         }
+        $tieneSubproductoId = in_array('subproducto', $columnasBase);
+        if ($tieneSubproductoId) {
+            $select[] = "$nombreTabla.subproducto";
+        }
 
         $hoy = Carbon::today();
         $limite = Carbon::today()->addDays($dias);
@@ -569,7 +574,12 @@ class ProductoController extends Controller
 
         $query->orderBy("$nombreTabla.fecha_de_fin", 'asc');
 
-        $productos = $query->get()->map(function ($producto) use ($hoy) {
+        // Los no renovables (cacerías...) no tienen que aparecer para renovar en paquete
+        $mapaRenovable = TipoProducto::mapaRenovable($tipoProducto->id);
+
+        $productos = $query->get()->filter(
+            fn ($p) => TipoProducto::registroRenovable($mapaRenovable, $tipoProducto->id, $p->subproducto ?? null)
+        )->values()->map(function ($producto) use ($hoy) {
             $producto->dias_restantes = (int) $hoy->diffInDays(Carbon::parse($producto->fecha_de_fin), false);
             return $producto;
         });
@@ -1164,6 +1174,8 @@ class ProductoController extends Controller
             ->where('padre_id', $tipoProducto->id)
             ->pluck('letras_identificacion', 'id');
 
+        $mapaRenovable = TipoProducto::mapaRenovable($tipoProducto->id);
+
         $renovados = [];
         $omitidos = [];
         $errores = [];
@@ -1196,6 +1208,10 @@ class ProductoController extends Controller
             }
             if (!empty($original->anulado) && $original->anulado != '0') {
                 $omitidos[] = ['id' => $id, 'codigo_producto' => $original->codigo_producto, 'motivo' => 'Producto anulado'];
+                continue;
+            }
+            if (!TipoProducto::registroRenovable($mapaRenovable, $tipoProducto->id, $original->subproducto ?? null)) {
+                $omitidos[] = ['id' => $id, 'codigo_producto' => $original->codigo_producto, 'motivo' => 'Producto no renovable'];
                 continue;
             }
             // Renovar dos veces la misma póliza crea una hija duplicada y, en giro

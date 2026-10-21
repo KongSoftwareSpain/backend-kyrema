@@ -76,6 +76,22 @@ class ProcessInsuranceRenewals extends Command
         $this->info("Proceso completado.");
     }
 
+    /**
+     * Descarta los productos cuyo tipo (o subproducto) está marcado como no renovable.
+     */
+    private function soloRenovables($productos, $tipo)
+    {
+        if ($productos->isEmpty()) {
+            return $productos;
+        }
+
+        $mapa = TipoProducto::mapaRenovable($tipo->id);
+
+        return $productos->filter(
+            fn ($p) => TipoProducto::registroRenovable($mapa, $tipo->id, $p->subproducto ?? null)
+        )->values();
+    }
+
     private function processPreRenewals($tableName, $tipo, $dateTarget)
     {
         // OBTENEMOS LOS PRODUCTOS QUE CADUCAN DENTRO DE 30 DIAS
@@ -88,6 +104,8 @@ class ProcessInsuranceRenewals extends Command
                     ->orWhere('anulado', false);
             })
             ->get();
+
+        $productsToNotify = $this->soloRenovables($productsToNotify, $tipo);
 
         $testEmail = $this->option('test-email');
 
@@ -133,7 +151,7 @@ class ProcessInsuranceRenewals extends Command
             });
         }
 
-        $productsToRenew = $query->get();
+        $productsToRenew = $this->soloRenovables($query->get(), $tipo);
 
         $testEmail = $this->option('test-email');
 
