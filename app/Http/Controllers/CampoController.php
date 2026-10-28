@@ -121,61 +121,54 @@ class CampoController extends Controller
     {
         DB::beginTransaction();
         try {
-            $campoData = $request->all();
-            $campoData['tipo_producto_id'] = $id_tipo_producto;
-            
-            if (isset($campoData['id']) && $campoData['id']) {
-                $campo = Campos::find($campoData['id']);
-                if ($campo) {
-                    unset($campoData['created_at'], $campoData['updated_at']);
-                    $opcionesFront = $campoData['opciones'] ?? [];
-                    unset($campoData['opciones']);
-                    $campo->update($campoData);
+            $campo = $this->crearCampoConOpciones($request->all(), $id_tipo_producto);
 
-                    if (is_array($opcionesFront) && $campo->opciones && Schema::hasTable($campo->opciones)) {
-                        $tablaOpciones = $campo->opciones;
-                        $opcionesIds = [];
-                        foreach ($opcionesFront as $opcionData) {
-                            if (isset($opcionData['nombre']) && $opcionData['nombre'] !== '') {
-                                if (isset($opcionData['id']) && $opcionData['id']) {
-                                    DB::table($tablaOpciones)->where('id', $opcionData['id'])->update([
-                                        'nombre' => $opcionData['nombre'],
-                                        'precio' => $opcionData['precio'] ?? null,
-                                    ]);
-                                    $opcionesIds[] = $opcionData['id'];
-                                } else {
-                                    $insertedId = DB::table($tablaOpciones)->insertGetId([
-                                        'nombre' => $opcionData['nombre'],
-                                        'precio' => $opcionData['precio'] ?? null,
-                                    ]);
-                                    $opcionesIds[] = $insertedId;
-                                }
+            DB::commit();
+
+            return response()->json($campo, 201);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Crea (o actualiza si trae id) un campo con su tabla de opciones.
+     * No gestiona transacción: la abre quien lo llama.
+     */
+    public function crearCampoConOpciones(array $campoData, $id_tipo_producto)
+    {
+        $campoData['tipo_producto_id'] = $id_tipo_producto;
+
+        if (isset($campoData['id']) && $campoData['id']) {
+            $campo = Campos::find($campoData['id']);
+            if ($campo) {
+                unset($campoData['created_at'], $campoData['updated_at']);
+                $opcionesFront = $campoData['opciones'] ?? [];
+                unset($campoData['opciones']);
+                $campo->update($campoData);
+
+                if (is_array($opcionesFront) && $campo->opciones && Schema::hasTable($campo->opciones)) {
+                    $tablaOpciones = $campo->opciones;
+                    $opcionesIds = [];
+                    foreach ($opcionesFront as $opcionData) {
+                        if (isset($opcionData['nombre']) && $opcionData['nombre'] !== '') {
+                            if (isset($opcionData['id']) && $opcionData['id']) {
+                                DB::table($tablaOpciones)->where('id', $opcionData['id'])->update([
+                                    'nombre' => $opcionData['nombre'],
+                                    'precio' => $opcionData['precio'] ?? null,
+                                ]);
+                                $opcionesIds[] = $opcionData['id'];
+                            } else {
+                                $insertedId = DB::table($tablaOpciones)->insertGetId([
+                                    'nombre' => $opcionData['nombre'],
+                                    'precio' => $opcionData['precio'] ?? null,
+                                ]);
+                                $opcionesIds[] = $insertedId;
                             }
                         }
-                        DB::table($tablaOpciones)->whereNotIn('id', $opcionesIds)->delete();
                     }
-                } else {
-                    unset($campoData['created_at'], $campoData['updated_at']);
-                    $opcionesFront = $campoData['opciones'] ?? [];
-                    unset($campoData['opciones']);
-
-                    $nombreTabla = 'opc_' . substr(md5(uniqid()), 0, 8);
-                    Schema::create($nombreTabla, function ($table) {
-                        $table->id();
-                        $table->string('nombre');
-                        $table->decimal('precio', 10, 2)->nullable();
-                    });
-                    $campoData['opciones'] = $nombreTabla;
-                    $campo = Campos::create($campoData);
-
-                    foreach ($opcionesFront as $opcion) {
-                        if (isset($opcion['nombre']) && $opcion['nombre'] !== '') {
-                            DB::table($nombreTabla)->insert([
-                                'nombre' => $opcion['nombre'],
-                                'precio' => $opcion['precio'] ?? null,
-                            ]);
-                        }
-                    }
+                    DB::table($tablaOpciones)->whereNotIn('id', $opcionesIds)->delete();
                 }
             } else {
                 unset($campoData['created_at'], $campoData['updated_at']);
@@ -200,25 +193,37 @@ class CampoController extends Controller
                     }
                 }
             }
+        } else {
+            unset($campoData['created_at'], $campoData['updated_at']);
+            $opcionesFront = $campoData['opciones'] ?? [];
+            unset($campoData['opciones']);
 
-            DB::commit();
-            
-            $opciones = [];
-            if ($campo->opciones && Schema::hasTable($campo->opciones)) {
-                $opciones = DB::table($campo->opciones)->get();
+            $nombreTabla = 'opc_' . substr(md5(uniqid()), 0, 8);
+            Schema::create($nombreTabla, function ($table) {
+                $table->id();
+                $table->string('nombre');
+                $table->decimal('precio', 10, 2)->nullable();
+            });
+            $campoData['opciones'] = $nombreTabla;
+            $campo = Campos::create($campoData);
+
+            foreach ($opcionesFront as $opcion) {
+                if (isset($opcion['nombre']) && $opcion['nombre'] !== '') {
+                    DB::table($nombreTabla)->insert([
+                        'nombre' => $opcion['nombre'],
+                        'precio' => $opcion['precio'] ?? null,
+                    ]);
+                }
             }
-            $campo->setAttribute('opciones', $opciones);
-            
-            return response()->json($campo, 201);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json(['error' => $e->getMessage()], 500);
         }
-    }
 
-    public function createCampoConOpciones(Request $request, $id_tipo_producto)
-    {
-        return $this->createCampoConOpcionesHTTP($request, $id_tipo_producto);
+        $opciones = [];
+        if ($campo->opciones && Schema::hasTable($campo->opciones)) {
+            $opciones = DB::table($campo->opciones)->get();
+        }
+        $campo->setAttribute('opciones', $opciones);
+
+        return $campo;
     }
 
     public function updateCampoConOpciones(Request $request, $id)

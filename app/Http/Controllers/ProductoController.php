@@ -323,7 +323,7 @@ class ProductoController extends Controller
             foreach ($camposConOpciones as $campoConOpciones) {
                 $campoController = new CampoController();
 
-                $campoController->createCampoConOpciones($campoConOpciones, $tipoProductoId);
+                $campoController->crearCampoConOpciones($campoConOpciones, $tipoProductoId);
             }
 
             DB::commit();
@@ -331,7 +331,7 @@ class ProductoController extends Controller
                 'message' => 'Producto creado con éxito',
                 'id' => $tipoProductoId
             ], 200);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             DB::rollBack();
             return response()->json(['error' => 'Error al crear el tipo de producto', 'message' => $e->getMessage()], 500);
         }
