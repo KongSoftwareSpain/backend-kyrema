@@ -321,6 +321,9 @@ class SociedadController extends Controller
             }
         }
 
+        // getTiposProductoPorSociedad cachea esta lista 5 min; sin esto se sirven permisos antiguos
+        Cache::forget("tipos_producto_sociedad_{$sociedad->id}");
+
         return response()->json(['message' => 'Permisos actualizados con éxito', 'sociedad' => $sociedad], 200);
     }
 
