@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ResuelveMapeosMigracion;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -9,6 +10,8 @@ use Illuminate\Support\Facades\Cache;
 
 class MigrarSegurosNaturaleza extends Command
 {
+    use ResuelveMapeosMigracion;
+
     protected $signature = 'migrate:seguros-naturaleza 
                             {--limit= : Número máximo de registros a migrar}
                             {--offset=0 : Desde qué registro empezar}
@@ -17,6 +20,7 @@ class MigrarSegurosNaturaleza extends Command
                             {--force : Forzar migración sin confirmación}
                             {--rebuild-map : Reconstruir mapeo de comerciales y socios}
                             {--default-comercial=1 : ID comercial por defecto para no mapeados}
+                            {--corte=2026-10-20 : Solo seguros vigentes a esta fecha (expiration_date >= corte). Sin histórico}
                             {--estrategia-precio=equitativa : Estrategia de precio: equitativa|fija|proporcional}';
 
     protected $description = 'Migrar registros de seguro_naturaleza a producto_smk y seguro_naturaleza_perros a anexos_peas';
@@ -94,6 +98,7 @@ class MigrarSegurosNaturaleza extends Command
         $totalSeguros = DB::connection($oldConnection)
             ->table('seguro_naturaleza')
             ->where('borrado', 0)
+            ->where('expiration_date', '>=', $this->option('corte') . ' 00:00:00')
             ->count();
 
         $totalPerros = DB::connection($oldConnection)
@@ -135,6 +140,7 @@ class MigrarSegurosNaturaleza extends Command
         $query = DB::connection($oldConnection)
             ->table('seguro_naturaleza')
             ->where('borrado', 0)
+            ->where('expiration_date', '>=', $this->option('corte') . ' 00:00:00')
             ->orderBy('id_seguro');
 
         if ($this->option('offset')) {
@@ -326,23 +332,9 @@ class MigrarSegurosNaturaleza extends Command
         $this->info('🔍 Construyendo mapeo de sociedades...');
 
         try {
-            $sociedadesAntiguas = DB::connection('mysql')->table('sociedades')->get();
-            $sociedadesNuevas = DB::connection('sqlsrv')->table('sociedad')->get();
-
-            $mapeados = 0;
-
-            foreach ($sociedadesAntiguas as $antigua) {
-                foreach ($sociedadesNuevas as $nueva) {
-                    $nombreAntiguo = strtolower(trim($antigua->nombre ?? ''));
-                    $nombreNuevo = strtolower(trim($nueva->nombre ?? ''));
-
-                    if ($nombreAntiguo && $nombreAntiguo === $nombreNuevo) {
-                        $this->mapeoSociedades[$antigua->id_sociedad] = $nueva->id;
-                        $mapeados++;
-                        break;
-                    }
-                }
-            }
+            // Por codigo_sociedad y, si no, por nombre sin acentos (ver ResuelveMapeosMigracion)
+            $this->mapeoSociedades = $this->mapearSociedadesPorCodigoYNombre();
+            $mapeados = count($this->mapeoSociedades);
 
             $this->info("✅ Sociedades mapeadas: {$mapeados}");
         } catch (\Exception $e) {
@@ -357,7 +349,13 @@ class MigrarSegurosNaturaleza extends Command
     {
         $sociedadId = $this->obtenerSociedadNuevaId($seguro->id_sociedad);
         $socioId = $this->obtenerSocioNuevoId($seguro->id_socio);
-        $comercialId = (int) $this->option('default-comercial'); // NO mapea desde id_dominio_emision
+        // Naturaleza no guarda emisor: comercial responsable de la sociedad del seguro (si no, el historial del
+        // comercial de la sociedad no lo encuentra, porque se consulta por comercial_id)
+        $comercial = $this->resolverComercialPorSociedad(null, $seguro->id_sociedad, $this->mapeoSociedades);
+        $comercialId = $comercial ? $comercial['id'] : (int) $this->option('default-comercial');
+        if (!$comercial) {
+            $this->stats['sin_comercial']++;
+        }
 
         // Obtener datos del socio
         $datosSocio = $this->obtenerDatosSocio($socioId);
@@ -386,7 +384,7 @@ class MigrarSegurosNaturaleza extends Command
             'tipo_de_pago' => $this->mapearTipoPago($seguro->id_tipopago),
             'comercial_id' => $comercialId,
             'comercial_creador_id' => $comercialId,
-            'comercial' => $this->obtenerNombreComercial(null), // Siempre "Sistema"
+            'comercial' => $this->obtenerNombreComercial($comercialId),
             'mediante_pagina_web' => $seguro->id_origen_emision === 1,
             'socio_id' => $socioId,
             'anulado' => false,
@@ -416,7 +414,7 @@ class MigrarSegurosNaturaleza extends Command
             'telefono' => $datosSocio->telefono ?? null,
             'sexo' => $datosSocio->sexo ?? '',
             'dirección' => $datosSocio->direccion ?? null,
-            'codigo_postal' => $datosSocio->codigo_postal ?? null,
+            'codigo_postal' => $this->codigoPostalEntero($datosSocio->codigo_postal ?? null),
             'población' => $datosSocio->poblacion ?? null,
             'provincia' => $datosSocio->provincia ?? null,
 
@@ -659,10 +657,11 @@ class MigrarSegurosNaturaleza extends Command
         return 1;
     }
 
-    private function obtenerNombreComercial(?int $idUserAntiguo): string
+    private function obtenerNombreComercial(int $comercialNuevoId): string
     {
-        // id_dominio_emision NO mapea a comercial, siempre retorna "Sistema"
-        return 'Sistema';
+        $nombre = DB::connection('sqlsrv')->table('comercial')->where('id', $comercialNuevoId)->value('nombre');
+
+        return $nombre ?: 'Sistema';
     }
 
     private function obtenerDatosSocio(?int $socioId): ?object
@@ -792,6 +791,7 @@ class MigrarSegurosNaturaleza extends Command
         $ejemplos = DB::connection($connection)
             ->table('seguro_naturaleza')
             ->where('borrado', 0)
+            ->where('expiration_date', '>=', $this->option('corte') . ' 00:00:00')
             ->limit(3)
             ->get();
 

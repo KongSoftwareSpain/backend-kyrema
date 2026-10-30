@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ResuelveMapeosMigracion;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -9,6 +10,8 @@ use Illuminate\Support\Facades\Cache;
 
 class MigrarSegurosCaceria extends Command
 {
+    use ResuelveMapeosMigracion;
+
     protected $signature = 'migrate:seguros-caceria 
                             {--limit= : Número máximo de registros a migrar}
                             {--offset=0 : Desde qué registro empezar}
@@ -16,7 +19,9 @@ class MigrarSegurosCaceria extends Command
                             {--dry-run : Muestra 5 ejemplos sin insertar}
                             {--force : Forzar migración sin confirmación}
                             {--rebuild-map : Reconstruir mapeo de comerciales y socios}
-                            {--default-comercial=1 : ID comercial por defecto para no mapeados}';
+                            {--default-comercial=1 : ID comercial por defecto para no mapeados}
+                            {--corte=2026-10-20 : Solo cacerías con dia_celebracion >= corte (sin histórico)}
+                            {--hasta= : Fecha máxima de celebración (por defecto corte + 1 año; deja fuera las fechas absurdas 2029-2205)}';
 
     protected $description = 'Migrar registros de seguro_cacerias a producto_c';
 
@@ -90,6 +95,8 @@ class MigrarSegurosCaceria extends Command
         $totalRegistros = DB::connection($oldConnection)
             ->table('seguro_cacerias')
             ->where('borrado', 0)
+            ->where('dia_celebracion', '>=', $this->option('corte') . ' 00:00:00')
+            ->where('dia_celebracion', '<=', $this->celebracionMaxima())
             ->count();
 
         $this->stats['total'] = $totalRegistros;
@@ -121,6 +128,8 @@ class MigrarSegurosCaceria extends Command
         $query = DB::connection($oldConnection)
             ->table('seguro_cacerias')
             ->where('borrado', 0)
+            ->where('dia_celebracion', '>=', $this->option('corte') . ' 00:00:00')
+            ->where('dia_celebracion', '<=', $this->celebracionMaxima())
             ->orderBy('id_seguro_caceria');
 
         if ($this->option('offset')) {
@@ -427,6 +436,8 @@ class MigrarSegurosCaceria extends Command
         $ejemplos = DB::connection($connection)
             ->table('seguro_cacerias')
             ->where('borrado', 0)
+            ->where('dia_celebracion', '>=', $this->option('corte') . ' 00:00:00')
+            ->where('dia_celebracion', '<=', $this->celebracionMaxima())
             ->limit(5)
             ->get();
 
@@ -551,35 +562,15 @@ class MigrarSegurosCaceria extends Command
         $this->info('🔍 Construyendo mapeo de sociedades (por NOMBRE)...');
 
         try {
-            $sociedadesAntiguas = DB::connection('mysql')
-                ->table('sociedades')
-                ->get();
+            // Por codigo_sociedad y, si no, por nombre sin acentos (ver ResuelveMapeosMigracion)
+            $this->mapeoSociedades = $this->mapearSociedadesPorCodigoYNombre();
+            $mapeados = count($this->mapeoSociedades);
+            $totalAntiguas = DB::connection('mysql')->table('sociedades')->count();
 
-            $sociedadesNuevas = DB::connection('sqlsrv')
-                ->table('sociedad')
-                ->get();
-
-            $mapeados = 0;
-
-            // Mapear por nombre (más confiable que por ID)
-            foreach ($sociedadesAntiguas as $antigua) {
-                foreach ($sociedadesNuevas as $nueva) {
-                    // Normalizar nombres para comparar
-                    $nombreAntiguo = strtolower(trim($antigua->nombre ?? ''));
-                    $nombreNuevo = strtolower(trim($nueva->nombre ?? ''));
-
-                    if ($nombreAntiguo && $nombreAntiguo === $nombreNuevo) {
-                        $this->mapeoSociedades[$antigua->id_sociedad] = $nueva->id;
-                        $mapeados++;
-                        break;
-                    }
-                }
-            }
-
-            $this->info("✅ Sociedades mapeadas: {$mapeados} / {$sociedadesAntiguas->count()}");
+            $this->info("✅ Sociedades mapeadas: {$mapeados} / {$totalAntiguas}");
 
             // Advertir si hay sociedades sin mapear
-            $noMapeadas = $sociedadesAntiguas->count() - $mapeados;
+            $noMapeadas = $totalAntiguas - $mapeados;
             if ($noMapeadas > 0) {
                 $this->warn("⚠️  {$noMapeadas} sociedades sin mapear - se usará ID 1 por defecto");
             }
@@ -677,14 +668,12 @@ class MigrarSegurosCaceria extends Command
     /**
      * Obtener ID del comercial nuevo
      */
-    private function obtenerComercialNuevoId(?int $idUserAntiguo): int
+    private function obtenerComercialNuevoId(?int $idEmisor, ?int $idSociedadSeguro = null): int
     {
-        if (!$idUserAntiguo) {
-            return (int) $this->option('default-comercial');
-        }
-
-        if (isset($this->mapeoComerciales[$idUserAntiguo])) {
-            return $this->mapeoComerciales[$idUserAntiguo]['nuevo_id'];
+        // En la antigua `id_emisor` es la sociedad emisora; ver ResuelveMapeosMigracion
+        $comercial = $this->resolverComercialPorSociedad($idEmisor, $idSociedadSeguro, $this->mapeoSociedades);
+        if ($comercial) {
+            return $comercial['id'];
         }
 
         $this->stats['sin_comercial']++;
@@ -736,17 +725,23 @@ class MigrarSegurosCaceria extends Command
     /**
      * Obtener nombre del comercial
      */
-    private function obtenerNombreComercial(?int $idUserAntiguo): string
+    private function obtenerNombreComercial(int $comercialNuevoId): string
     {
-        if (!$idUserAntiguo) {
-            return 'Sistema';
-        }
+        $nombre = DB::connection('sqlsrv')->table('comercial')->where('id', $comercialNuevoId)->value('nombre');
 
-        if (isset($this->mapeoComerciales[$idUserAntiguo])) {
-            return $this->mapeoComerciales[$idUserAntiguo]['nombre'] ?? 'Sistema';
-        }
+        return $nombre ?: 'Sistema';
+    }
 
-        return 'Sistema';
+    /**
+     * Una cacería futura legítima se celebra en meses; las de 2029 a 2205 son errores de captura y se dejan fuera.
+     */
+    private function celebracionMaxima(): string
+    {
+        $hasta = $this->option('hasta')
+            ? \Carbon\Carbon::parse($this->option('hasta'))
+            : \Carbon\Carbon::parse($this->option('corte'))->addYear();
+
+        return $hasta->format('Y-m-d') . ' 23:59:59';
     }
 
     private function yaExiste(string $codigoProducto, string $connection): bool
@@ -759,8 +754,7 @@ class MigrarSegurosCaceria extends Command
 
     private function transformarDatos($seguro): array
     {
-        $idUserAntiguo = $seguro->id_emisor;
-        $comercialId = $this->obtenerComercialNuevoId($idUserAntiguo);
+        $comercialId = $this->obtenerComercialNuevoId($seguro->id_emisor, $seguro->id_sociedad);
         $sociedadId = $this->obtenerSociedadNuevaId($seguro->id_sociedad);
         $socioId = $this->obtenerSocioIdPorDNI($seguro->dni_cif_organizador);
 
@@ -800,7 +794,7 @@ class MigrarSegurosCaceria extends Command
             // Comercial
             'comercial_id' => $comercialId,
             'comercial_creador_id' => $comercialId,
-            'comercial' => $this->obtenerNombreComercial($idUserAntiguo),
+            'comercial' => $this->obtenerNombreComercial($comercialId),
             'mediante_pagina_web' => $seguro->id_origen_emision === 1,
 
             // Certificado

@@ -13,7 +13,9 @@ class MigrarAnexosCombinados extends Command
      *
      * @var string
      */
-    protected $signature = 'migrate:anexos-combinados';
+    protected $signature = 'migrate:anexos-combinados
+                            {--corte=2026-10-20 : Solo anexos de seguros vigentes a esta fecha (expiration_date >= corte)}
+                            {--dry-run : Cuenta lo que se insertaría sin escribir nada}';
 
     /**
      * The console command description.
@@ -64,6 +66,10 @@ class MigrarAnexosCombinados extends Command
         $segurosOld = DB::connection($oldConnection)
             ->table('seguros_combinados')
             ->join('socios', 'seguros_combinados.id_socio', '=', 'socios.id_socio')
+            // Solo seguros vigentes a la fecha de corte (los anexos de los demás se saltan en el bucle: no hay $oldSeguro)
+            ->where('seguros_combinados.borrado', 0)
+            ->where('seguros_combinados.finalizado', 0)
+            ->where('seguros_combinados.expiration_date', '>=', $this->option('corte') . ' 00:00:00')
             ->select('seguros_combinados.*', 'socios.dni as socio_dni')
             ->get()
             ->keyBy('id_seguro');
@@ -106,6 +112,11 @@ class MigrarAnexosCombinados extends Command
                 ->exists();
                 
             if ($exists) continue;
+
+            if ($this->option('dry-run')) {
+                $migradosAcompaniantes++;
+                continue;
+            }
 
             $fechaStr = $this->sanitizeDate($ac->fecha_nacimiento);
 
@@ -160,6 +171,11 @@ class MigrarAnexosCombinados extends Command
                 ->exists();
                 
             if ($exists) continue;
+
+            if ($this->option('dry-run')) {
+                $migradosPerros++;
+                continue;
+            }
 
             DB::connection($newConnection)->table('anexos_ap')->insert([
                 'producto_id' => $newProducto->id,

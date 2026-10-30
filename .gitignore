@@ -5,6 +5,9 @@
 /public/storage
 /storage/*.key
 /vendor
+/storage/app/fusion/
+
+
 # Ignorar todos los archivos en /storage/app/public/temp/
 storage/app/public/temp/*
 
@@ -22,3 +25,5 @@ yarn-error.log
 /.fleet
 /.idea
 /.vscode
+.env.pruebas
+.env.fusion

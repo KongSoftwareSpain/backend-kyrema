@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ResuelveMapeosMigracion;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -9,6 +10,8 @@ use Illuminate\Support\Facades\Cache;
 
 class MigrarSegurosCombinadosK extends Command
 {
+    use ResuelveMapeosMigracion;
+
     protected $signature = 'migrate:seguros-combinados 
                             {--limit= : Número máximo de registros a migrar}
                             {--offset=0 : Desde qué registro empezar}
@@ -17,7 +20,9 @@ class MigrarSegurosCombinadosK extends Command
                             {--force : Forzar migración sin confirmación}
                             {--rebuild-map : Reconstruir mapeo de comerciales, socios y productos}
                             {--default-comercial=1 : ID comercial por defecto para no mapeados}
-                            {--sociedad-id= : Filtrar solo por este id_sociedad en MySQL (ej: 90 para ArabaCaza)}';
+                            {--sociedad-id= : Filtrar solo por este id_sociedad en MySQL (ej: 90 para ArabaCaza)}
+                            {--corte=2026-10-20 : Solo seguros vigentes a esta fecha (expiration_date >= corte). Sin histórico}
+                            {--permitir-incompletos : Insertar también seguros sin socio, sin producto o con sociedad sin pareja (por defecto se omiten y se informan)}';
 
     protected $description = 'Migrar registros de seguros_combinados a producto_k (solo borrado=0 Y finalizado=0)';
 
@@ -28,6 +33,7 @@ class MigrarSegurosCombinadosK extends Command
         'migrados' => 0,
         'errores' => 0,
         'saltados' => 0,
+        'omitidos' => 0,
         'sin_comercial' => 0,
         'sociedades_no_mapeadas' => 0,
         'socios_no_encontrados' => 0,
@@ -53,6 +59,27 @@ class MigrarSegurosCombinadosK extends Command
     private $mapeoSociedades = [];
     private $mapeoSociosPorId = [];
     private $mapeoProductos = [];
+
+    private $omitidos = [];
+
+    /**
+     * Seguros de origen que entran en la migración: no borrados, no finalizados
+     * y vigentes a la fecha de corte.
+     */
+    private function queryOrigen(string $connection)
+    {
+        $q = DB::connection($connection)
+            ->table('seguros_combinados')
+            ->where('borrado', 0)
+            ->where('finalizado', 0)
+            ->where('expiration_date', '>=', $this->option('corte') . ' 00:00:00');
+
+        if ($this->option('sociedad-id')) {
+            $q->where('id_sociedad', (int) $this->option('sociedad-id'));
+        }
+
+        return $q;
+    }
 
     public function handle()
     {
@@ -95,16 +122,8 @@ class MigrarSegurosCombinadosK extends Command
         }
 
         // Contar registros totales CON EL FILTRO CORRECTO
-        $queryBase = DB::connection($oldConnection)
-            ->table('seguros_combinados')
-            ->where('borrado', 0)
-            ->where('finalizado', 0); // ← FILTRO
-
-        if ($sociedadId) {
-            $queryBase->where('id_sociedad', $sociedadId);
-        }
-
-        $totalRegistros = $queryBase->count();
+        $this->warn("   Solo vigentes a {$this->option('corte')} (expiration_date >= corte), sin histórico");
+        $totalRegistros = $this->queryOrigen($oldConnection)->count();
 
         $this->stats['total'] = $totalRegistros;
         $this->info("📊 Total de registros a migrar (borrado=0 Y finalizado=0): {$totalRegistros}");
@@ -147,15 +166,7 @@ class MigrarSegurosCombinadosK extends Command
         $bar->start();
 
         // Obtener registros CON EL FILTRO CORRECTO
-        $query = DB::connection($oldConnection)
-            ->table('seguros_combinados')
-            ->where('borrado', 0)
-            ->where('finalizado', 0) // ← FILTRO
-            ->orderBy('id_seguro');
-
-        if ($sociedadId) {
-            $query->where('id_sociedad', $sociedadId);
-        }
+        $query = $this->queryOrigen($oldConnection)->orderBy('id_seguro');
 
         if ($this->option('offset')) {
             $query->skip($this->option('offset'));
@@ -173,6 +184,23 @@ class MigrarSegurosCombinadosK extends Command
                 if ($this->yaExiste($seguro->poliza_seguro, $newConnection)) {
                     $this->stats['saltados']++;
                     Log::channel($this->logChannel)->info("⏭️  Saltado (ya existe): ID {$seguro->id_seguro} - {$seguro->poliza_seguro}");
+                    $bar->advance();
+                    continue;
+                }
+
+                // Sin socio, sin producto o sin sociedad pareja: no se inserta (queda en el informe de omitidos)
+                $motivoOmision = $this->motivoOmision($seguro);
+                if ($motivoOmision && !$this->option('permitir-incompletos')) {
+                    $this->stats['omitidos'] = ($this->stats['omitidos'] ?? 0) + 1;
+                    $this->omitidos[] = [
+                        'id_seguro' => $seguro->id_seguro,
+                        'poliza' => $seguro->poliza_seguro,
+                        'id_socio' => $seguro->id_socio,
+                        'id_sociedad' => $seguro->id_sociedad,
+                        'id_producto' => $seguro->id_producto,
+                        'motivo' => $motivoOmision,
+                    ];
+                    Log::channel($this->logChannel)->warning("⛔ Omitido ({$motivoOmision}): ID {$seguro->id_seguro} - {$seguro->poliza_seguro}");
                     $bar->advance();
                     continue;
                 }
@@ -224,6 +252,7 @@ class MigrarSegurosCombinadosK extends Command
         $bar->finish();
         $this->newLine(2);
 
+        $this->escribirInformeOmitidos();
         $this->mostrarEstadisticas();
         $this->generarReporteAnomalias();
 
@@ -399,14 +428,8 @@ class MigrarSegurosCombinadosK extends Command
      */
     private function construirMapeoSociosPorId(): void
     {
+        // Sin caché: tras `transfer:socios` el mapeo cambia y una caché de 24 h dejaría los socios nuevos sin mapear.
         $cacheKey = 'mapeo_socios_id_combinados_v1';
-
-        if (!$this->option('rebuild-map') && Cache::has($cacheKey)) {
-            $this->mapeoSociosPorId = Cache::get($cacheKey);
-            $this->info("✅ Mapeo de socios cargado desde caché (" . count($this->mapeoSociosPorId) . " socios)");
-            Log::channel($this->logChannel)->info("Mapeo de socios cargado desde caché: " . count($this->mapeoSociosPorId) . " socios");
-            return;
-        }
 
         $this->info('🔍 Construyendo mapeo de socios por DNI...');
         Log::channel($this->logChannel)->info('Iniciando construcción de mapeo de socios por DNI');
@@ -522,22 +545,9 @@ class MigrarSegurosCombinadosK extends Command
             Log::channel($this->logChannel)->info("Sociedades antiguas: " . $sociedadesAntiguas->count());
             Log::channel($this->logChannel)->info("Sociedades nuevas: " . $sociedadesNuevas->count());
 
-            $mapeados = 0;
-
-            foreach ($sociedadesAntiguas as $antigua) {
-                foreach ($sociedadesNuevas as $nueva) {
-                    $nombreAntiguo = strtolower(trim($antigua->nombre ?? ''));
-                    $nombreNuevo = strtolower(trim($nueva->nombre ?? ''));
-
-                    if ($nombreAntiguo && $nombreAntiguo === $nombreNuevo) {
-                        $this->mapeoSociedades[$antigua->id_sociedad] = $nueva->id;
-                        $mapeados++;
-
-                        Log::channel($this->logChannel)->debug("Sociedad mapeada: ID {$antigua->id_sociedad} '{$antigua->nombre}' → ID {$nueva->id}");
-                        break;
-                    }
-                }
-            }
+            // Por codigo_sociedad y, si no, por nombre sin acentos (ver ResuelveMapeosMigracion)
+            $this->mapeoSociedades = $this->mapearSociedadesPorCodigoYNombre();
+            $mapeados = count($this->mapeoSociedades);
 
             $this->info("✅ Sociedades mapeadas: {$mapeados}");
             Log::channel($this->logChannel)->info("Mapeo de sociedades completado: {$mapeados} mapeadas");
@@ -549,7 +559,7 @@ class MigrarSegurosCombinadosK extends Command
 
     private function transformarDatos($seguro): array
     {
-        $comercialId = $this->obtenerComercialNuevoId($seguro->id_emisor);
+        $comercialId = $this->obtenerComercialNuevoId($seguro->id_emisor, $seguro->id_sociedad);
         $sociedadId = $this->obtenerSociedadNuevaId($seguro->id_sociedad);
         $socioId = $this->obtenerSocioNuevoId($seguro->id_socio);
 
@@ -608,7 +618,7 @@ class MigrarSegurosCombinadosK extends Command
             'tipo_de_pago' => $this->mapearTipoPago($seguro->id_tipopago),
             'comercial_id' => $comercialId,
             'comercial_creador_id' => $comercialId,
-            'comercial' => $this->obtenerNombreComercial($seguro->id_emisor),
+            'comercial' => $this->obtenerNombreComercial($comercialId),
             'mediante_pagina_web' => $seguro->id_origen_emision === 1,
             'socio_id' => $socioId,
             'anulado' => (bool) $seguro->cancelado,
@@ -741,19 +751,58 @@ class MigrarSegurosCombinadosK extends Command
         return null;
     }
 
-    private function obtenerComercialNuevoId(?int $idUserAntiguo): int
+    /**
+     * En la antigua `id_emisor` es el id de la SOCIEDAD emisora (no de `users`).
+     * Si viene vacío (compras web) se usa la sociedad del propio seguro.
+     * El comercial es el responsable de esa sociedad en la nueva, igual que en las migraciones anteriores.
+     */
+    private function obtenerComercialNuevoId(?int $idEmisorAntiguo, ?int $idSociedadSeguro = null): int
     {
-        if (!$idUserAntiguo) {
-            return (int) $this->option('default-comercial');
-        }
-
-        if (isset($this->mapeoComerciales[$idUserAntiguo])) {
-            return $this->mapeoComerciales[$idUserAntiguo]['nuevo_id'];
+        $comercial = $this->resolverComercialPorSociedad($idEmisorAntiguo, $idSociedadSeguro, $this->mapeoSociedades);
+        if ($comercial) {
+            return $comercial['id'];
         }
 
         $this->stats['sin_comercial']++;
-        Log::channel($this->logChannel)->debug("Comercial no encontrado: ID antiguo {$idUserAntiguo}, usando por defecto");
+        Log::channel($this->logChannel)->debug("Comercial no encontrado: emisor {$idEmisorAntiguo} / sociedad {$idSociedadSeguro}, usando por defecto");
         return (int) $this->option('default-comercial');
+    }
+
+    /**
+     * Devuelve el motivo por el que un seguro no se puede insertar completo, o null si está bien.
+     */
+    private function motivoOmision($seguro): ?string
+    {
+        $motivos = [];
+
+        if (!isset($this->mapeoSociedades[$seguro->id_sociedad])) {
+            $motivos[] = 'sociedad_sin_pareja';
+        }
+        if (!isset($this->mapeoProductos[$seguro->id_producto])) {
+            $motivos[] = 'producto_sin_equivalente';
+        }
+        if (!$seguro->id_socio || !isset($this->mapeoSociosPorId[$seguro->id_socio])) {
+            $motivos[] = 'socio_no_existe_en_nueva';
+        }
+
+        return $motivos ? implode('+', $motivos) : null;
+    }
+
+    private function escribirInformeOmitidos(): void
+    {
+        if (empty($this->omitidos)) {
+            return;
+        }
+
+        $ruta = storage_path('logs/migracion_combinados_omitidos.csv');
+        $fh = fopen($ruta, 'w');
+        fputcsv($fh, array_keys($this->omitidos[0]), ';');
+        foreach ($this->omitidos as $fila) {
+            fputcsv($fh, $fila, ';');
+        }
+        fclose($fh);
+
+        $this->warn("⛔ {$this->stats['omitidos']} seguros omitidos. Detalle en: {$ruta}");
     }
 
     private function obtenerSociedadNuevaId(?int $idSociedadAntigua): int
@@ -771,17 +820,11 @@ class MigrarSegurosCombinadosK extends Command
         return 1;
     }
 
-    private function obtenerNombreComercial(?int $idUserAntiguo): string
+    private function obtenerNombreComercial(int $comercialNuevoId): string
     {
-        if (!$idUserAntiguo) {
-            return 'Sistema';
-        }
+        $nombre = DB::connection('sqlsrv')->table('comercial')->where('id', $comercialNuevoId)->value('nombre');
 
-        if (isset($this->mapeoComerciales[$idUserAntiguo])) {
-            return $this->mapeoComerciales[$idUserAntiguo]['nombre'] ?? 'Sistema';
-        }
-
-        return 'Sistema';
+        return $nombre ?: 'Sistema';
     }
 
     private function obtenerDatosSocio(?int $socioId): ?object
@@ -1037,10 +1080,7 @@ class MigrarSegurosCombinadosK extends Command
 
         Log::channel($this->logChannel)->info('Ejecutando modo DRY-RUN con filtro: borrado=0 AND finalizado=0');
 
-        $ejemplos = DB::connection($connection)
-            ->table('seguros_combinados')
-            ->where('borrado', 0)
-            ->where('finalizado', 0) // ← FILTRO
+        $ejemplos = $this->queryOrigen($connection)
             ->limit(5)
             ->get();
 
@@ -1100,6 +1140,7 @@ class MigrarSegurosCombinadosK extends Command
                 ['Total registros (filtrados)', $this->stats['total']],
                 ['✅ Migrados', $this->stats['migrados']],
                 ['⏭️  Saltados (ya existían)', $this->stats['saltados']],
+                ['⛔ Omitidos (sin socio/producto/sociedad)', $this->stats['omitidos']],
                 ['❌ Errores', $this->stats['errores']],
                 ['👥 Comerciales mapeados', count($this->mapeoComerciales)],
                 ['🏢 Sociedades mapeadas', count($this->mapeoSociedades)],

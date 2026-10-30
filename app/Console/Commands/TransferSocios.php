@@ -10,7 +10,10 @@ use Carbon\Carbon;
 
 class TransferSocios extends Command
 {
-    protected $signature = 'transfer:socios {--chunk=500}';
+    protected $signature = 'transfer:socios {--chunk=500}
+                            {--desde= : Solo socios con fecha_alta >= esta fecha (ej: 2026-06-03, fecha de la última migración)}
+                            {--dry-run : No inserta nada, solo cuenta y lista lo que se crearía}
+                            {--incluir-dni-dudosos : Crear también socios con DNI de formato no estándar (CIF de entidades, pasaportes, números sueltos)}';
     protected $description = 'Migración IDempotente y optimizada de socios Kyrema → KONG (deduplicada por DNI)';
 
     public function handle()
@@ -86,10 +89,23 @@ class TransferSocios extends Command
          * 3. MIGRACIÓN POR BLOQUES
          * --------------------------------------------------------
          */
-        DB::connection('mysql')
+        $dryRun = (bool) $this->option('dry-run');
+        $incluirDudosos = (bool) $this->option('incluir-dni-dudosos');
+        $creables = 0;
+        $dudosos = [];
+
+        $origen = DB::connection('mysql')
             ->table('socios')
+            ->where('borrado', 0);
+
+        if ($this->option('desde')) {
+            $origen->where('fecha_alta', '>=', $this->option('desde') . ' 00:00:00');
+            $this->info('✔ Solo socios con fecha_alta >= ' . $this->option('desde'));
+        }
+
+        $origen
             ->orderBy('id_socio')
-            ->chunk($chunk, function ($rows) use (&$dnisExistentes, $sociedadesOrigen, $sociedadesDestino, $comercialesPorSociedad, $nowSql) {
+            ->chunk($chunk, function ($rows) use (&$dnisExistentes, $sociedadesOrigen, $sociedadesDestino, $comercialesPorSociedad, $nowSql, $dryRun, $incluirDudosos, &$creables, &$dudosos) {
 
                 foreach ($rows as $row) {
 
@@ -114,6 +130,25 @@ class TransferSocios extends Command
                          */
                         if (isset($dnisExistentes[$dni])) {
                             $this->warn("  ⚠ Ya existe socio (id={$dnisExistentes[$dni]}), se omite");
+                            continue;
+                        }
+
+                        /**
+                         * 3.2b DNI DE FORMATO NO ESTÁNDAR (CIF, pasaportes, números sueltos)
+                         */
+                        if (!$incluirDudosos && !preg_match('/^([0-9]{8}|[XYZ][0-9]{7})[A-Z]$/i', $dni)) {
+                            $dudosos[] = [$row->id_socio, $dni, $row->nombre_socio];
+                            $this->warn("  ⚠ DNI de formato no estándar ({$dni}), se omite");
+                            Log::channel('transfer_socios')->warning(
+                                'SOCIO_DNI_DUDOSO',
+                                ['id_socio_origen' => $row->id_socio, 'dni' => $dni]
+                            );
+                            continue;
+                        }
+
+                        if ($dryRun) {
+                            $creables++;
+                            $dnisExistentes[$dni] = 0;
                             continue;
                         }
 
@@ -194,6 +229,14 @@ class TransferSocios extends Command
                     }
                 }
             });
+
+        if ($dryRun) {
+            $this->info("DRY-RUN: se crearían {$creables} socios.");
+        }
+        if (!empty($dudosos)) {
+            $this->warn(count($dudosos) . ' socios omitidos por DNI de formato no estándar (--incluir-dni-dudosos para crearlos):');
+            $this->table(['id_socio', 'dni', 'nombre'], $dudosos);
+        }
 
         $this->info('====================================================');
         $this->info(' MIGRACIÓN DE SOCIOS FINALIZADA');

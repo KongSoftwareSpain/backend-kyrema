@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ResuelveMapeosMigracion;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -9,6 +10,8 @@ use Illuminate\Support\Facades\Cache;
 
 class MigrarSegurosRehalas extends Command
 {
+    use ResuelveMapeosMigracion;
+
     protected $signature = 'migrate:seguros-rehalas 
                             {--limit= : Número máximo de registros a migrar}
                             {--offset=0 : Desde qué registro empezar}
@@ -16,7 +19,8 @@ class MigrarSegurosRehalas extends Command
                             {--dry-run : Muestra 5 ejemplos sin insertar}
                             {--force : Forzar migración sin confirmación}
                             {--rebuild-map : Reconstruir mapeo de comerciales y socios}
-                            {--default-comercial=1 : ID comercial por defecto para no mapeados}';
+                            {--default-comercial=1 : ID comercial por defecto para no mapeados}
+                            {--corte=2026-10-20 : Solo rehalas vigentes a esta fecha (fecha_inicio + 365 días >= corte). Sin histórico}';
 
     protected $description = 'Migrar registros de seguro_rehalas a producto_rehal';
 
@@ -89,11 +93,13 @@ class MigrarSegurosRehalas extends Command
         // Contar registros totales
         $totalRegistros = DB::connection($oldConnection)
             ->table('seguro_rehalas')
+            ->where('fecha_inicio', '>=', $this->fechaInicioMinima())
             ->count();
 
         // Estadísticas por tipo
         $totalAER = DB::connection($oldConnection)
             ->table('seguro_rehalas')
+            ->where('fecha_inicio', '>=', $this->fechaInicioMinima())
             ->where('id_sociedad', self::SOCIEDAD_AER)
             ->count();
 
@@ -131,6 +137,7 @@ class MigrarSegurosRehalas extends Command
         // Obtener registros
         $query = DB::connection($oldConnection)
             ->table('seguro_rehalas')
+            ->where('fecha_inicio', '>=', $this->fechaInicioMinima())
             ->orderBy('id_seguro');
 
         if ($this->option('offset')) {
@@ -311,23 +318,9 @@ class MigrarSegurosRehalas extends Command
         Log::channel($this->logChannel)->info('Iniciando mapeo de sociedades');
 
         try {
-            $sociedadesAntiguas = DB::connection('mysql')->table('sociedades')->get();
-            $sociedadesNuevas = DB::connection('sqlsrv')->table('sociedad')->get();
-
-            $mapeados = 0;
-
-            foreach ($sociedadesAntiguas as $antigua) {
-                foreach ($sociedadesNuevas as $nueva) {
-                    $nombreAntiguo = strtolower(trim($antigua->nombre ?? ''));
-                    $nombreNuevo = strtolower(trim($nueva->nombre ?? ''));
-
-                    if ($nombreAntiguo && $nombreAntiguo === $nombreNuevo) {
-                        $this->mapeoSociedades[$antigua->id_sociedad] = $nueva->id;
-                        $mapeados++;
-                        break;
-                    }
-                }
-            }
+            // Por codigo_sociedad y, si no, por nombre sin acentos (ver ResuelveMapeosMigracion)
+            $this->mapeoSociedades = $this->mapearSociedadesPorCodigoYNombre();
+            $mapeados = count($this->mapeoSociedades);
 
             $this->info("✅ Sociedades mapeadas: {$mapeados}");
             Log::channel($this->logChannel)->info("Sociedades mapeadas: {$mapeados}");
@@ -339,7 +332,7 @@ class MigrarSegurosRehalas extends Command
 
     private function transformarDatos($seguro): array
     {
-        $comercialId = $this->obtenerComercialNuevoId($seguro->id_emisor);
+        $comercialId = $this->obtenerComercialNuevoId($seguro->id_emisor, $seguro->id_sociedad);
         $sociedadId = $this->obtenerSociedadNuevaId($seguro->id_sociedad);
         $socioId = $this->obtenerSocioNuevoId($seguro->id_socio);
 
@@ -379,6 +372,7 @@ class MigrarSegurosRehalas extends Command
         // Mapear cobertura y cantidad de perros (LÓGICA CONDICIONAL)
         $cobertura = $this->mapearCobertura($seguro->id_cobertura);
         $cantidadPerros = $this->mapearCantidadPerros($seguro->id_cantidad, $esAER);
+        $sub = $this->subproductoRehala($esAER, $cobertura);
 
         // Log de mapeos
         Log::channel($this->logChannel)->debug("Mapeos para ID {$seguro->id_seguro}", [
@@ -396,7 +390,7 @@ class MigrarSegurosRehalas extends Command
             'tipo_de_pago' => $this->mapearTipoPago($seguro->id_tipopago),
             'comercial_id' => $comercialId,
             'comercial_creador_id' => $comercialId,
-            'comercial' => $this->obtenerNombreComercial($seguro->id_emisor),
+            'comercial' => $this->obtenerNombreComercial($comercialId),
             'mediante_pagina_web' => false,
             'socio_id' => $socioId,
             'anulado' => (bool) $seguro->cancelado,
@@ -413,9 +407,9 @@ class MigrarSegurosRehalas extends Command
             'precio_total' => $precioTotal,
             'precio_final' => (string) $precioTotal,
 
-            // Subproducto - Rehalas Kyrema España (producto REKE)
-            'subproducto' => '232', // Ajusta este ID si es necesario
-            'subproducto_codigo' => 'Rehala Kyrema España',
+            // Subproducto según sociedad (AER o Kyrema) y ámbito de cobertura
+            'subproducto' => $sub['id'],
+            'subproducto_codigo' => $sub['codigo'],
 
             // Datos específicos de Rehalas
             'nº_de_perros' => $cantidadPerros,
@@ -431,7 +425,7 @@ class MigrarSegurosRehalas extends Command
             'telefono' => $datosSocio->telefono ?? null,
             'sexo' => $datosSocio->sexo ?? '',
             'dirección' => $datosSocio->direccion ?? null,
-            'codigo_postal' => $datosSocio->codigo_postal ?? null,
+            'codigo_postal' => $this->codigoPostalEntero($datosSocio->codigo_postal ?? null),
             'población' => $datosSocio->poblacion ?? null,
             'provincia' => $datosSocio->provincia ?? null,
 
@@ -442,11 +436,11 @@ class MigrarSegurosRehalas extends Command
 
             // Plantillas
             'logo_sociedad_path' => "logos/logo_{$seguro->id_sociedad}.png",
-            'plantilla_path_1' => 'plantillas/Certificado rehalas Kyrema pag1. 2025.jpg',
-            'plantilla_path_2' => 'plantillas/Certificado rehalas Kyrema pag2. 2.025.jpg',
-            'plantilla_path_3' => 'plantillas/Certificado rehalas Kyrema pag3. 2.025.jpg',
-            'plantilla_path_4' => 'plantillas/Certificado rehalas Kyrema pag4. 2.025.jpg',
-            'plantilla_path_5' => 'plantillas/Parte siniestro RC rehalas Kyrema 2.025.jpg',
+            'plantilla_path_1' => $sub['plantillas'][0],
+            'plantilla_path_2' => $sub['plantillas'][1],
+            'plantilla_path_3' => $sub['plantillas'][2],
+            'plantilla_path_4' => $sub['plantillas'][3],
+            'plantilla_path_5' => $sub['plantillas'][4],
             'plantilla_path_6' => null,
             'plantilla_path_7' => null,
             'plantilla_path_8' => null,
@@ -501,6 +495,43 @@ class MigrarSegurosRehalas extends Command
      * @param bool $esAER
      * @return string|null
      */
+    /**
+     * Subproducto y plantillas de la rehala según sociedad y ámbito, como en las rehalas ya existentes en la nueva:
+     *   AER España -> 10250 · AER España y Portugal -> 10251 · Kyrema España y Portugal -> 10249 · Kyrema España -> 232
+     * (las plantillas son las más usadas entre las existentes de cada subproducto).
+     * Antes todas se migraban como 232 con plantillas de Kyrema, incluidas las de AER.
+     *
+     * @return array{id:string, codigo:string, plantillas:array<int,string>}
+     */
+    private function subproductoRehala(bool $esAER, ?string $cobertura): array
+    {
+        $conPortugal = $cobertura === 'España y Portugal';
+
+        if ($esAER) {
+            return $conPortugal
+                ? ['id' => '10251', 'codigo' => 'AER España y Portugal', 'plantillas' => [
+                    'plantillas/R-Certificado AER pag1 - copia.jpg', 'plantillas/R-Certificado AER pag2 - copia.jpg',
+                    'plantillas/R-Certificado AER pag3 - copia.jpg', 'plantillas/R-Certificado AER pag4 - copia.jpg',
+                    'plantillas/R-Parte de siniestro RC rehalas AER - copia.jpg']]
+                : ['id' => '10250', 'codigo' => 'AER España', 'plantillas' => [
+                    'plantillas/R-Certificado AER pag1.jpg', 'plantillas/R-Certificado AER pag2.jpg',
+                    'plantillas/R-Certificado AER pag3.jpg', 'plantillas/R-Certificado AER pag4.jpg',
+                    'plantillas/R-Parte de siniestro RC rehalas AER.jpg']];
+        }
+
+        if ($conPortugal) {
+            return ['id' => '10249', 'codigo' => 'Kyrema España y Portugal', 'plantillas' => [
+                'plantillas/R-Certificado Rehalas Kyrema pag 1 SIN LOGO - copia 3.jpg', 'plantillas/R-Certificado rehalas Kyrema pag 2 - copia 3.jpg',
+                'plantillas/R-Certificado rehalas Kyrema pag 3 - copia 3.jpg', 'plantillas/R-Certificado Rehalas Kyrema pag 4 - copia 3.jpg',
+                'plantillas/R-Parte de siniestro RC rehalas Kyrema - copia.jpg']];
+        }
+
+        return ['id' => '232', 'codigo' => 'Kyrema España', 'plantillas' => [
+            'plantillas/Certificado rehalas Kyrema pag1. 2025.jpg', 'plantillas/Certificado rehalas Kyrema pag2. 2.025.jpg',
+            'plantillas/Certificado rehalas Kyrema pag3. 2.025.jpg', 'plantillas/Certificado rehalas Kyrema pag4. 2.025.jpg',
+            'plantillas/Parte siniestro RC rehalas Kyrema 2.025.jpg']];
+    }
+
     private function mapearCantidadPerros(?int $idCantidad, bool $esAER = false): ?string
     {
         if ($esAER) {
@@ -544,14 +575,12 @@ class MigrarSegurosRehalas extends Command
         return null;
     }
 
-    private function obtenerComercialNuevoId(?int $idUserAntiguo): int
+    /** En la antigua `id_emisor` es la sociedad emisora; ver ResuelveMapeosMigracion. */
+    private function obtenerComercialNuevoId(?int $idEmisor, ?int $idSociedadSeguro = null): int
     {
-        if (!$idUserAntiguo) {
-            return (int) $this->option('default-comercial');
-        }
-
-        if (isset($this->mapeoComerciales[$idUserAntiguo])) {
-            return $this->mapeoComerciales[$idUserAntiguo]['nuevo_id'];
+        $comercial = $this->resolverComercialPorSociedad($idEmisor, $idSociedadSeguro, $this->mapeoSociedades);
+        if ($comercial) {
+            return $comercial['id'];
         }
 
         $this->stats['sin_comercial']++;
@@ -572,17 +601,11 @@ class MigrarSegurosRehalas extends Command
         return 1;
     }
 
-    private function obtenerNombreComercial(?int $idUserAntiguo): string
+    private function obtenerNombreComercial(int $comercialNuevoId): string
     {
-        if (!$idUserAntiguo) {
-            return 'Sistema';
-        }
+        $nombre = DB::connection('sqlsrv')->table('comercial')->where('id', $comercialNuevoId)->value('nombre');
 
-        if (isset($this->mapeoComerciales[$idUserAntiguo])) {
-            return $this->mapeoComerciales[$idUserAntiguo]['nombre'] ?? 'Sistema';
-        }
-
-        return 'Sistema';
+        return $nombre ?: 'Sistema';
     }
 
     private function obtenerDatosSocio(?int $socioId): ?object
@@ -879,6 +902,15 @@ class MigrarSegurosRehalas extends Command
             5 => 'Tarjeta',
             default => 'No completado',
         };
+    }
+
+    /**
+     * La antigua no guarda vencimiento en rehalas; la nueva plataforma les da 365 días desde el inicio.
+     * Vigente a la fecha de corte = fecha_inicio >= corte - 365 días.
+     */
+    private function fechaInicioMinima(): string
+    {
+        return \Carbon\Carbon::parse($this->option('corte'))->subDays(365)->format('Y-m-d');
     }
 
     private function yaExiste(string $codigoProducto, string $connection): bool
