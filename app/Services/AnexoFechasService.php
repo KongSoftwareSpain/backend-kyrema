@@ -18,6 +18,9 @@ class AnexoFechasService
 {
     private const ISO = 'Y-m-d\TH:i:s';
 
+    /** Columna "Fecha adhesión" de los anexos que la tienen (ANEXOS_Ap, ANEXOS_APORt, ANEXOS_KA...). */
+    private const CAMPO_ADHESION = 'fecha_adhesión';
+
     public function __construct(private ProductoTableResolver $resolver)
     {
     }
@@ -50,22 +53,41 @@ class AnexoFechasService
 
         $hoy = Carbon::today();
         $resultado = [];
+        $tablasConAdhesion = [];
 
         foreach ($anexos as $i => $anexo) {
             $anexoId = $anexo['id'] ?? null;
             $formato = $anexo['formato'] ?? [];
             $tabla = strtolower($anexo['tipo_anexo']['letras_identificacion'] ?? '');
+
+            $guardado = null;
+            if ($anexoId && $tabla !== '' && Schema::hasTable($tabla)) {
+                $guardado = DB::table($tabla)->where('id', $anexoId)->first() ?: null;
+            }
+
+            // Se valida SIEMPRE (altas y ediciones), antes de los "continue" de más abajo
+            // que saltan los anexos sin cambio de fechas de inicio/fin.
+            if (!isset($tablasConAdhesion[$tabla])) {
+                $tablasConAdhesion[$tabla] = $tabla !== ''
+                    && Schema::hasTable($tabla)
+                    && Schema::hasColumn($tabla, self::CAMPO_ADHESION);
+            }
+            if ($tablasConAdhesion[$tabla]) {
+                $this->validarFechaAdhesion(
+                    $formato[self::CAMPO_ADHESION] ?? null,
+                    $guardado,
+                    $padre,
+                    count($anexos) > 1 ? $i + 1 : null
+                );
+            }
+
             $inicioSolicitado = $formato['fecha_de_inicio'] ?? null;
             $finSolicitado = $formato['fecha_de_fin'] ?? null;
             $inicio = null;
 
             if ($anexoId) {
-                if (!Schema::hasTable($tabla)) {
-                    continue; // el controlador lo reporta como tabla inexistente
-                }
-                $guardado = DB::table($tabla)->where('id', $anexoId)->first();
                 if (!$guardado) {
-                    continue;
+                    continue; // tabla inexistente (el controlador lo reporta) o anexo que ya no existe
                 }
 
                 $cambiaInicio = !empty($inicioSolicitado)
@@ -244,6 +266,56 @@ class AnexoFechasService
         }
 
         return $inicio;
+    }
+
+    /**
+     * La fecha de adhesión es obligatoria y no puede ser anterior al inicio del seguro
+     * padre (el mismo día vale). Se compara por día, sin hora.
+     *
+     * En un anexo ya guardado solo se exige si se toca este campo: quien no puede editarlo
+     * (el front bloquea los anexos guardados a las sociedades no administradoras) reenvía
+     * el anexo tal cual, y un anexo antiguo con la fecha en blanco o anterior al padre no
+     * debe impedir guardar el resto del seguro.
+     *
+     * @param  object|null $guardado     fila actual del anexo, o null si es un alta
+     * @param  int|null    $numeroAnexo  posición (1..n) para identificar el anexo en el mensaje cuando se envían varios
+     * @throws \DomainException
+     */
+    private function validarFechaAdhesion($valor, $guardado, array $padre, ?int $numeroAnexo): void
+    {
+        $prefijo = $numeroAnexo ? "Anexo {$numeroAnexo}: " : '';
+
+        if ($guardado !== null) {
+            $anterior = $guardado->{self::CAMPO_ADHESION} ?? null;
+
+            if (empty($valor) && empty($anterior)) {
+                return;
+            }
+            try {
+                if (!empty($valor) && !empty($anterior) && $this->mismoDia($valor, $anterior)) {
+                    return;
+                }
+            } catch (\Throwable $e) {
+                // valor ilegible: se deja pasar a la validación de abajo, que lo reporta
+            }
+        }
+
+        if (empty($valor)) {
+            throw new \DomainException($prefijo . 'La fecha de adhesión es obligatoria.');
+        }
+
+        try {
+            $fecha = Carbon::parse($valor);
+        } catch (\Throwable $e) {
+            throw new \DomainException($prefijo . 'La fecha de adhesión no es válida.');
+        }
+
+        if ($fecha->toDateString() < $padre['inicio']->toDateString()) {
+            throw new \DomainException(
+                $prefijo . 'La fecha de adhesión (' . $fecha->format('d/m/Y') . ') no puede ser anterior a la fecha de '
+                . 'incorporación al seguro (' . $padre['inicio']->format('d/m/Y') . ').'
+            );
+        }
     }
 
     /** Tablas ANEXOS_* del seguro padre que tienen las columnas necesarias para validar fechas. */
