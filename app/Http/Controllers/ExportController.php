@@ -591,8 +591,13 @@ class ExportController extends Controller
         }
 
 
-        // Coger los anexos relacionados con el id del producto de la tabla con el nombre $letrasIdentificacionAnexo
-        $anexos = DB::table($letrasIdentificacionAnexo)->where('producto_id', $id)->get();
+        // Coger los anexos relacionados con el id del producto de la tabla con el nombre $letrasIdentificacionAnexo.
+        // Con anexo_id (opcional) se devuelve solo esa fila: es el PDF individual de un anexo.
+        // Se mantiene el filtro por producto_id para no poder pedir un anexo de otro producto.
+        $anexos = DB::table($letrasIdentificacionAnexo)
+            ->where('producto_id', $id)
+            ->when($request->filled('anexo_id'), fn($q) => $q->where('id', $request->input('anexo_id')))
+            ->get();
 
         /* =======================================================================================================
            EXPLICACIÓN MUY GRANDE: FORZADO ESTRICTO DE FECHAS EN BACKEND (DESACTIVADO)
