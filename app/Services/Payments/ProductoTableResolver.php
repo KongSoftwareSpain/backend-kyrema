@@ -37,6 +37,27 @@ class ProductoTableResolver
     }
 
     /**
+     * Tabla del seguro padre al que cuelga un tipo de anexo (su tipo_producto_asociado),
+     * resolviendo subproducto -> padre igual que tableName().
+     */
+    public function parentTableNameForAnexo(string $letrasAnexo): ?string
+    {
+        $tipoAnexo = DB::table('tipo_producto')
+            ->where('letras_identificacion', $letrasAnexo)
+            ->first();
+
+        if (!$tipoAnexo || !$tipoAnexo->tipo_producto_asociado) {
+            return null;
+        }
+
+        $asociado = DB::table('tipo_producto')
+            ->where('id', $tipoAnexo->tipo_producto_asociado)
+            ->first();
+
+        return $asociado ? $this->tableName($asociado->letras_identificacion) : null;
+    }
+
+    /**
      * Letras de las tablas de anexo (tipo_producto_asociado) conectadas al
      * tipo_producto padre resuelto por tableName().
      */

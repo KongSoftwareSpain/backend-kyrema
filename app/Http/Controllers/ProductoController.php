@@ -15,6 +15,7 @@ use App\Models\Socio;
 use App\Models\Comercial;
 use App\Models\SocioProducto;
 use App\Models\TipoProducto;
+use App\Services\AnexoFechasService;
 use App\Services\ReferenceService;
 use App\Support\Dni;
 use Illuminate\Support\Facades\Cache;
@@ -1539,10 +1540,41 @@ class ProductoController extends Controller
         $columnasValidas = Schema::getColumnListing($nombreTabla);
         $datos = array_intersect_key($datos, array_flip($columnasValidas));
 
+        // Regla de anexos: un anexo no puede empezar antes que su seguro padre y termina
+        // cuando termina el padre. Si cambian las fechas del padre, se comprueba que ningún
+        // anexo activo quede fuera del nuevo periodo y el fin de los anexos se alinea.
+        $anexoFechas = app(AnexoFechasService::class);
+        $iso = 'Y-m-d\TH:i:s';
+        $cambiaInicioPadre = false;
+        $cambiaFinPadre = false;
+        $finPadre = null;
+
+        if ($actual && !empty($actual->fecha_de_inicio) && !empty($actual->fecha_de_fin)) {
+            $inicioPadre = Carbon::parse($datos['fecha_de_inicio'] ?? $actual->fecha_de_inicio);
+            $finPadre = Carbon::parse($datos['fecha_de_fin'] ?? $actual->fecha_de_fin);
+
+            $cambiaInicioPadre = $inicioPadre->format($iso) !== Carbon::parse($actual->fecha_de_inicio)->format($iso);
+            $cambiaFinPadre = $finPadre->format($iso) !== Carbon::parse($actual->fecha_de_fin)->format($iso);
+
+            if ($cambiaInicioPadre || $cambiaFinPadre) {
+                try {
+                    $anexoFechas->validarNuevasFechasPadre($tipoProducto->id, $id, $inicioPadre, $finPadre);
+                } catch (\DomainException $e) {
+                    return response()->json(['error' => $e->getMessage()], 422);
+                }
+            }
+        }
+
         // Actualizar los datos en la tabla correspondiente
-        DB::table($nombreTabla)
-            ->where('id', $id)
-            ->update($datos);
+        DB::transaction(function () use ($nombreTabla, $id, $datos, $anexoFechas, $tipoProducto, $cambiaFinPadre, $finPadre) {
+            DB::table($nombreTabla)
+                ->where('id', $id)
+                ->update($datos);
+
+            if ($cambiaFinPadre) {
+                $anexoFechas->ajustarFinAnexos($tipoProducto->id, $id, $finPadre);
+            }
+        });
 
         return response()->json([
             'message' => 'Producto actualizado con éxito',

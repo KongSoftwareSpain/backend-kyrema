@@ -12,6 +12,7 @@ use Carbon\Carbon;
 use App\Models\TiposAnexos;
 use App\Models\TipoProductoSociedad;
 use App\Models\TipoProducto;
+use App\Services\AnexoFechasService;
 use Illuminate\Support\Facades\Config;
 
 class AnexosController extends Controller
@@ -92,16 +93,22 @@ class AnexosController extends Controller
         $columnasPorTabla = [];
 
         try {
+            // Regla de negocio: un anexo no puede empezar antes que su seguro padre y siempre
+            // termina cuando termina el padre. Se calcula y valida TODO antes de escribir nada;
+            // si incumple, DomainException -> 422 (ver catch más abajo).
+            $fechasAnexos = is_array($anexos)
+                ? app(AnexoFechasService::class)->calcularFechasAnexos($id_producto, $anexos)
+                : [];
+
             // Todo o nada: si un perro falla a mitad de la lista, antes se quedaban
             // guardados los procesados hasta ese punto pero el usuario recibía un error
             // igualmente, lo que le hacía creer que no se había guardado nada y le obligaba
             // a borrar y repetir todo. Con la transacción, o se guardan todos o no se
             // guarda ninguno, y el mensaje de error refleja el estado real.
-            DB::transaction(function () use ($anexos, $id_producto, $pendientePago, &$columnasPorTabla) {
-        foreach ($anexos as $anexo) {
+            DB::transaction(function () use ($anexos, $id_producto, $pendientePago, $fechasAnexos, &$columnasPorTabla) {
+        foreach ($anexos as $i => $anexo) {
             $tipoAnexo = $anexo['tipo_anexo']; // Tipo de anexo
             $letrasIdentificacion = strtolower($tipoAnexo['letras_identificacion']); // Nombre de la tabla
-            $duracion = $tipoAnexo['duracion'] ?? null; // Duración del anexo
             $plantillasPaths = [
                 $tipoAnexo['plantilla_path_1'], $tipoAnexo['plantilla_path_2'], $tipoAnexo['plantilla_path_3'], $tipoAnexo['plantilla_path_4'],
                 $tipoAnexo['plantilla_path_5'], $tipoAnexo['plantilla_path_6'], $tipoAnexo['plantilla_path_7'], $tipoAnexo['plantilla_path_8'],
@@ -168,6 +175,12 @@ class AnexosController extends Controller
                 $data['plantilla_path_7'] = $plantillasPaths[6];
                 $data['plantilla_path_8'] = $plantillasPaths[7];
 
+                // Fechas ya validadas contra el seguro padre: inicio, fin (= fin del padre) y duración.
+                // Sustituyen a lo que haya mandado el front; en ediciones sin cambio de fechas no hay entrada.
+                if (isset($fechasAnexos[$i])) {
+                    $data = array_merge($data, $fechasAnexos[$i]);
+                }
+
                 if (!isset($columnasPorTabla[$letrasIdentificacion])) {
                     $columnasPorTabla[$letrasIdentificacion] = Schema::getColumnListing($letrasIdentificacion);
                 }
@@ -181,47 +194,12 @@ class AnexosController extends Controller
                     // Si no tiene ID, se crea un nuevo registro
                     // Se añade el dato de created_at a data:
                     $data['created_at'] = Carbon::now()->format('Y-m-d\TH:i:s');
-
-                    // Sin fecha de inicio (campo vacío o ausente) se usa la fecha actual
-                    if (empty($data['fecha_de_inicio'])) {
-                        $data['fecha_de_inicio'] = Carbon::now()->format('Y-m-d\TH:i:s');
-                    }
-                    $formato['fecha_de_inicio'] = $data['fecha_de_inicio'];
-
-                    if($tipoAnexo['tipo_duracion'] != 'fecha_dependiente'){
-                        // Se añade la duracion a la fecha de inicio y se inserta en la fecha_de_fin
-                        $data['fecha_de_fin'] = Carbon::parse($formato['fecha_de_inicio'])
-                            ->addDays(intval($duracion)) // Convertir la duración a un entero
-                            ->format('Y-m-d\TH:i:s');
-                        $data['duracion'] = $duracion;    
-                    } else {
-                        // Si la fecha es dependiente, la duracion son los dias entre fecha de inicio y fecha de fin
-                        $data['duracion'] = Carbon::parse($formato['fecha_de_fin'])
-                            ->diffInDays(Carbon::parse($formato['fecha_de_inicio']));
-                    }
                     $data['fecha_de_emisión'] = Carbon::now()->format('Y-m-d\TH:i:s');
-                    
-                    $horaActual = Carbon::now()->format('H:i:s');
-                    $fechaHoy = Carbon::today();
 
-                    if (Carbon::parse($data['fecha_de_inicio'])->toDateString() > $fechaHoy->toDateString()) {
-                        $data['fecha_de_inicio'] = Carbon::parse($data['fecha_de_inicio'])
-                            ->setTime(0, 0, 0)
-                            ->format('Y-m-d\TH:i:s');
-                    
-                        $data['fecha_de_fin'] = Carbon::parse($data['fecha_de_fin'])
-                            ->setTime(0, 0, 0)
-                            ->format('Y-m-d\TH:i:s');
-                    } else {
-                        $data['fecha_de_inicio'] = Carbon::parse($data['fecha_de_inicio'])
-                            ->setTimeFromTimeString($horaActual)
-                            ->format('Y-m-d\TH:i:s');
-                    
-                        $data['fecha_de_fin'] = Carbon::parse($data['fecha_de_fin'])
-                            ->setTimeFromTimeString($horaActual)
-                            ->format('Y-m-d\TH:i:s');
-                    }
-                    
+                    // fecha_de_inicio, fecha_de_fin y duracion vienen de AnexoFechasService
+                    // (ya mezcladas en $data más arriba): el fin siempre es el del seguro padre,
+                    // por lo que la duración del tipo de anexo ya no determina la fecha de fin.
+
                     $datosFiltrados = array_intersect_key($data, array_flip($columnasValidas));
                     DB::table($letrasIdentificacion)->insert($datosFiltrados);
                 }
@@ -235,6 +213,9 @@ class AnexosController extends Controller
             });
 
             return response()->json(['message' => 'Anexos conectados con éxito'], 200);
+        } catch (\DomainException $e) {
+            // Fechas del anexo fuera del periodo del seguro padre: error de validación, no un fallo del servidor
+            return response()->json(['error' => $e->getMessage()], 422);
         } catch (\Throwable $e) {
             // Devolver el mensaje real para poder diagnosticar desde el frontend
             Log::error('Error conectando anexos con producto', [
