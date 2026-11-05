@@ -26,6 +26,7 @@ class CampoController extends Controller
     public function store(Request $request)
     {
         $campo = Campos::create($request->all());
+        $this->olvidarCacheCampos($campo->tipo_producto_id);
         return response()->json($campo, 201);
     }
 
@@ -38,6 +39,7 @@ class CampoController extends Controller
     {
         $campo = Campos::findOrFail($id);
         $campo->update($request->all());
+        $this->olvidarCacheCampos($campo->tipo_producto_id);
         return response()->json($campo, 200);
     }
 
@@ -52,6 +54,8 @@ class CampoController extends Controller
                 $campo->update($campoData);
             }
         }
+
+        $this->olvidarCacheCampos($id_tipo_producto);
 
         return response()->json(['message' => 'Campos actualizados correctamente'], 200);
     }
@@ -114,6 +118,8 @@ class CampoController extends Controller
             return response()->json(['error' => 'Error añadiendo campos: ' . $e->getMessage()], 500);
         }
 
+        $this->olvidarCacheCampos($tipoProducto->id);
+
         return response()->json(['message' => 'Campos añadidos correctamente'], 201);
     }
 
@@ -124,6 +130,7 @@ class CampoController extends Controller
             $campo = $this->crearCampoConOpciones($request->all(), $id_tipo_producto);
 
             DB::commit();
+            $this->olvidarCacheCampos($id_tipo_producto);
 
             return response()->json($campo, 201);
         } catch (\Throwable $e) {
@@ -139,89 +146,21 @@ class CampoController extends Controller
     public function crearCampoConOpciones(array $campoData, $id_tipo_producto)
     {
         $campoData['tipo_producto_id'] = $id_tipo_producto;
+        unset($campoData['created_at'], $campoData['updated_at']);
+        $opcionesFront = $campoData['opciones'] ?? [];
+        unset($campoData['opciones']);
 
-        if (isset($campoData['id']) && $campoData['id']) {
-            $campo = Campos::find($campoData['id']);
-            if ($campo) {
-                unset($campoData['created_at'], $campoData['updated_at']);
-                $opcionesFront = $campoData['opciones'] ?? [];
-                unset($campoData['opciones']);
-                $campo->update($campoData);
+        $campo = !empty($campoData['id']) ? Campos::find($campoData['id']) : null;
+        $esNuevo = $campo === null;
 
-                if (is_array($opcionesFront) && $campo->opciones && Schema::hasTable($campo->opciones)) {
-                    $tablaOpciones = $campo->opciones;
-                    $opcionesIds = [];
-                    foreach ($opcionesFront as $opcionData) {
-                        if (isset($opcionData['nombre']) && $opcionData['nombre'] !== '') {
-                            if (isset($opcionData['id']) && $opcionData['id']) {
-                                DB::table($tablaOpciones)->where('id', $opcionData['id'])->update([
-                                    'nombre' => $opcionData['nombre'],
-                                    'precio' => $opcionData['precio'] ?? null,
-                                ]);
-                                $opcionesIds[] = $opcionData['id'];
-                            } else {
-                                $insertedId = DB::table($tablaOpciones)->insertGetId([
-                                    'nombre' => $opcionData['nombre'],
-                                    'precio' => $opcionData['precio'] ?? null,
-                                ]);
-                                $opcionesIds[] = $insertedId;
-                            }
-                        }
-                    }
-                    DB::table($tablaOpciones)->whereNotIn('id', $opcionesIds)->delete();
-                }
-            } else {
-                unset($campoData['created_at'], $campoData['updated_at']);
-                $opcionesFront = $campoData['opciones'] ?? [];
-                unset($campoData['opciones']);
-
-                $nombreTabla = 'opc_' . substr(md5(uniqid()), 0, 8);
-                Schema::create($nombreTabla, function ($table) {
-                    $table->id();
-                    $table->string('nombre');
-                    $table->decimal('precio', 10, 2)->nullable();
-                });
-                $campoData['opciones'] = $nombreTabla;
-                $campo = Campos::create($campoData);
-
-                foreach ($opcionesFront as $opcion) {
-                    if (isset($opcion['nombre']) && $opcion['nombre'] !== '') {
-                        DB::table($nombreTabla)->insert([
-                            'nombre' => $opcion['nombre'],
-                            'precio' => $opcion['precio'] ?? null,
-                        ]);
-                    }
-                }
-            }
-        } else {
-            unset($campoData['created_at'], $campoData['updated_at']);
-            $opcionesFront = $campoData['opciones'] ?? [];
-            unset($campoData['opciones']);
-
-            $nombreTabla = 'opc_' . substr(md5(uniqid()), 0, 8);
-            Schema::create($nombreTabla, function ($table) {
-                $table->id();
-                $table->string('nombre');
-                $table->decimal('precio', 10, 2)->nullable();
-            });
-            $campoData['opciones'] = $nombreTabla;
+        if ($esNuevo) {
             $campo = Campos::create($campoData);
-
-            foreach ($opcionesFront as $opcion) {
-                if (isset($opcion['nombre']) && $opcion['nombre'] !== '') {
-                    DB::table($nombreTabla)->insert([
-                        'nombre' => $opcion['nombre'],
-                        'precio' => $opcion['precio'] ?? null,
-                    ]);
-                }
-            }
+        } else {
+            $campo->update($campoData);
         }
 
-        $opciones = [];
-        if ($campo->opciones && Schema::hasTable($campo->opciones)) {
-            $opciones = DB::table($campo->opciones)->get();
-        }
-        $campo->setAttribute('opciones', $opciones);
+        $this->sincronizarOpciones($campo, is_array($opcionesFront) ? $opcionesFront : [], $esNuevo);
+        $campo->setAttribute('opciones', $this->leerOpciones($campo));
 
         return $campo;
     }
@@ -233,47 +172,90 @@ class CampoController extends Controller
             $campo = Campos::findOrFail($id);
             $campoData = $request->all();
             unset($campoData['created_at'], $campoData['updated_at']);
-            
+
             $opcionesFront = $campoData['opciones'] ?? [];
             unset($campoData['opciones']);
             $campo->update($campoData);
 
-            if (is_array($opcionesFront) && $campo->opciones && Schema::hasTable($campo->opciones)) {
-                $tablaOpciones = $campo->opciones;
-                $opcionesIds = [];
-                foreach ($opcionesFront as $opcionData) {
-                    if (isset($opcionData['nombre']) && $opcionData['nombre'] !== '') {
-                        if (isset($opcionData['id']) && $opcionData['id']) {
-                            DB::table($tablaOpciones)->where('id', $opcionData['id'])->update([
-                                'nombre' => $opcionData['nombre'],
-                                'precio' => $opcionData['precio'] ?? null,
-                            ]);
-                            $opcionesIds[] = $opcionData['id'];
-                        } else {
-                            $insertedId = DB::table($tablaOpciones)->insertGetId([
-                                'nombre' => $opcionData['nombre'],
-                                'precio' => $opcionData['precio'] ?? null,
-                            ]);
-                            $opcionesIds[] = $insertedId;
-                        }
-                    }
-                }
-                DB::table($tablaOpciones)->whereNotIn('id', $opcionesIds)->delete();
-            }
+            $this->sincronizarOpciones($campo, is_array($opcionesFront) ? $opcionesFront : []);
 
             DB::commit();
-            
-            $opciones = [];
-            if ($campo->opciones && Schema::hasTable($campo->opciones)) {
-                $opciones = DB::table($campo->opciones)->get();
-            }
-            $campo->setAttribute('opciones', $opciones);
-            
+            $this->olvidarCacheCampos($campo->tipo_producto_id);
+
+            $campo->setAttribute('opciones', $this->leerOpciones($campo));
+
             return response()->json($campo, 200);
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json(['error' => $e->getMessage()], 500);
         }
+    }
+
+    /**
+     * Deja la tabla de opciones del campo igual que la lista recibida del front.
+     * Si el campo aún no tiene tabla (o se perdió), la crea y la enlaza.
+     */
+    private function sincronizarOpciones(Campos $campo, array $opcionesFront, bool $crearSiFalta = false): void
+    {
+        $opcionesValidas = array_filter(
+            $opcionesFront,
+            fn ($o) => isset($o['nombre']) && $o['nombre'] !== ''
+        );
+
+        if (!$campo->opciones || !Schema::hasTable($campo->opciones)) {
+            // Sin tabla: solo se crea si el campo es nuevo o llegan opciones que guardar
+            if (!$crearSiFalta && empty($opcionesValidas)) {
+                return;
+            }
+
+            $nombreTabla = 'opc_' . substr(md5(uniqid()), 0, 8);
+            Schema::create($nombreTabla, function ($table) {
+                $table->id();
+                $table->string('nombre');
+                $table->decimal('precio', 10, 2)->nullable();
+            });
+
+            // 'opciones' no es fillable en Campos (Campos::create/update la descartaba y el
+            // campo quedaba sin tabla, así que sus opciones nunca llegaban al formulario).
+            $campo->opciones = $nombreTabla;
+            $campo->save();
+        }
+
+        $tablaOpciones = $campo->opciones;
+        $opcionesIds = [];
+        foreach ($opcionesValidas as $opcionData) {
+            if (!empty($opcionData['id'])) {
+                DB::table($tablaOpciones)->where('id', $opcionData['id'])->update([
+                    'nombre' => $opcionData['nombre'],
+                    'precio' => $opcionData['precio'] ?? null,
+                ]);
+                $opcionesIds[] = $opcionData['id'];
+            } else {
+                $opcionesIds[] = DB::table($tablaOpciones)->insertGetId([
+                    'nombre' => $opcionData['nombre'],
+                    'precio' => $opcionData['precio'] ?? null,
+                ]);
+            }
+        }
+        DB::table($tablaOpciones)->whereNotIn('id', $opcionesIds)->delete();
+    }
+
+    private function leerOpciones(Campos $campo)
+    {
+        if ($campo->opciones && Schema::hasTable($campo->opciones)) {
+            return DB::table($campo->opciones)->get();
+        }
+
+        return [];
+    }
+
+    /**
+     * getByTipoProducto cachea los campos 5 min; hay que invalidarla al tocar el configurador
+     * o el formulario de alta no muestra los cambios hasta que caduque.
+     */
+    private function olvidarCacheCampos($tipoProductoId): void
+    {
+        Cache::forget("campos_tipo_producto_{$tipoProductoId}");
     }
 
     public function getOpcionesPorCampo($id_campo)
@@ -310,6 +292,7 @@ class CampoController extends Controller
     {
         $campo = Campos::findOrFail($id);
         $campo->delete();
+        $this->olvidarCacheCampos($campo->tipo_producto_id);
 
         return response()->json(null, 204);
     }
@@ -337,6 +320,7 @@ class CampoController extends Controller
 
         // Borramos el campo
         $campo->delete();
+        $this->olvidarCacheCampos($campo->tipo_producto_id);
 
         return response()->json([
             'message' => 'Campo eliminado correctamente',
