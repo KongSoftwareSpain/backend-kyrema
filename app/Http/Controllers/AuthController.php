@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Comercial;
 use App\Models\Socio;
+use App\Models\SocioComercial;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
@@ -118,6 +120,9 @@ class AuthController extends Controller
             'email' => 'required|string|email|max:255|unique:socios,email',
             'password' => 'required|string|min:8',
             'categoria_id' => 'required|integer|exists:categorias,id',
+            // Comercial del enlace público (/contratar/:producto/:comercial_id). Su sociedad pasa a ser
+            // la del socio; sin vínculo, el menú del socio cae en el responsable de la categoría (Admin).
+            'id_comercial' => 'nullable|integer|exists:comercial,id',
         ], $messages);
 
         $socio = new Socio();
@@ -130,7 +135,18 @@ class AuthController extends Controller
         $socio->password = Hash::make($data['password']);
         $socio->categoria_id = $data['categoria_id'];
 
-        $socio->save();
+        // Socio y vínculo con el comercial se crean juntos: no puede quedar un socio sin sociedad
+        // por un fallo a medias.
+        DB::transaction(function () use ($socio, $data) {
+            $socio->save();
+
+            if (!empty($data['id_comercial'])) {
+                SocioComercial::create([
+                    'id_comercial' => $data['id_comercial'],
+                    'id_socio' => $socio->id,
+                ]);
+            }
+        });
 
         // Generar el token
         $token = $socio->createToken('socio')->plainTextToken;
