@@ -1491,14 +1491,16 @@ class ProductoController extends Controller
                 }
             }
         } elseif ($actual && !empty($actual->fecha_de_inicio) && !empty($actual->fecha_de_fin)
-            && !empty($datos['fecha_de_inicio']) && !empty($datos['fecha_de_fin'])) {
+            && (!empty($datos['fecha_de_inicio']) || !empty($datos['fecha_de_fin']))) {
             // Si el admin cambia solo UNA de las dos fechas, la otra se recalcula para
             // conservar la duración original (p.ej. 365 días). Si cambia las dos a la vez,
             // se respeta lo que haya indicado.
+            // El formulario del front solo envía fecha_de_inicio al editar (fecha_de_fin no es
+            // un control suyo): la fecha que no llega se da por no modificada.
             $inicioAct = Carbon::parse($actual->fecha_de_inicio);
             $finAct = Carbon::parse($actual->fecha_de_fin);
-            $inicioNuevo = Carbon::parse($datos['fecha_de_inicio']);
-            $finNuevo = Carbon::parse($datos['fecha_de_fin']);
+            $inicioNuevo = !empty($datos['fecha_de_inicio']) ? Carbon::parse($datos['fecha_de_inicio']) : $inicioAct->copy();
+            $finNuevo = !empty($datos['fecha_de_fin']) ? Carbon::parse($datos['fecha_de_fin']) : $finAct->copy();
 
             $cambiaInicio = $inicioNuevo->toDateString() !== $inicioAct->toDateString();
             $cambiaFin = $finNuevo->toDateString() !== $finAct->toDateString();

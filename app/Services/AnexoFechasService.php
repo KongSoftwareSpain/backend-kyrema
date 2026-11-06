@@ -8,8 +8,11 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Regla de negocio (cliente): un anexo NO puede empezar antes que su seguro padre
- * (misma fecha o posterior) y SIEMPRE termina cuando termina el seguro padre.
+ * Reglas de negocio (cliente):
+ *  - El inicio de un anexo es, por defecto, el más adelantado (tardío) entre su fecha de
+ *    emisión y el inicio del seguro padre, y solo se puede editar hacia delante: nunca
+ *    antes de esa fecha.
+ *  - Un anexo SIEMPRE termina cuando termina el seguro padre.
  *
  * Los errores de regla se lanzan como \DomainException: el mensaje es apto para
  * mostrarse al usuario y el controlador lo devuelve como 422.
@@ -20,6 +23,9 @@ class AnexoFechasService
 
     /** Columna "Fecha adhesión" de los anexos que la tienen (ANEXOS_Ap, ANEXOS_APORt, ANEXOS_KA...). */
     private const CAMPO_ADHESION = 'fecha_adhesión';
+
+    /** Fecha de emisión del anexo: la fija el controlador al crearlo (momento del alta). */
+    private const CAMPO_EMISION = 'fecha_de_emisión';
 
     public function __construct(private ProductoTableResolver $resolver)
     {
@@ -110,7 +116,10 @@ class AnexoFechasService
             }
 
             if ($inicio === null) {
-                $inicio = $this->inicioEfectivo($inicioSolicitado, $padre, $hoy);
+                // Un anexo nuevo se emite ahora; uno guardado conserva su emisión original
+                // (si no la tuviera informada, se parte de hoy).
+                $emision = $guardado !== null ? $this->emisionGuardada($guardado) : null;
+                $inicio = $this->inicioEfectivo($inicioSolicitado, $padre, $hoy, $emision ?? $hoy);
             }
 
             $resultado[$i] = [
@@ -221,19 +230,40 @@ class AnexoFechasService
         ];
     }
 
+    /** Fecha de emisión ya guardada de un anexo, o null si no la tiene o no se puede leer. */
+    private function emisionGuardada(object $guardado): ?Carbon
+    {
+        $valor = $guardado->{self::CAMPO_EMISION} ?? null;
+        if (empty($valor)) {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($valor);
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
     /**
      * Inicio definitivo (fecha y hora) de un anexo nuevo o con la fecha cambiada.
      * Misma convención de hora que los productos: fecha futura => 00:00:00, hoy o
-     * pasada => hora actual. Sin fecha, hoy o el inicio del padre si éste es futuro.
+     * pasada => hora actual.
+     *
+     * Día mínimo = el más adelantado entre la emisión del anexo y el inicio del seguro padre.
+     * Es también el valor por defecto cuando no se indica fecha; el usuario solo puede
+     * moverlo hacia delante.
      *
      * @throws \DomainException
      */
-    private function inicioEfectivo($solicitado, array $padre, Carbon $hoy): Carbon
+    private function inicioEfectivo($solicitado, array $padre, Carbon $hoy, Carbon $emision): Carbon
     {
         $inicioPadreDia = $padre['inicio']->copy()->startOfDay();
+        $emisionDia = $emision->copy()->startOfDay();
+        $minimo = $emisionDia->gt($inicioPadreDia) ? $emisionDia : $inicioPadreDia;
 
         if (empty($solicitado)) {
-            $fecha = $hoy->copy()->max($inicioPadreDia);
+            $fecha = $minimo->copy();
         } else {
             try {
                 $fecha = Carbon::parse($solicitado);
@@ -246,6 +276,13 @@ class AnexoFechasService
             throw new \DomainException(
                 'La fecha de inicio del anexo (' . $fecha->format('d/m/Y') . ') no puede ser anterior a la fecha de inicio '
                 . 'del seguro padre (' . $padre['inicio']->format('d/m/Y') . ').'
+            );
+        }
+
+        if ($fecha->copy()->startOfDay()->lt($emisionDia)) {
+            throw new \DomainException(
+                'La fecha de inicio del anexo (' . $fecha->format('d/m/Y') . ') no puede ser anterior a su fecha de emisión ('
+                . $emision->format('d/m/Y') . '). Solo se puede mover hacia delante.'
             );
         }
 
