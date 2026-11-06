@@ -64,52 +64,20 @@ class CampoController extends Controller
     {
         $campos = $request->input('campos');
 
-        // El parámetro puede llegar como id numérico o como letras_identificacion
-        if (is_numeric($id_tipo_producto)) {
-            $tipoProducto = DB::table('tipo_producto')->where('id', $id_tipo_producto)->first();
-        } else {
-            $tipoProducto = DB::table('tipo_producto')->where('letras_identificacion', $id_tipo_producto)->first();
-        }
+        $tipoProducto = $this->resolverTipoProducto($id_tipo_producto);
 
         if (!$tipoProducto) {
             return response()->json(['error' => "Tipo de producto '{$id_tipo_producto}' no encontrado"], 404);
         }
 
-        // Tabla física: la del padre si es subproducto, la propia en productos y anexos
-        $nombreTabla = $tipoProducto->letras_identificacion;
-        if ($tipoProducto->padre_id) {
-            $padre = DB::table('tipo_producto')->where('id', $tipoProducto->padre_id)->first();
-            if ($padre) {
-                $nombreTabla = $padre->letras_identificacion;
-            }
-        }
+        $nombreTabla = $this->tablaFisica($tipoProducto);
 
         try {
             foreach ($campos as $campoData) {
                 $campoData['tipo_producto_id'] = (string) $tipoProducto->id;
-                $campoData['nombre_codigo'] = strtolower(str_replace(' ', '_', str_replace('.', '', $campoData['nombre'])));
+                $campoData['nombre_codigo'] = $this->nombreCodigo($campoData['nombre']);
 
-                if ($nombreTabla && Schema::hasTable($nombreTabla) && !Schema::hasColumn($nombreTabla, $campoData['nombre_codigo'])) {
-                    Schema::table($nombreTabla, function ($table) use ($campoData) {
-                        switch ($campoData['tipo_dato']) {
-                            case 'decimal':
-                                $table->decimal($campoData['nombre_codigo'], 10, 2)->nullable();
-                                break;
-                            case 'number':
-                                $table->integer($campoData['nombre_codigo'])->nullable();
-                                break;
-                            case 'date':
-                                $table->date($campoData['nombre_codigo'])->nullable();
-                                break;
-                            case 'time':
-                                $table->time($campoData['nombre_codigo'])->nullable();
-                                break;
-                            default:
-                                $table->string($campoData['nombre_codigo'])->nullable();
-                                break;
-                        }
-                    });
-                }
+                $this->asegurarColumnaFisica($nombreTabla, $campoData['nombre_codigo'], $campoData['tipo_dato']);
 
                 Campos::create($campoData);
             }
@@ -145,10 +113,24 @@ class CampoController extends Controller
      */
     public function crearCampoConOpciones(array $campoData, $id_tipo_producto)
     {
-        $campoData['tipo_producto_id'] = $id_tipo_producto;
+        $tipoProducto = $this->resolverTipoProducto($id_tipo_producto);
+
+        $campoData['tipo_producto_id'] = $tipoProducto ? (string) $tipoProducto->id : $id_tipo_producto;
         unset($campoData['created_at'], $campoData['updated_at']);
         $opcionesFront = $campoData['opciones'] ?? [];
         unset($campoData['opciones']);
+
+        // Igual que add-campos: código interno = nombre de la columna física del producto
+        if (empty($campoData['nombre_codigo']) && !empty($campoData['nombre'])) {
+            $campoData['nombre_codigo'] = $this->nombreCodigo($campoData['nombre']);
+        }
+
+        // Al crear el producto la tabla ya trae esta columna; al añadir un selector a un producto
+        // existente no, y sin ella el valor elegido se descarta al contratar (crearProducto filtra
+        // los datos por las columnas existentes).
+        if ($tipoProducto && !empty($campoData['nombre_codigo'])) {
+            $this->asegurarColumnaFisica($this->tablaFisica($tipoProducto), $campoData['nombre_codigo'], 'select');
+        }
 
         $campo = !empty($campoData['id']) ? Campos::find($campoData['id']) : null;
         $esNuevo = $campo === null;
@@ -185,7 +167,7 @@ class CampoController extends Controller
             $campo->setAttribute('opciones', $this->leerOpciones($campo));
 
             return response()->json($campo, 200);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             DB::rollBack();
             return response()->json(['error' => $e->getMessage()], 500);
         }
@@ -208,7 +190,10 @@ class CampoController extends Controller
                 return;
             }
 
-            $nombreTabla = 'opc_' . substr(md5(uniqid()), 0, 8);
+            do {
+                $nombreTabla = 'opc_' . substr(md5(uniqid('', true)), 0, 8);
+            } while (Schema::hasTable($nombreTabla));
+
             Schema::create($nombreTabla, function ($table) {
                 $table->id();
                 $table->string('nombre');
@@ -224,7 +209,9 @@ class CampoController extends Controller
         $tablaOpciones = $campo->opciones;
         $opcionesIds = [];
         foreach ($opcionesValidas as $opcionData) {
-            if (!empty($opcionData['id'])) {
+            // Si trae id pero esa fila ya no existe (tabla recreada, opción borrada en otra pestaña),
+            // se inserta como nueva: antes el UPDATE no afectaba a nada y la opción se perdía sin aviso.
+            if (!empty($opcionData['id']) && DB::table($tablaOpciones)->where('id', $opcionData['id'])->exists()) {
                 DB::table($tablaOpciones)->where('id', $opcionData['id'])->update([
                     'nombre' => $opcionData['nombre'],
                     'precio' => $opcionData['precio'] ?? null,
@@ -256,6 +243,69 @@ class CampoController extends Controller
     private function olvidarCacheCampos($tipoProductoId): void
     {
         Cache::forget("campos_tipo_producto_{$tipoProductoId}");
+    }
+
+    /** El parámetro puede llegar como id numérico o como letras_identificacion. */
+    private function resolverTipoProducto($id_tipo_producto)
+    {
+        if (is_numeric($id_tipo_producto)) {
+            return DB::table('tipo_producto')->where('id', $id_tipo_producto)->first();
+        }
+
+        return DB::table('tipo_producto')->where('letras_identificacion', $id_tipo_producto)->first();
+    }
+
+    /** Tabla física: la del padre si es subproducto, la propia en productos y anexos. */
+    private function tablaFisica(object $tipoProducto): string
+    {
+        $nombreTabla = $tipoProducto->letras_identificacion;
+        if ($tipoProducto->padre_id) {
+            $padre = DB::table('tipo_producto')->where('id', $tipoProducto->padre_id)->first();
+            if ($padre) {
+                $nombreTabla = $padre->letras_identificacion;
+            }
+        }
+
+        return (string) $nombreTabla;
+    }
+
+    /** Código interno del campo = nombre de su columna física en la tabla del producto. */
+    private function nombreCodigo(string $nombre): string
+    {
+        return strtolower(str_replace(' ', '_', str_replace('.', '', $nombre)));
+    }
+
+    /** Crea la columna física del campo en la tabla del producto si falta (idempotente). */
+    private function asegurarColumnaFisica(string $nombreTabla, string $columna, string $tipoDato): void
+    {
+        if (!$nombreTabla || !Schema::hasTable($nombreTabla) || Schema::hasColumn($nombreTabla, $columna)) {
+            return;
+        }
+
+        Schema::table($nombreTabla, function ($table) use ($columna, $tipoDato) {
+            switch ($tipoDato) {
+                case 'decimal':
+                    $table->decimal($columna, 10, 2)->nullable();
+                    break;
+                case 'number':
+                    $table->integer($columna)->nullable();
+                    break;
+                case 'date':
+                    $table->date($columna)->nullable();
+                    break;
+                case 'time':
+                    $table->time($columna)->nullable();
+                    break;
+                default:
+                    $table->string($columna)->nullable();
+                    break;
+            }
+        });
+
+        // El listado de pólizas (ProductoController) cachea las columnas de la tabla 1 h; sin esto
+        // el campo nuevo no aparecería en la tabla hasta que caduque.
+        Cache::forget("schema_cols_{$nombreTabla}");
+        Cache::forget('schema_cols_' . strtolower($nombreTabla));
     }
 
     public function getOpcionesPorCampo($id_campo)
