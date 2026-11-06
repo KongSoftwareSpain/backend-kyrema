@@ -50,9 +50,11 @@ class NavController extends Controller
 
         if ($comercial && $comercial->id_sociedad) {
             $tipoProductoIds = TipoProductoSociedad::where('id_sociedad', $comercial->id_sociedad)->pluck('id_tipo_producto')->toArray();
+            // values() reindexa: sin él, un hueco en las claves hace que children se serialice como objeto
+            // JSON en vez de array y el front (children?.length) no pinta el desplegable.
             $tiposProducto = $tiposProducto->filter(function ($tp) use ($tipoProductoIds) {
                 return in_array($tp->id, $tipoProductoIds);
-            });
+            })->values();
         }
 
         $navegacion[1]["children"] = $tiposProducto->map(function ($tipoProducto) use ($comercial_id) {
