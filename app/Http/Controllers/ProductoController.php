@@ -328,6 +328,15 @@ class ProductoController extends Controller
             }
 
             DB::commit();
+
+            // Los listados (getProductosBy*) cachean 1 h las columnas de cada tabla (schema_cols_*).
+            // Esta ruta crea la tabla o añade columnas a la del padre (subproductos); sin esto los
+            // campos nuevos salen vacíos en el listado hasta que caduque la caché.
+            foreach (array_filter([$nombreTabla, $nombreTablaPadre ?? null]) as $tabla) {
+                Cache::forget("schema_cols_{$tabla}");
+                Cache::forget('schema_cols_' . strtolower($tabla));
+            }
+
             return response()->json([
                 'message' => 'Producto creado con éxito',
                 'id' => $tipoProductoId

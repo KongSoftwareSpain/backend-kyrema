@@ -171,6 +171,11 @@ class ComercialController extends Controller
                 ->update(['path_foto' => str_replace('public/', '', $fotoPath)]);
         }
 
+        // show() y getSociedadPorComercial() cachean 5 min (endpoints públicos de la contratación);
+        // sin esto el perfil devuelve los datos antiguos tras guardar (y el cambio de sociedad tarda en verse)
+        Cache::forget("comercial_{$id}");
+        Cache::forget('sociedad_por_comercial_' . (int) $id);
+
         // Recuperar el registro actualizado para devolverlo
         $comercial = Comercial::where('id', $id)->first();
 

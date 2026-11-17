@@ -277,6 +277,12 @@ class SociedadController extends Controller
             $sociedad->categorias()->sync($request->input('categorias', []));
         }
 
+        // getSociedadPorComercial cachea 5 min la sociedad de cada comercial: se invalida la de todos
+        // los comerciales de esta sociedad para que los datos editados (domicilio, logo...) se vean ya
+        Comercial::where('id_sociedad', $sociedad->id)->pluck('id')->each(
+            fn ($comercialId) => Cache::forget('sociedad_por_comercial_' . (int) $comercialId)
+        );
+
         return response()->json($sociedad->load('categorias'));
     }
 
