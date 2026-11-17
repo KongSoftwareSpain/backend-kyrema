@@ -13,7 +13,11 @@ server {
     add_header X-Content-Type-Options "nosniff";
  
     index index.php;
- 
+
+    # Subida de PDF adjuntos en "Forzar envío" de avisos (hasta 10 MB en total).
+    # nginx limita el cuerpo de la petición a 1 MB por defecto y respondería 413.
+    client_max_body_size 12M;
+
     charset utf-8;
 
     if ($http_x_arr_ssl = "") {

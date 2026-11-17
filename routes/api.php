@@ -319,6 +319,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('perfiles-envio-avisos', [PerfilEnvioAvisoController::class, 'store']);
     Route::put('perfiles-envio-avisos/{id}', [PerfilEnvioAvisoController::class, 'update']);
     Route::delete('perfiles-envio-avisos/{id}', [PerfilEnvioAvisoController::class, 'destroy']);
+    // "Forzar envío" en dos pasos: previsualizar (no envía nada) y confirmar (encola)
+    Route::post('perfiles-envio-avisos/{id}/forzar/previsualizar', [PerfilEnvioAvisoController::class, 'previsualizarForzado']);
     Route::post('perfiles-envio-avisos/{id}/forzar', [PerfilEnvioAvisoController::class, 'forzar']);
 
 

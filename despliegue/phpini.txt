@@ -5,5 +5,10 @@ display_startup_errors=Off
 date.timezone=Europe/Madrid
 memory_limit=256M
 
+; Subida de PDF adjuntos en "Forzar envío" de avisos (hasta 5 de 5 MB y 10 MB en total).
+; Sin esto PHP aplica su límite por defecto de 2 MB por archivo.
+upload_max_filesize=6M
+post_max_size=12M
+
 extension=sqlsrv.so
 extension=pdo_sqlsrv.so
