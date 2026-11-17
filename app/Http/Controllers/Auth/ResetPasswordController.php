@@ -60,8 +60,18 @@ class ResetPasswordController extends Controller
             );
         }
 
-        return $response === Password::PASSWORD_RESET
-            ? response()->json(['msg' => 'Contraseña restablecida correctamente.'])
-            : response()->json(['msg' => 'El restablecimiento de contraseña ha fallado.'], 422);
+        if ($response === Password::PASSWORD_RESET) {
+            return response()->json(['msg' => 'Contraseña restablecida correctamente.']);
+        }
+
+        // Token caducado o ya usado: es el caso habitual del enlace de bienvenida
+        // abierto tarde, así que se le indica cómo conseguir uno nuevo.
+        if ($response === Password::INVALID_TOKEN) {
+            return response()->json([
+                'msg' => 'El enlace ha caducado o ya no es válido. Solicita uno nuevo desde «¿Has olvidado tu contraseña?».',
+            ], 422);
+        }
+
+        return response()->json(['msg' => 'El restablecimiento de contraseña ha fallado.'], 422);
     }
 }

@@ -14,9 +14,13 @@ use Illuminate\Support\Facades\Log;
  * Devolver false desde un listener de MessageSending cancela el envío
  * (Illuminate\Mail\Mailer::shouldSendMessage()).
  *
- * Excepción: la recuperación de contraseña (App\Notifications\CustomResetPassword)
- * queda fuera del interruptor, para no dejar a nadie sin forma de recuperar
- * su cuenta mientras se desarrolla/prueba el resto del sistema de correo.
+ * Excepción: los correos de acceso a la cuenta quedan fuera del interruptor,
+ * para no dejar a nadie sin forma de entrar mientras se desarrolla/prueba el
+ * resto del sistema de correo. Se identifican con la cabecera
+ * X-Canama-Password-Reset y son:
+ *  - la recuperación de contraseña (App\Notifications\CustomResetPassword)
+ *  - el alta de socio con enlace para crear contraseña
+ *    (App\Notifications\SetInitialPasswordNotification)
  */
 class BloquearEnvioCorreoSiDesactivado
 {

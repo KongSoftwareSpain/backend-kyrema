@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Notifications;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Categoria;
+use App\Models\ConfiguracionEnvioCorreos;
 use Illuminate\Validation\Rule;
 use App\Notifications\ProductChangeRequest;
 use Illuminate\Support\Facades\Notification;
@@ -63,9 +64,16 @@ class NotificationsController extends Controller
             )
         );
 
+        // Con el interruptor maestro apagado el listener cancela el correo (queda
+        // solo el registro en base de datos): no hay que decir que se ha enviado.
+        $correoActivo = ConfiguracionEnvioCorreos::actual()->activo;
+
         return response()->json([
             'ok' => true,
-            'message' => 'Notificación enviada al comercial responsable de la categoría.',
+            'email_sent' => $correoActivo,
+            'message' => $correoActivo
+                ? 'Notificación enviada al comercial responsable de la categoría.'
+                : 'Solicitud registrada, pero el envío de correos está desactivado: el comercial responsable no recibirá el email.',
         ], 200);
     }
 }

@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use App\Models\Comercial;
+use App\Models\ConfiguracionEnvioCorreos;
 use App\Models\TipoProducto;
 use App\Models\Socio;
 use App\Notifications\ProductCancellationNotice;
@@ -86,31 +87,43 @@ class AnuladosController extends Controller
         });
 
         // Notificación (si procede)
+        // email_sent solo es true si el correo se ha puesto realmente en camino;
+        // email_motivo explica por qué no, para que el front pueda avisar al usuario.
         $emailSent = false;
+        $emailMotivo = null;
         if ($sendEmail) {
             $sender       = Comercial::find($p['comercial_id']);
             $tipoProducto = TipoProducto::where('letras_identificacion', $letrasIdentificacion)->first()
                 ?? new TipoProducto(['nombre' => $letrasIdentificacion]);
             $product      = (array)(DB::table($tabla)->where('id', $id)->first() ?? []);
             $socio        = !empty($p['socio_id']) ? Socio::find($p['socio_id']) : null;
-            $socioEmail   = $socio?->email ?? ($product['email'] ?? null);
+            // ?: (no ??) para que un email vacío ('') también cuente como ausente
+            $socioEmail   = $socio?->email ?: ($product['email'] ?? null);
 
-            if ($socio) {
-                $socio->notify(new ProductCancellationNotice(
-                    sender: $sender,
-                    product: $product,
-                    tipoProducto: $tipoProducto,
-                    causa: $p['causa']
-                ));
-                $emailSent = true;
-            } elseif ($socioEmail) {
-                Notification::route('mail', $socioEmail)->notify(new ProductCancellationNotice(
-                    sender: $sender,
-                    product: $product,
-                    tipoProducto: $tipoProducto,
-                    causa: $p['causa']
-                ));
-                $emailSent = true;
+            $notificacion = fn () => new ProductCancellationNotice(
+                sender: $sender,
+                product: $product,
+                tipoProducto: $tipoProducto,
+                causa: $p['causa']
+            );
+
+            if (!$socioEmail) {
+                $emailMotivo = 'sin_email';
+            } else {
+                // La notificación se encola igualmente (el canal 'database' guarda el
+                // registro), pero con el interruptor maestro apagado el correo lo
+                // cancela el listener: no se debe afirmar que se ha enviado.
+                if ($socio && $socio->email) {
+                    $socio->notify($notificacion());
+                } else {
+                    Notification::route('mail', $socioEmail)->notify($notificacion());
+                }
+
+                if (ConfiguracionEnvioCorreos::actual()->activo) {
+                    $emailSent = true;
+                } else {
+                    $emailMotivo = 'interruptor_desactivado';
+                }
             }
         }
 
@@ -119,6 +132,7 @@ class AnuladosController extends Controller
             'message'      => 'Producto anulado con éxito',
             'anulacion_id' => $anulacionId,
             'email_sent'   => $emailSent,
+            'email_motivo' => $emailMotivo,
         ]);
     }
 }

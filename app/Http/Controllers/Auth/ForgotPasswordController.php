@@ -51,8 +51,16 @@ class ForgotPasswordController extends Controller
             $response = Password::broker('comerciales')->sendResetLink(['email' => $email]);
         }
 
-        return $response === Password::RESET_LINK_SENT
-            ? response()->json(['msg' => 'Se ha enviado el enlace de restablecimiento de contraseña.'], 200)
-            : response()->json(['msg' => 'No se pudo enviar el enlace de restablecimiento de contraseña.'], 422);
+        if ($response === Password::RESET_LINK_SENT) {
+            return response()->json(['msg' => 'Se ha enviado el enlace de restablecimiento de contraseña.'], 200);
+        }
+
+        // Throttle del broker (auth.passwords.*.throttle): se distingue del resto de
+        // fallos para que el usuario sepa que solo tiene que esperar.
+        if ($response === Password::RESET_THROTTLED) {
+            return response()->json(['msg' => 'Ya se envió un enlace hace un momento. Espera un minuto antes de solicitar otro.'], 429);
+        }
+
+        return response()->json(['msg' => 'No se pudo enviar el enlace de restablecimiento de contraseña.'], 422);
     }
 }

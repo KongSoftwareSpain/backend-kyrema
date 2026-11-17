@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Notifications\AnonymousNotifiable;
 use Illuminate\Notifications\Notification;
 use Illuminate\Notifications\Messages\MailMessage;
 use App\Models\Comercial;
@@ -29,7 +30,13 @@ class ProductCancellationNotice extends Notification implements ShouldQueue
 
     public function via($notifiable): array
     {
-        // Si no quieres enviar correo (solo DB), pasa sendEmail=false en el constructor
+        // Un destinatario anónimo (Notification::route('mail', ...)) no tiene tabla
+        // de notificaciones: el canal 'database' fallaría con un null->create() y
+        // el job acabaría en failed_jobs justo después de haber enviado el correo.
+        if ($notifiable instanceof AnonymousNotifiable) {
+            return ['mail'];
+        }
+
         return ['mail', 'database'];
     }
 

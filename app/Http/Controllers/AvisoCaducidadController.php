@@ -107,7 +107,7 @@ class AvisoCaducidadController extends Controller
         ]);
 
         try {
-            Mail::raw(
+            $enviado = Mail::raw(
                 'Este es un correo de prueba de los avisos de caducidad de pólizas. Si lo has recibido, el envío de correo funciona correctamente.',
                 function ($mail) use ($datos) {
                     $mail->to($datos['email'])->subject('Prueba de aviso de vencimiento de póliza');
@@ -115,6 +115,14 @@ class AvisoCaducidadController extends Controller
             );
         } catch (\Exception $e) {
             return response()->json(['error' => 'Error al enviar el correo de prueba: ' . $e->getMessage()], 500);
+        }
+
+        // null = un listener de MessageSending canceló el envío (interruptor
+        // maestro apagado). No se lanza excepción, así que hay que comprobarlo.
+        if ($enviado === null) {
+            return response()->json([
+                'error' => 'El correo no se ha enviado: el envío de correos está desactivado (interruptor maestro). Actívalo para poder probar el envío.',
+            ], 409);
         }
 
         return response()->json(['message' => 'Correo de prueba enviado correctamente.']);

@@ -146,12 +146,14 @@ class SocioController extends Controller
             'fecha_de_nacimiento' => Carbon::parse($asegurado['fecha_de_nacimiento'])->format('Y-m-d\TH:i:s'),
         ];
 
-        $socio = DB::transaction(function () use ($payload, $sendEmail) {
+        // Sin email no se puede enviar la notificación de contraseña
+        $enviarBienvenida = $sendEmail && !empty($payload['email']);
+
+        $socio = DB::transaction(function () use ($payload, $enviarBienvenida) {
             // 1. Crear socio con Eloquent
             $socio = Socio::create($payload);
 
-            // Sin email no se puede enviar la notificación de contraseña
-            if (!$sendEmail || empty($socio->email)) {
+            if (!$enviarBienvenida) {
                 return $socio;
             }
 
@@ -186,7 +188,12 @@ class SocioController extends Controller
             'id_socio' => $socio->id
         ]);
 
-        return response()->json($socio, 201);
+        // El correo de bienvenida queda fuera del interruptor maestro, así que
+        // email_sent depende solo de que se pidiera y de que el socio tenga email.
+        return response()->json(array_merge($socio->toArray(), [
+            'email_sent'   => $enviarBienvenida,
+            'email_motivo' => ($sendEmail && !$enviarBienvenida) ? 'sin_email' : null,
+        ]), 201);
     }
 
     public function show($id)
