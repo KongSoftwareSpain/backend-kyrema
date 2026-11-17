@@ -234,8 +234,21 @@ class EnvioAvisosService
         }
     }
 
+    /**
+     * Fecha y hora para escribir en columnas datetime con el query builder (que no
+     * pasa por $dateFormat de ningún modelo). Con 'Y-m-d H:i:s' el DATEFORMAT
+     * español de SQL Server lee año-día-mes: error 22007 si el día pasa de 12 y
+     * fecha intercambiada en silencio si no. El formato con 'T' es el único seguro.
+     */
+    private function marcaDeTiempo(): string
+    {
+        return now()->format('Y-m-d\TH:i:s');
+    }
+
     public function registrarEnviado(int $perfilId, string $tabla, $productoId, $comercialId, ?int $diasAviso, bool $forzado): void
     {
+        $ahora = $this->marcaDeTiempo();
+
         DB::table('avisos_caducidad')->insert([
             'perfil_id' => $perfilId,
             'letras_identificacion' => $tabla,
@@ -243,9 +256,9 @@ class EnvioAvisosService
             'comercial_id' => $comercialId,
             'dias_aviso' => $diasAviso,
             'forzado' => $forzado,
-            'fecha_aviso_enviado' => now(),
-            'created_at' => now(),
-            'updated_at' => now(),
+            'fecha_aviso_enviado' => $ahora,
+            'created_at' => $ahora,
+            'updated_at' => $ahora,
         ]);
     }
 
@@ -259,7 +272,7 @@ class EnvioAvisosService
             'email_destino' => $emailDestino,
             'motivo_error' => $motivo,
             'forzado' => $forzado,
-            'created_at' => now(),
+            'created_at' => $this->marcaDeTiempo(),
         ]);
     }
 

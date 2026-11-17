@@ -22,7 +22,9 @@ class SocioExcluidoAviso extends Model
     protected static function booted()
     {
         static::creating(function (self $modelo) {
-            $modelo->created_at = $modelo->created_at ?? now();
+            // Cadena con 'T', no un Carbon: el DATEFORMAT español de SQL Server
+            // rechaza 'Y-m-d H:i:s' (error 22007) en columnas datetime.
+            $modelo->created_at = $modelo->created_at ?? now()->format('Y-m-d\TH:i:s');
         });
     }
 

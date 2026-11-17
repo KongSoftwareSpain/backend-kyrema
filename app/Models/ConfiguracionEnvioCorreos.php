@@ -8,6 +8,9 @@ class ConfiguracionEnvioCorreos extends Model
 {
     protected $table = 'configuracion_envio_correos';
 
+    // Ver PerfilEnvioAviso: evita el error 22007 del DATEFORMAT español de SQL Server.
+    protected $dateFormat = 'Y-m-d\TH:i:s';
+
     protected $fillable = [
         'activo',
     ];

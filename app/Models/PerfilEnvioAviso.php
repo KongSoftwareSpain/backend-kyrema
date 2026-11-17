@@ -8,6 +8,11 @@ class PerfilEnvioAviso extends Model
 {
     protected $table = 'perfiles_envio_avisos';
 
+    // SQL Server va con DATEFORMAT español (dmy): 'Y-m-d H:i:s' en una columna
+    // datetime se lee como año-día-mes (error 22007 si el día pasa de 12, y fecha
+    // intercambiada en silencio si no). El formato con 'T' es el único seguro.
+    protected $dateFormat = 'Y-m-d\TH:i:s';
+
     protected $fillable = [
         'nombre',
         'activo',
@@ -29,6 +34,10 @@ class PerfilEnvioAviso extends Model
         'evitar_duplicados' => 'boolean',
     ];
 
+    // Los pivotes van sin withTimestamps(): sin un modelo pivote propio, Eloquent
+    // escribe sus created_at/updated_at con 'Y-m-d H:i:s', que el DATEFORMAT español
+    // de SQL Server rechaza (22007). Las columnas son nullable y nadie las lee
+    // (mismo criterio que Sociedad::categorias()).
     public function tiposProducto()
     {
         return $this->belongsToMany(
@@ -36,7 +45,7 @@ class PerfilEnvioAviso extends Model
             'perfil_avisos_tipo_producto',
             'perfil_id',
             'tipo_producto_id'
-        )->withTimestamps();
+        );
     }
 
     public function sociedades()
@@ -46,7 +55,7 @@ class PerfilEnvioAviso extends Model
             'perfil_avisos_sociedad',
             'perfil_id',
             'sociedad_id'
-        )->withTimestamps();
+        );
     }
 
     public function comerciales()
@@ -56,7 +65,7 @@ class PerfilEnvioAviso extends Model
             'perfil_avisos_comercial',
             'perfil_id',
             'comercial_id'
-        )->withTimestamps();
+        );
     }
 
     public function socios()
@@ -66,7 +75,7 @@ class PerfilEnvioAviso extends Model
             'perfil_avisos_socio',
             'perfil_id',
             'socio_id'
-        )->withTimestamps();
+        );
     }
 
     public function formasPago()
