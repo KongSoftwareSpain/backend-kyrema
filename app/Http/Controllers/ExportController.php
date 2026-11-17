@@ -86,6 +86,19 @@ class ExportController extends Controller
             $query->addSelect('pc.subproducto_codigo');
         }
 
+        // Puestos (cacerías). Es un campo "select" con tramos ("Hasta 40", "De 21 a 40"...) y, según el
+        // subproducto, se guarda en una columna distinta (Portugal usa numero_de_puestos; hay también
+        // un legado nº_de_puestos). Se unifica igual que el listado de productos (normalizePuestos).
+        // Solo se añade si la tabla tiene alguna de esas columnas, para no romper los demás productos.
+        $columnasPuestos = array_values(array_filter(
+            ['puestos', 'numero_de_puestos', 'nº_de_puestos'],
+            fn($col) => Schema::hasColumn($tableName, $col)
+        ));
+        if (!empty($columnasPuestos)) {
+            $candidatos = array_map(fn($col) => "NULLIF(LTRIM(RTRIM(pc.[{$col}])), '')", $columnasPuestos);
+            $query->selectRaw("COALESCE(" . implode(', ', $candidatos) . ", 'Sin puestos') as puestos");
+        }
+
         // Filtro de fechas con conversión explícita + rango semiclosed
         $query->whereRaw(
             "TRY_CONVERT(datetime2, pc.[fecha_de_emisión], {$style}) >= ? AND TRY_CONVERT(datetime2, pc.[fecha_de_emisión], {$style}) < ?",
