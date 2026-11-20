@@ -417,6 +417,12 @@ class RedsysInsiteController extends Controller
             'estado'      => $pago->estado,
             'producto_id' => $pago->producto_id,
             'letras_identificacion' => $pago->letras_identificacion,
+            // Letras del producto padre, en minúsculas (la tabla física): las rutas de listado del front
+            // (/mis-productos/producto_k, /operaciones/producto_k) usan el padre, no el subproducto
+            // que guarda el pago (k1). Null si el pago no tiene producto o no se resuelve.
+            'letras_producto' => $pago->letras_identificacion
+                ? $this->productoTableResolver->tableName($pago->letras_identificacion)
+                : null,
         ]);
     }
 }
