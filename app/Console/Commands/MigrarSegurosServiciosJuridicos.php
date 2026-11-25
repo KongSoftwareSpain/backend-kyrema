@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ResuelveMapeosMigracion;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -9,6 +10,8 @@ use Illuminate\Support\Facades\Cache;
 
 class MigrarSegurosServiciosJuridicos extends Command
 {
+    use ResuelveMapeosMigracion;
+
     protected $signature = 'migrate:seguros-sjk 
                             {--limit= : Número máximo de registros a migrar}
                             {--offset=0 : Desde qué registro empezar}
@@ -16,7 +19,8 @@ class MigrarSegurosServiciosJuridicos extends Command
                             {--dry-run : Muestra 5 ejemplos sin insertar}
                             {--force : Forzar migración sin confirmación}
                             {--rebuild-map : Reconstruir mapeo de comerciales y socios}
-                            {--default-comercial=1 : ID comercial por defecto para no mapeados}';
+                            {--default-comercial=1 : ID comercial por defecto para no mapeados}
+                            {--corte=2026-10-20 : Solo servicios jurídicos vigentes a esta fecha (fecha_inicio + 365 días >= corte). Sin histórico}';
 
     protected $description = 'Migrar registros de seguro_servicios_juridicos a producto_sjk';
 
@@ -83,6 +87,7 @@ class MigrarSegurosServiciosJuridicos extends Command
         // Contar registros totales
         $totalRegistros = DB::connection($oldConnection)
             ->table('seguro_servicios_juridicos')
+            ->where('fecha_inicio', '>=', $this->fechaInicioMinima())
             ->count();
 
         $this->stats['total'] = $totalRegistros;
@@ -115,6 +120,7 @@ class MigrarSegurosServiciosJuridicos extends Command
         // Obtener registros
         $query = DB::connection($oldConnection)
             ->table('seguro_servicios_juridicos')
+            ->where('fecha_inicio', '>=', $this->fechaInicioMinima())
             ->orderBy('id_seguro');
 
         if ($this->option('offset')) {
@@ -279,23 +285,9 @@ class MigrarSegurosServiciosJuridicos extends Command
         Log::channel($this->logChannel)->info('Iniciando mapeo de sociedades');
 
         try {
-            $sociedadesAntiguas = DB::connection('mysql')->table('sociedades')->get();
-            $sociedadesNuevas = DB::connection('sqlsrv')->table('sociedad')->get();
-
-            $mapeados = 0;
-
-            foreach ($sociedadesAntiguas as $antigua) {
-                foreach ($sociedadesNuevas as $nueva) {
-                    $nombreAntiguo = strtolower(trim($antigua->nombre ?? ''));
-                    $nombreNuevo = strtolower(trim($nueva->nombre ?? ''));
-
-                    if ($nombreAntiguo && $nombreAntiguo === $nombreNuevo) {
-                        $this->mapeoSociedades[$antigua->id_sociedad] = $nueva->id;
-                        $mapeados++;
-                        break;
-                    }
-                }
-            }
+            // Por codigo_sociedad y, si no, por nombre sin acentos (ver ResuelveMapeosMigracion)
+            $this->mapeoSociedades = $this->mapearSociedadesPorCodigoYNombre();
+            $mapeados = count($this->mapeoSociedades);
 
             $this->info("✅ Sociedades mapeadas: {$mapeados}");
             Log::channel($this->logChannel)->info("Sociedades mapeadas: {$mapeados}");
@@ -307,7 +299,7 @@ class MigrarSegurosServiciosJuridicos extends Command
 
     private function transformarDatos($seguro): array
     {
-        $comercialId = $this->obtenerComercialNuevoId($seguro->id_emisor);
+        $comercialId = $this->obtenerComercialNuevoId($seguro->id_emisor, $seguro->id_sociedad);
         $sociedadId = $this->obtenerSociedadNuevaId($seguro->id_sociedad);
         $socioId = $this->obtenerSocioNuevoId($seguro->id_socio);
 
@@ -359,7 +351,7 @@ class MigrarSegurosServiciosJuridicos extends Command
             'tipo_de_pago' => $this->mapearTipoPago($seguro->id_tipopago),
             'comercial_id' => $comercialId,
             'comercial_creador_id' => $comercialId,
-            'comercial' => $this->obtenerNombreComercial($seguro->id_emisor),
+            'comercial' => $this->obtenerNombreComercial($comercialId),
             'mediante_pagina_web' => false,
             'socio_id' => $socioId,
             'anulado' => (bool) $seguro->cancelado,
@@ -385,7 +377,7 @@ class MigrarSegurosServiciosJuridicos extends Command
             'telefono' => $datosSocio->telefono ?? null,
             'sexo' => $datosSocio->sexo ?? '',
             'dirección' => $datosSocio->direccion ?? null,
-            'codigo_postal' => $datosSocio->codigo_postal ?? null,
+            'codigo_postal' => $this->codigoPostalEntero($datosSocio->codigo_postal ?? null),
             'población' => $datosSocio->poblacion ?? null,
             'provincia' => $datosSocio->provincia ?? null,
 
@@ -518,14 +510,12 @@ class MigrarSegurosServiciosJuridicos extends Command
         return null;
     }
 
-    private function obtenerComercialNuevoId(?int $idUserAntiguo): int
+    /** En la antigua `id_emisor` es la sociedad emisora; ver ResuelveMapeosMigracion. */
+    private function obtenerComercialNuevoId(?int $idEmisor, ?int $idSociedadSeguro = null): int
     {
-        if (!$idUserAntiguo) {
-            return (int) $this->option('default-comercial');
-        }
-
-        if (isset($this->mapeoComerciales[$idUserAntiguo])) {
-            return $this->mapeoComerciales[$idUserAntiguo]['nuevo_id'];
+        $comercial = $this->resolverComercialPorSociedad($idEmisor, $idSociedadSeguro, $this->mapeoSociedades);
+        if ($comercial) {
+            return $comercial['id'];
         }
 
         $this->stats['sin_comercial']++;
@@ -546,17 +536,11 @@ class MigrarSegurosServiciosJuridicos extends Command
         return 1;
     }
 
-    private function obtenerNombreComercial(?int $idUserAntiguo): string
+    private function obtenerNombreComercial(int $comercialNuevoId): string
     {
-        if (!$idUserAntiguo) {
-            return 'Sistema';
-        }
+        $nombre = DB::connection('sqlsrv')->table('comercial')->where('id', $comercialNuevoId)->value('nombre');
 
-        if (isset($this->mapeoComerciales[$idUserAntiguo])) {
-            return $this->mapeoComerciales[$idUserAntiguo]['nombre'] ?? 'Sistema';
-        }
-
-        return 'Sistema';
+        return $nombre ?: 'Sistema';
     }
 
     private function obtenerDatosSocio(?int $socioId): ?object
@@ -710,6 +694,7 @@ class MigrarSegurosServiciosJuridicos extends Command
 
         $ejemplos = DB::connection($connection)
             ->table('seguro_servicios_juridicos')
+            ->where('fecha_inicio', '>=', $this->fechaInicioMinima())
             ->limit(5)
             ->get();
 
@@ -801,6 +786,15 @@ class MigrarSegurosServiciosJuridicos extends Command
             4 => 'Giro bancario', 5 => 'Tarjeta',
             default => 'No completado',
         };
+    }
+
+    /**
+     * La antigua no guarda vencimiento en servicios jurídicos; la nueva les da 365 días desde el inicio.
+     * Vigente a la fecha de corte = fecha_inicio >= corte - 365 días.
+     */
+    private function fechaInicioMinima(): string
+    {
+        return \Carbon\Carbon::parse($this->option('corte'))->subDays(365)->format('Y-m-d');
     }
 
     private function yaExiste(string $codigoProducto, string $connection): bool
