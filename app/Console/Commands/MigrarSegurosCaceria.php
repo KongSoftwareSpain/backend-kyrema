@@ -144,8 +144,16 @@ class MigrarSegurosCaceria extends Command
 
         foreach ($seguros as $seguro) {
             try {
+                // Un certificado vacío (NULL en la antigua) no permite identificar la cacería ni evitar duplicados: se omite
+                if (trim((string) $seguro->numero_certificado) === '') {
+                    $this->stats['saltados']++;
+                    Log::channel($this->logChannel)->warning("Cacería ID {$seguro->id_seguro_caceria} sin número de certificado: se omite");
+                    $bar->advance();
+                    continue;
+                }
+
                 // Verificar si ya existe
-                if ($this->yaExiste($seguro->numero_certificado, $newConnection)) {
+                if ($this->yaExiste((string) $seguro->numero_certificado, $newConnection)) {
                     $this->stats['saltados']++;
                     $bar->advance();
                     continue;
@@ -174,7 +182,7 @@ class MigrarSegurosCaceria extends Command
 
                 $this->stats['migrados']++;
                 Log::channel($this->logChannel)->info("✅ Migrado: ID {$seguro->id_seguro_caceria} - {$seguro->numero_certificado}");
-            } catch (\Exception $e) {
+            } catch (\Throwable $e) {
                 $this->stats['errores']++;
 
                 // Log muy detallado del error
@@ -841,7 +849,7 @@ class MigrarSegurosCaceria extends Command
             'telefono' => $datosSocio ? ($datosSocio->telefono ?? null) : $seguro->telefono_organizador,
             'sexo' => $datosSocio ? ($datosSocio->sexo ?? '') : '',
             'dirección' => $datosSocio ? ($datosSocio->direccion ?? null) : $seguro->direccion_organizador,
-            'codigo_postal' => $datosSocio ? ($datosSocio->codigo_postal ?? null) : $this->limpiarCodigoPostal($seguro->codigo_postal_organizador),
+            'codigo_postal' => $this->limpiarCodigoPostal($datosSocio ? ($datosSocio->codigo_postal ?? null) : $seguro->codigo_postal_organizador),
             'población' => $datosSocio ? ($datosSocio->poblacion ?? null) : $seguro->poblacion_organizador,
             'provincia' => $datosSocio ? ($datosSocio->provincia ?? null) : $seguro->provincia_organizador,
 

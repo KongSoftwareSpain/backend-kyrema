@@ -81,25 +81,17 @@ class MigrarAnexosCombinados extends Command
         $productosNewByPoliza = $productosNew->keyBy('codigo_producto');
         $productosNewByDni = $productosNew->groupBy('dni');
 
+        $erroresAnexos = 0;
         $migradosAcompaniantes = 0;
         foreach ($acompaniantes as $ac) {
+          try {
             $oldSeguro = $segurosOld->get($ac->id_seguro_combinado);
             if (!$oldSeguro) continue;
             
             // Try matching by policy number first
             $newProducto = $productosNewByPoliza->get($oldSeguro->poliza_seguro);
             
-            // Fallback: search by DNI and Date
-            $dni = trim($oldSeguro->socio_dni);
-            if (!$newProducto && $dni) {
-                $potentials = $productosNewByDni->get($dni);
-                if ($potentials) {
-                    $oldStart = Carbon::parse($oldSeguro->fecha_inicio)->toDateString();
-                    $newProducto = $potentials->first(function($p) use ($oldStart) {
-                        return Carbon::parse($p->fecha_de_inicio)->toDateString() === $oldStart;
-                    });
-                }
-            }
+            // Solo se cruza por número de póliza: el respaldo por DNI y fecha podía colgar anexos de una venta ajena.
             
             if (!$newProducto) continue;
             
@@ -120,7 +112,7 @@ class MigrarAnexosCombinados extends Command
 
             $fechaStr = $this->sanitizeDate($ac->fecha_nacimiento);
 
-            DB::connection($newConnection)->table('anexos_ka')->insert([
+            DB::connection($newConnection)->table('anexos_ka')->insert($this->ajustarLongitudes('anexos_ka', [
                 'producto_id' => $newProducto->id,
                 'nombre_socio' => $ac->nombre,
                 'dni' => $ac->dni,
@@ -135,30 +127,25 @@ class MigrarAnexosCombinados extends Command
                 'blob_name' => '',
                 'created_at' => DB::raw("GETDATE()"),
                 'updated_at' => DB::raw("GETDATE()")
-            ]);
+            ]));
             $migradosAcompaniantes++;
+          } catch (\Throwable $e) {
+            $erroresAnexos++;
+            $this->error('✘ Error en acompañante del seguro antiguo ' . $ac->id_seguro_combinado . ': ' . $e->getMessage());
+          }
         }
         $this->info("Acompañantes migrados correctamente: " . $migradosAcompaniantes);
 
         $migradosPerros = 0;
         foreach ($perros as $pr) {
+          try {
             $oldSeguro = $segurosOld->get($pr->id_seguro);
             if (!$oldSeguro) continue;
             
             // Try matching by policy number first
             $newProducto = $productosNewByPoliza->get($oldSeguro->poliza_seguro);
 
-            // Fallback: search by DNI and Date
-            $dni = trim($oldSeguro->socio_dni);
-            if (!$newProducto && $dni) {
-                $potentials = $productosNewByDni->get($dni);
-                if ($potentials) {
-                    $oldStart = Carbon::parse($oldSeguro->fecha_inicio)->toDateString();
-                    $newProducto = $potentials->first(function($p) use ($oldStart) {
-                        return Carbon::parse($p->fecha_de_inicio)->toDateString() === $oldStart;
-                    });
-                }
-            }
+            // Solo se cruza por número de póliza: el respaldo por DNI y fecha podía colgar anexos de una venta ajena.
 
             if (!$newProducto) continue;
             
@@ -177,7 +164,7 @@ class MigrarAnexosCombinados extends Command
                 continue;
             }
 
-            DB::connection($newConnection)->table('anexos_ap')->insert([
+            DB::connection($newConnection)->table('anexos_ap')->insert($this->ajustarLongitudes('anexos_ap', [
                 'producto_id' => $newProducto->id,
                 'nombre_perro' => $pr->nombre,
                 'raza' => $pr->raza,
@@ -189,11 +176,54 @@ class MigrarAnexosCombinados extends Command
                 'blob_name' => '',
                 'created_at' => DB::raw("GETDATE()"),
                 'updated_at' => DB::raw("GETDATE()")
-            ]);
+            ]));
             $migradosPerros++;
+          } catch (\Throwable $e) {
+            $erroresAnexos++;
+            $this->error('✘ Error en perro del seguro antiguo ' . $pr->id_seguro . ': ' . $e->getMessage());
+          }
         }
         $this->info("Perros migrados correctamente: " . $migradosPerros);
         
-        $this->info("Migración completada.");
+        $this->info("Migración completada. Errores: " . $erroresAnexos);
+
+        return $erroresAnexos > 0 ? 1 : 0;
+    }
+
+    /** @var array<string, array<string,int>> */
+    private $limitesColumnas = [];
+
+    /**
+     * Longitud maxima de cada columna de texto de la tabla nueva (INFORMATION_SCHEMA).
+     */
+    private function limitesDe(string $tabla): array
+    {
+        if (!isset($this->limitesColumnas[$tabla])) {
+            $this->limitesColumnas[$tabla] = DB::connection('sqlsrv')
+                ->table('INFORMATION_SCHEMA.COLUMNS')
+                ->where('TABLE_NAME', $tabla)
+                ->where('CHARACTER_MAXIMUM_LENGTH', '>', 0)
+                ->pluck('CHARACTER_MAXIMUM_LENGTH', 'COLUMN_NAME')
+                ->all();
+        }
+
+        return $this->limitesColumnas[$tabla];
+    }
+
+    /**
+     * Recorta los textos que no caben en su columna (p. ej. una direccion con un correo pegado de 300+ caracteres)
+     * en lugar de perder todo el anexo por "los datos binarios o de la cadena se truncan".
+     */
+    private function ajustarLongitudes(string $tabla, array $fila): array
+    {
+        $limites = $this->limitesDe($tabla);
+
+        foreach ($fila as $columna => $valor) {
+            if (is_string($valor) && isset($limites[$columna]) && mb_strlen($valor) > $limites[$columna]) {
+                $fila[$columna] = mb_substr($valor, 0, (int) $limites[$columna]);
+            }
+        }
+
+        return $fila;
     }
 }

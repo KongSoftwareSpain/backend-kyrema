@@ -113,8 +113,14 @@ trait ResuelveMapeosMigracion
      */
     protected function resolverComercialPorSociedad(?int $idEmisor, ?int $idSociedadSeguro, array $mapeoSociedades): ?array
     {
-        $sociedadAntigua = $idEmisor ?: $idSociedadSeguro;
-        $sociedadNueva = $sociedadAntigua ? ($mapeoSociedades[$sociedadAntigua] ?? null) : null;
+        // Primero la sociedad emisora; si no tiene equivalente en la nueva (o no hay emisor), la del propio seguro.
+        $sociedadNueva = null;
+        foreach ([$idEmisor, $idSociedadSeguro] as $sociedadAntigua) {
+            if ($sociedadAntigua && isset($mapeoSociedades[$sociedadAntigua])) {
+                $sociedadNueva = $mapeoSociedades[$sociedadAntigua];
+                break;
+            }
+        }
 
         return $sociedadNueva ? $this->comercialResponsableDeSociedad($sociedadNueva) : null;
     }

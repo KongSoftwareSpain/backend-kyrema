@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ResuelveMapeosMigracion;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -10,6 +11,8 @@ use Carbon\Carbon;
 
 class TransferSocios extends Command
 {
+    use ResuelveMapeosMigracion;
+
     protected $signature = 'transfer:socios {--chunk=500}
                             {--desde= : Solo socios con fecha_alta >= esta fecha (ej: 2026-06-03, fecha de la última migración)}
                             {--dry-run : No inserta nada, solo cuenta y lista lo que se crearía}
@@ -48,31 +51,25 @@ class TransferSocios extends Command
          * --------------------------------------------------------
          */
 
-        // 2.1 DNIs ya existentes en destino (idempotencia sin queries)
-        $dnisExistentes = DB::connection('sqlsrv')
-            ->table('socios')
-            ->pluck('id', 'dni')
-            ->toArray();
+        // 2.1 DNIs ya existentes en destino (idempotencia sin queries).
+        // La clave va en mayúsculas y sin espacios en los extremos: un DNI "12345678a" de la antigua
+        // y "12345678A" de la nueva son el mismo socio.
+        $dnisExistentes = [];
+        foreach (DB::connection('sqlsrv')->table('socios')->select('id', 'dni')->get() as $socioNuevo) {
+            $clave = $this->normalizarDni($socioNuevo->dni);
+            if ($clave !== '' && !isset($dnisExistentes[$clave])) {
+                $dnisExistentes[$clave] = $socioNuevo->id;
+            }
+        }
 
         $this->info('✔ DNIs existentes cargados: ' . count($dnisExistentes));
 
-        // 2.2 Sociedades ORIGEN: id_sociedad → codigo_sociedad
-        $sociedadesOrigen = DB::connection('mysql')
-            ->table('sociedades')
-            ->pluck('codigo_sociedad', 'id_sociedad')
-            ->toArray();
+        // 2.2 Sociedades: id antiguo → id nuevo, por código y, si no hay código en común, por nombre sin acentos
+        $mapeoSociedades = $this->mapearSociedadesPorCodigoYNombre();
 
-        $this->info('✔ Sociedades origen cargadas: ' . count($sociedadesOrigen));
+        $this->info('✔ Sociedades mapeadas antigua → nueva: ' . count($mapeoSociedades));
 
-        // 2.3 Sociedades DESTINO: codigo_sociedad → id
-        $sociedadesDestino = DB::connection('sqlsrv')
-            ->table('sociedad')
-            ->pluck('id', 'codigo_sociedad')
-            ->toArray();
-
-        $this->info('✔ Sociedades destino cargadas: ' . count($sociedadesDestino));
-
-        // 2.4 Comerciales agrupados por sociedad DESTINO
+        // 2.3 Comerciales agrupados por sociedad DESTINO
         $comercialesPorSociedad = DB::connection('sqlsrv')
             ->table('comercial')
             ->select('id', 'id_sociedad')
@@ -93,6 +90,7 @@ class TransferSocios extends Command
         $incluirDudosos = (bool) $this->option('incluir-dni-dudosos');
         $creables = 0;
         $dudosos = [];
+        $stats = ['creados' => 0, 'ya_existian' => 0, 'sin_dni' => 0, 'sin_comerciales' => 0, 'errores' => 0];
 
         $origen = DB::connection('mysql')
             ->table('socios')
@@ -105,18 +103,19 @@ class TransferSocios extends Command
 
         $origen
             ->orderBy('id_socio')
-            ->chunk($chunk, function ($rows) use (&$dnisExistentes, $sociedadesOrigen, $sociedadesDestino, $comercialesPorSociedad, $nowSql, $dryRun, $incluirDudosos, &$creables, &$dudosos) {
+            ->chunk($chunk, function ($rows) use (&$dnisExistentes, $mapeoSociedades, $comercialesPorSociedad, $nowSql, $dryRun, $incluirDudosos, &$creables, &$dudosos, &$stats) {
 
                 foreach ($rows as $row) {
 
-                    $dni = trim((string) $row->dni);
-                    $this->line("Procesando socio ORIGEN id={$row->id_socio} | DNI={$dni}");
+                    $dni = $this->normalizarDni($row->dni);
+                    $this->line("Procesando socio ORIGEN id={$row->id_socio}");
 
                     try {
                         /**
                          * 3.1 VALIDACIÓN DE DNI
                          */
                         if ($dni === '') {
+                            $stats['sin_dni']++;
                             $this->warn('  ⚠ Socio sin DNI, se omite');
                             Log::channel('transfer_socios')->warning(
                                 'SOCIO_SIN_DNI',
@@ -129,6 +128,7 @@ class TransferSocios extends Command
                          * 3.2 DEDUPLICACIÓN EN MEMORIA
                          */
                         if (isset($dnisExistentes[$dni])) {
+                            $stats['ya_existian']++;
                             $this->warn("  ⚠ Ya existe socio (id={$dnisExistentes[$dni]}), se omite");
                             continue;
                         }
@@ -136,12 +136,12 @@ class TransferSocios extends Command
                         /**
                          * 3.2b DNI DE FORMATO NO ESTÁNDAR (CIF, pasaportes, números sueltos)
                          */
-                        if (!$incluirDudosos && !preg_match('/^([0-9]{8}|[XYZ][0-9]{7})[A-Z]$/i', $dni)) {
+                        if (!$incluirDudosos && !preg_match('/^([0-9]{8}|[XYZ][0-9]{7})[A-Z]$/', $dni)) {
                             $dudosos[] = [$row->id_socio, $dni, $row->nombre_socio];
-                            $this->warn("  ⚠ DNI de formato no estándar ({$dni}), se omite");
+                            $this->warn('  ⚠ DNI de formato no estándar, se omite');
                             Log::channel('transfer_socios')->warning(
                                 'SOCIO_DNI_DUDOSO',
-                                ['id_socio_origen' => $row->id_socio, 'dni' => $dni]
+                                ['id_socio_origen' => $row->id_socio]
                             );
                             continue;
                         }
@@ -162,67 +162,71 @@ class TransferSocios extends Command
                         $sexo = $this->mapSexo($row->sexo);
 
                         /**
-                         * 3.4 INSERT SOCIO
+                         * 3.4 INSERT SOCIO + 3.5 RELACIÓN SOCIO ↔ COMERCIALES
+                         * En una sola transacción: si falla la relación no queda un socio huérfano
+                         * que luego se salte por existir ya su DNI.
                          */
-                        $newSocioId = DB::connection('sqlsrv')
-                            ->table('socios')
-                            ->insertGetId([
-                                'dni' => $dni,
-                                'nombre_socio' => $nombre,
-                                'apellido_1' => $ap1,
-                                'apellido_2' => $ap2,
-                                'email' => $row->email ?: null,
-                                'telefono' => $row->telefono ?: null,
-                                'fecha_de_nacimiento' => $this->toDateOrNull($row->fecha_nacimiento),
-                                'sexo' => $sexo,
-                                'direccion' => $row->direccion ?: null,
-                                'poblacion' => $row->poblacion ?: null,
-                                'provincia' => $row->provincia ?: null,
-                                'codigo_postal' => $row->codigo_postal ?: null,
-                                'created_at' => DB::raw("CONVERT(datetime, '{$nowSql}', 120)"),
-                                'updated_at' => DB::raw("CONVERT(datetime, '{$nowSql}', 120)"),
-                            ], 'id');
+                        $newSocioId = DB::connection('sqlsrv')->transaction(function () use ($row, $dni, $nombre, $ap1, $ap2, $sexo, $nowSql, $mapeoSociedades, $comercialesPorSociedad, &$stats) {
+
+                            $id = DB::connection('sqlsrv')
+                                ->table('socios')
+                                ->insertGetId([
+                                    'dni' => $dni,
+                                    'nombre_socio' => $nombre,
+                                    'apellido_1' => $ap1,
+                                    'apellido_2' => $ap2,
+                                    'email' => $row->email ?: null,
+                                    'telefono' => $row->telefono ?: null,
+                                    'fecha_de_nacimiento' => $this->toDateOrNull($row->fecha_nacimiento),
+                                    'sexo' => $sexo,
+                                    'direccion' => $row->direccion ?: null,
+                                    'poblacion' => $row->poblacion ?: null,
+                                    'provincia' => $row->provincia ?: null,
+                                    'codigo_postal' => $row->codigo_postal ?: null,
+                                    'created_at' => DB::raw("CONVERT(datetime, '{$nowSql}', 120)"),
+                                    'updated_at' => DB::raw("CONVERT(datetime, '{$nowSql}', 120)"),
+                                ], 'id');
+
+                            $idSocDestino = !empty($row->id_sociedad) ? ($mapeoSociedades[$row->id_sociedad] ?? null) : null;
+                            $comerciales = $idSocDestino ? ($comercialesPorSociedad[$idSocDestino] ?? null) : null;
+
+                            if ($comerciales && count($comerciales) > 0) {
+                                foreach ($comerciales as $comercial) {
+                                    DB::connection('sqlsrv')
+                                        ->table('socios_comerciales')
+                                        ->insert([
+                                            'id_socio' => $id,
+                                            'id_comercial' => $comercial->id,
+                                            'created_at' => DB::raw("CONVERT(datetime, '{$nowSql}', 120)"),
+                                            'updated_at' => DB::raw("CONVERT(datetime, '{$nowSql}', 120)"),
+                                        ]);
+                                }
+                            } else {
+                                $stats['sin_comerciales']++;
+                                Log::channel('transfer_socios')->warning(
+                                    'SOCIO_SIN_COMERCIALES',
+                                    ['id_socio_origen' => $row->id_socio, 'id_sociedad_origen' => $row->id_sociedad]
+                                );
+                            }
+
+                            return $id;
+                        });
 
                         // Guardamos en memoria para evitar futuros duplicados
                         $dnisExistentes[$dni] = $newSocioId;
+                        $stats['creados']++;
 
                         $this->info("  ✔ Socio creado ID={$newSocioId}");
 
-                        /**
-                         * 3.5 RELACIÓN SOCIO ↔ COMERCIALES
-                         */
-                        if (!empty($row->id_sociedad)) {
-
-                            $codigoSociedad = $sociedadesOrigen[$row->id_sociedad] ?? null;
-
-                            if ($codigoSociedad && isset($sociedadesDestino[$codigoSociedad])) {
-
-                                $idSocDestino = $sociedadesDestino[$codigoSociedad];
-
-                                if (isset($comercialesPorSociedad[$idSocDestino])) {
-                                    foreach ($comercialesPorSociedad[$idSocDestino] as $comercial) {
-                                        DB::connection('sqlsrv')
-                                            ->table('socios_comerciales')
-                                            ->insert([
-                                                'id_socio' => $newSocioId,
-                                                'id_comercial' => $comercial->id,
-                                                'created_at' => DB::raw("CONVERT(datetime, '{$nowSql}', 120)"),
-                                                'updated_at' => DB::raw("CONVERT(datetime, '{$nowSql}', 120)"),
-                                            ]);
-                                    }
-                                }
-                            }
-                        }
-
                     } catch (\Throwable $e) {
 
+                        $stats['errores']++;
                         $this->error("✘ Error socio ORIGEN id={$row->id_socio}");
 
                         Log::channel('transfer_socios')->error(
                             'ERROR_SOCIO_NO_INSERTADO',
                             [
                                 'id_socio_origen' => $row->id_socio,
-                                'dni' => $dni,
                                 'exception' => $e->getMessage(),
                             ]
                         );
@@ -240,14 +244,27 @@ class TransferSocios extends Command
 
         $this->info('====================================================');
         $this->info(' MIGRACIÓN DE SOCIOS FINALIZADA');
+        $this->table(['Concepto', 'Cantidad'], [
+            ['Socios creados' . ($dryRun ? ' (simulación: ver arriba)' : ''), $dryRun ? 0 : $stats['creados']],
+            ['Ya existían (se saltan)', $stats['ya_existian']],
+            ['Sin DNI (omitidos)', $stats['sin_dni']],
+            ['DNI no estándar (omitidos)', count($dudosos)],
+            ['Creados SIN comerciales (sociedad sin mapear o sin comerciales)', $stats['sin_comerciales']],
+            ['Errores', $stats['errores']],
+        ]);
         $this->info('====================================================');
 
-        return self::SUCCESS;
+        return $stats['errores'] > 0 ? self::FAILURE : self::SUCCESS;
     }
 
     /* ============================================================
      * FUNCIONES AUXILIARES
      * ============================================================ */
+
+    private function normalizarDni($valor): string
+    {
+        return strtoupper(trim((string) $valor));
+    }
 
     private function mapSexo($raw): ?string
     {
@@ -256,7 +273,7 @@ class TransferSocios extends Command
 
         $s = Str::lower(trim((string) $raw));
 
-        if (in_array($s, ['h', 'hombre', 'varon', 'masculino', 'v'], true))
+        if (in_array($s, ['h', 'hombre', 'varon', 'varón', 'masculino', 'v'], true))
             return 'M';
         if (in_array($s, ['f', 'mujer', 'femenino', 'fem', 'm'], true))
             return 'F';
