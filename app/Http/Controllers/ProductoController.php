@@ -1136,6 +1136,7 @@ class ProductoController extends Controller
             if (Dni::equals($datos['dni'], $socioVinculado->dni)) {
                 // Conectar el socio con el producto
                 SocioProducto::connectSocioAndProducto($socioVinculado->id, $registro->id, $nombreTabla);
+                $this->completarPerfilSocio($socioVinculado, $datos);
             } else {
                 Log::warning("Producto {$nombreTabla} #{$registro->id} sin vincular al socio {$socioVinculado->id}: el DNI del producto no coincide con el del socio");
             }
@@ -1144,6 +1145,52 @@ class ProductoController extends Controller
         return response()->json($registro, 201);
     }
 
+    /**
+     * Si el socio se dio de alta con el perfil incompleto (registro por la web, o se guardó el
+     * asegurado antes de rellenar el domicilio), los datos que escribe al contratar o asociarse
+     * pasan a su perfil. Solo rellena los campos VACÍOS: nunca sobrescribe lo que ya tenga.
+     */
+    private function completarPerfilSocio(Socio $socio, array $datos): void
+    {
+        $mapa = [
+            'apellido_1' => 'apellido_1', 'apellido_2' => 'apellido_2', 'telefono' => 'telefono',
+            'sexo' => 'sexo', 'fecha_de_nacimiento' => 'fecha_de_nacimiento',
+            'dirección' => 'direccion', 'población' => 'poblacion', 'provincia' => 'provincia', 'codigo_postal' => 'codigo_postal',
+        ];
+        // Tamaño de las columnas de `socios`: un valor más largo se deja fuera en vez de cortarlo
+        $limites = ['apellido_1' => 50, 'apellido_2' => 50, 'telefono' => 50, 'sexo' => 1,
+            'direccion' => 255, 'poblacion' => 100, 'provincia' => 100, 'codigo_postal' => 20];
+
+        $cambios = [];
+        foreach ($mapa as $campoPoliza => $campoSocio) {
+            $valor = isset($datos[$campoPoliza]) ? trim((string) $datos[$campoPoliza]) : '';
+            if ($valor === '' || trim((string) $socio->{$campoSocio}) !== '') {
+                continue;
+            }
+            if (isset($limites[$campoSocio]) && mb_strlen($valor) > $limites[$campoSocio]) {
+                continue;
+            }
+            if ($campoSocio === 'fecha_de_nacimiento') {
+                try {
+                    $valor = Carbon::parse($valor)->format('Y-m-d');
+                } catch (\Throwable $e) {
+                    continue;
+                }
+            }
+            $cambios[$campoSocio] = $valor;
+        }
+
+        if (!$cambios) {
+            return;
+        }
+
+        try {
+            $socio->update($cambios);
+        } catch (\Throwable $e) {
+            // El seguro ya está creado: un fallo aquí no debe deshacer la contratación
+            Log::warning("No se pudo completar el perfil del socio {$socio->id}: " . $e->getMessage());
+        }
+    }
 
     /**
      * Renovación en paquete: clona cada producto seleccionado con fechas nuevas
