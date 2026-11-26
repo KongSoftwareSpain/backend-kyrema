@@ -51,6 +51,8 @@ Route::post('auth/register/socio', [AuthController::class, 'registerSocio']);
 Route::get('health', [HealthController::class, 'check']);
 
 // Para poder obtener el logo de la categoría para el login
+// Lista pública (id, nombre, logo) para el desplegable de acceso de socios en el login
+Route::get('categorias-acceso', [CategoriaController::class, 'listaAcceso']);
 Route::get('categorias/{id}', [CategoriaController::class, 'show']);
 
 // Para obtener los datos de los productos para pagina sin autenticación

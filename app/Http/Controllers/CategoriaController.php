@@ -40,8 +40,20 @@ class CategoriaController extends Controller
         }
 
         $categoria = Categoria::create($validated);
+        Cache::forget('categorias_acceso');
 
         return response()->json($categoria);
+    }
+
+    /**
+     * Endpoint público para el login: categorías a las que puede acceder un socio.
+     * Solo id, nombre y logo (nada del comercial responsable).
+     */
+    public function listaAcceso()
+    {
+        $categorias = Cache::remember('categorias_acceso', 300, fn () => Categoria::orderBy('nombre')->get(['id', 'nombre', 'logo']));
+
+        return response()->json($categorias);
     }
 
     /**
@@ -97,6 +109,7 @@ class CategoriaController extends Controller
         // Actualizar la categoría
         $categoria->update($validated);
         Cache::forget("categoria_{$id}");
+        Cache::forget('categorias_acceso');
 
         return response()->json($categoria);
     }
@@ -115,6 +128,7 @@ class CategoriaController extends Controller
 
         $categoria->delete();
         Cache::forget("categoria_{$id}");
+        Cache::forget('categorias_acceso');
 
         return response()->json(['message' => 'Categoría eliminada exitosamente']);
     }
